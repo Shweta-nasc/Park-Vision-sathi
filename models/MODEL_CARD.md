@@ -5,7 +5,7 @@
 |---|---|
 | **Model** | LightGBM Regressor (v1) |
 | **Task** | Predict hourly violation count per 500 m grid cell |
-| **Training date** | 2026-06-18 16:08:26 |
+| **Training date** | 2026-06-18 17:52:12 |
 | **Framework** | LightGBM via scikit-learn API |
 
 ## Hyperparameters
