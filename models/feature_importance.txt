@@ -1,0 +1,20 @@
+ParkVisionSaathi – LightGBM Feature Importance (top 15)
+=======================================================
+Rank  Feature                         Importance
+-------------------------------------------------------
+1     lag_1                                 1615
+2     rolling_std_7d                        1362
+3     lag_24                                1258
+4     rolling_mean_7d                       1170
+5     rolling_mean_14d                      1088
+6     lag_168                                981
+7     hour                                   771
+8     sin_hour                               546
+9     day_of_week                            409
+10    mean_vehicle_severity                  401
+11    cos_hour                               398
+12    mean_validation_trust                  398
+13    sin_dow                                291
+14    heavy_vehicle_ratio                    272
+15    month                                  249
+-------------------------------------------------------
