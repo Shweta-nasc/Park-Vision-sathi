@@ -1,4 +1,7 @@
 data/parkvision.db
 data/*.db
-data/parkvision.db
-data/*.db
+data/jan to may police violation_anonymized791b166.csv
+**/__pycache__/
+*.pyc
+.DS_Store
+**/.DS_Store

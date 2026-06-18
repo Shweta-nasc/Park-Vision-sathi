@@ -43,11 +43,10 @@ function initMap() {
         attributionControl: true,
     });
 
-    // Dark map tiles
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://carto.com/">CARTO</a> | ParkVisionSaathi',
+    // MapmyIndia (Mappls) map tiles
+    L.tileLayer('https://apis.mapmyindia.com/advancedmaps/v1/qqwdxaoywxjpwgteztkzebtkigxwolpgekpd/maptiles/v2/default/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.mapmyindia.com/">MapmyIndia</a> | ParkVisionSaathi',
         maxZoom: 19,
-        subdomains: 'abcd',
     }).addTo(state.map);
 
     // Initialize empty heat layer
