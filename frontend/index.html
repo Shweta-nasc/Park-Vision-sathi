@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ParkVisionSaathi — Intelligent Traffic Patrol Dashboard</title>
+    <meta name="description" content="AI-powered traffic violation analytics, game-theory patrol optimization, and real-time risk heatmaps for Bengaluru">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet Heat -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- ── Top Navigation Bar ─────────────────────────────────────── -->
+    <nav id="topbar">
+        <div class="nav-brand">
+            <div class="brand-icon">🚔</div>
+            <div>
+                <h1>ParkVisionSaathi</h1>
+                <span class="nav-subtitle">AI‑Powered Patrol Intelligence</span>
+            </div>
+        </div>
+        <div class="nav-controls">
+            <div class="api-status" id="apiStatus">
+                <span class="status-dot"></span>
+                <span>Connecting...</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ── Main Layout ────────────────────────────────────────────── -->
+    <div id="app-container">
+        <!-- Left Sidebar -->
+        <aside id="sidebar">
+            <!-- Stats Panel -->
+            <section class="panel" id="statsPanel">
+                <h2 class="panel-title">
+                    <span class="panel-icon">📊</span> Risk Overview
+                </h2>
+                <div class="stats-grid" id="statsGrid">
+                    <div class="stat-card high">
+                        <div class="stat-value" id="highRiskCount">—</div>
+                        <div class="stat-label">High Risk Zones</div>
+                    </div>
+                    <div class="stat-card medium">
+                        <div class="stat-value" id="medRiskCount">—</div>
+                        <div class="stat-label">Medium Risk</div>
+                    </div>
+                    <div class="stat-card low">
+                        <div class="stat-value" id="lowRiskCount">—</div>
+                        <div class="stat-label">Low Risk</div>
+                    </div>
+                    <div class="stat-card total">
+                        <div class="stat-value" id="totalViolations">—</div>
+                        <div class="stat-label">Total Violations</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- View Toggle -->
+            <section class="panel" id="viewPanel">
+                <h2 class="panel-title">
+                    <span class="panel-icon">🗺️</span> Map Layer
+                </h2>
+                <div class="view-toggles">
+                    <button class="view-btn active" data-view="risk" id="btnRisk">
+                        <span class="btn-icon">🔥</span> Risk Score
+                    </button>
+                    <button class="view-btn" data-view="violator" id="btnViolator">
+                        <span class="btn-icon">🎯</span> Violator Adapt.
+                    </button>
+                    <button class="view-btn" data-view="spillover" id="btnSpillover">
+                        <span class="btn-icon">🌊</span> Spillover
+                    </button>
+                    <button class="view-btn" data-view="raw" id="btnRaw">
+                        <span class="btn-icon">📍</span> Raw Density
+                    </button>
+                </div>
+            </section>
+
+            <!-- Simulation Panel -->
+            <section class="panel" id="simPanel">
+                <h2 class="panel-title">
+                    <span class="panel-icon">🎮</span> Patrol Simulation
+                </h2>
+                <div class="sim-control">
+                    <label for="teamSlider">Patrol Teams: <span id="teamCount" class="highlight">3</span></label>
+                    <input type="range" id="teamSlider" min="1" max="15" value="3" step="1">
+                    <div class="slider-labels">
+                        <span>1</span><span>5</span><span>10</span><span>15</span>
+                    </div>
+                </div>
+                <button class="sim-run-btn" id="runSimBtn">
+                    ▶ Run Simulation
+                </button>
+                <div id="simResults" class="sim-results hidden">
+                    <div class="sim-metric">
+                        <span>Coverage</span>
+                        <span class="sim-value" id="simCoverage">—</span>
+                    </div>
+                    <div class="sim-metric">
+                        <span>Risk Covered</span>
+                        <span class="sim-value" id="simRiskCovered">—</span>
+                    </div>
+                    <div class="sim-metric">
+                        <span>Uncovered HIGH Zones</span>
+                        <span class="sim-value warning" id="simUncovered">—</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Zone Detail Panel (shown on click) -->
+            <section class="panel hidden" id="zoneDetailPanel">
+                <h2 class="panel-title">
+                    <span class="panel-icon">📋</span> Zone Detail
+                    <button class="close-btn" id="closeZoneDetail">✕</button>
+                </h2>
+                <div id="zoneDetailContent"></div>
+            </section>
+
+            <!-- Game Theory Summary -->
+            <section class="panel" id="gamePanel">
+                <h2 class="panel-title">
+                    <span class="panel-icon">♟️</span> Game Theory
+                </h2>
+                <div id="gameSummary" class="game-summary">
+                    <p class="muted">Select an hour to see game theory analysis</p>
+                </div>
+            </section>
+        </aside>
+
+        <!-- Map Container -->
+        <main id="map-wrapper">
+            <div id="map"></div>
+
+            <!-- Time Slider Overlay -->
+            <div id="timeSliderContainer">
+                <div class="time-display">
+                    <span class="time-icon">🕐</span>
+                    <span id="currentTimeLabel">09:00</span>
+                    <span class="time-period" id="timePeriod">Morning Peak</span>
+                </div>
+                <div class="slider-wrapper">
+                    <input type="range" id="timeSlider" min="0" max="23" value="9" step="1">
+                    <div class="time-markers">
+                        <span>00</span><span>04</span><span>08</span><span>12</span>
+                        <span>16</span><span>20</span><span>23</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Map Legend -->
+            <div id="mapLegend">
+                <div class="legend-title" id="legendTitle">Risk Score</div>
+                <div class="legend-gradient"></div>
+                <div class="legend-labels">
+                    <span>Low (0)</span>
+                    <span>High (100)</span>
+                </div>
+            </div>
+
+            <!-- Loading Overlay -->
+            <div id="loadingOverlay" class="hidden">
+                <div class="loader">
+                    <div class="spinner"></div>
+                    <span>Loading data...</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
