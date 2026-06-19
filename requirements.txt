@@ -11,3 +11,4 @@ geopy>=2.4
 folium>=0.15
 httpx
 python-dotenv
+google-genai
