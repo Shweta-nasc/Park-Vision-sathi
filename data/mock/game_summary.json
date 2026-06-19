@@ -1,0 +1,35 @@
+{
+  "hour": 9,
+  "stackelberg": {
+    "zones": 142,
+    "max_patrol_prob": 0.312,
+    "avg_patrol_prob": 0.007042
+  },
+  "violator_adaptation": {
+    "avg_violator_risk": 48.72,
+    "max_violator_risk": 78.6,
+    "avg_expected_cost": 2.85
+  },
+  "spillover_by_type": [
+    {
+      "spillover_type": "patrolled",
+      "count": 5,
+      "avg_risk_change_pct": -25.0
+    },
+    {
+      "spillover_type": "neighbor_1",
+      "count": 12,
+      "avg_risk_change_pct": 22.4
+    },
+    {
+      "spillover_type": "neighbor_2",
+      "count": 18,
+      "avg_risk_change_pct": 14.7
+    },
+    {
+      "spillover_type": "unaffected",
+      "count": 107,
+      "avg_risk_change_pct": 0.0
+    }
+  ]
+}
