@@ -2,6 +2,7 @@
 Game Theory endpoints: Stackelberg, Violator Adaptation, Spillover.
 """
 
+from pathlib import Path
 from fastapi import APIRouter, Query
 from backend.app.db import query_df
 
@@ -152,3 +153,32 @@ def get_game_summary(
         "violator_adaptation": violator[0] if violator else {},
         "spillover_by_type": spillover,
     }
+
+
+@router.get("/game/spillover_arrows")
+def get_spillover_arrows():
+    """Get the pre-computed displacement arrows JSON."""
+    import json
+    path = Path(__file__).resolve().parent.parent.parent.parent / "data" / "spillover_arrows.json"
+    if path.exists():
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"arrows": []}
+
+
+@router.get("/game/whatif_coverage")
+def get_whatif_coverage():
+    """Get the pre-computed What-If coverage JSON."""
+    import json
+    path = Path(__file__).resolve().parent.parent.parent.parent / "data" / "whatif_coverage.json"
+    if path.exists():
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+

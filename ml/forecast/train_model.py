@@ -1,13 +1,8 @@
 """
-LightGBM training for violation count forecasting.
+train_model.py – Consolidated LightGBM forecasting pipeline for ParkVisionSaathi.
 
-Loads the engineered feature matrix (from SQLite or CSV), trains a LightGBM
-regressor with a time-based train/test split, evaluates on held-out data,
-and persists:
-    - Trained model  → models/lightgbm_v1.pkl
-    - Feature importance → models/feature_importance.txt
-    - Predictions    → SQLite table 'forecast_predictions'
-    - Model card     → models/MODEL_CARD.md
+Combines Poisson objective, early stopping, prediction clipping, per-hour R² evaluation, 
+and Precision@10 rank-based metrics.
 """
 
 import sqlite3
@@ -22,81 +17,63 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 try:
     import lightgbm as lgb
 except ImportError:
-    raise ImportError(
-        "LightGBM is required.  Install via:  pip install lightgbm"
-    )
+    raise ImportError("LightGBM is required. Install via: pip install lightgbm")
 
-# ── paths ────────────────────────────────────────────────────────────────
+# ── Paths ─────────────────────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-DB_PATH = PROJECT_ROOT / "data" / "parkvision.db"
-CSV_PATH = PROJECT_ROOT / "data" / "forecast_features.csv"
-MODEL_DIR = PROJECT_ROOT / "models"
-MODEL_PATH = MODEL_DIR / "lightgbm_v1.pkl"
+DB_PATH      = PROJECT_ROOT / "data" / "parkvision.db"
+CSV_PATH     = PROJECT_ROOT / "data" / "forecast_features.csv"
+MODEL_DIR    = PROJECT_ROOT / "models"
+MODEL_PATH   = MODEL_DIR / "lightgbm_v1.pkl"
 IMPORTANCE_PATH = MODEL_DIR / "feature_importance.txt"
 MODEL_CARD_PATH = MODEL_DIR / "MODEL_CARD.md"
 
-# Columns that are NOT used as input features
-ID_COLS = ["grid_cell_id", "date"]
-TARGET = "violation_count"
-
-# Date threshold for the time-based split
+ID_COLS    = ["grid_cell_id", "date"]
+TARGET     = "violation_count"
 SPLIT_DATE = "2024-04-01"
 
+DATA_RICH_HOURS = set(range(16))   # temporal cliff guard
 
-# ── data loading ─────────────────────────────────────────────────────────
-def load_features(db_path: Path = DB_PATH,
-                  csv_path: Path = CSV_PATH) -> pd.DataFrame:
-    """Load the forecast_features table – prefer SQLite, fall back to CSV."""
+
+# ── Data loading ──────────────────────────────────────────────────────────
+
+def load_features(db_path: Path = DB_PATH, csv_path: Path = CSV_PATH) -> pd.DataFrame:
     try:
         conn = sqlite3.connect(str(db_path))
         df = pd.read_sql_query("SELECT * FROM forecast_features", conn)
         conn.close()
-        print(f"[load] Loaded {len(df):,} rows from SQLite "
-              f"table 'forecast_features'")
+        print(f"[load] Loaded {len(df):,} rows from SQLite table 'forecast_features'")
     except Exception:
         df = pd.read_csv(csv_path)
         print(f"[load] Loaded {len(df):,} rows from CSV ({csv_path})")
     return df
 
 
-# ── preprocessing ────────────────────────────────────────────────────────
-def preprocess(df: pd.DataFrame):
-    """
-    Drop NaN lag rows, separate features / target / ids,
-    and perform a time-based train/test split.
+# ── Preprocessing ─────────────────────────────────────────────────────────
 
-    Returns
-    -------
-    X_train, X_test, y_train, y_test, id_train, id_test, feature_names
-    """
+def preprocess(df: pd.DataFrame):
     lag_cols = [c for c in df.columns if c.startswith("lag_")]
     initial_len = len(df)
     df = df.dropna(subset=lag_cols).reset_index(drop=True)
-    print(f"[prep] Dropped {initial_len - len(df):,} rows with NaN lags "
-          f"→ {len(df):,} rows remaining")
+    print(f"[prep] Dropped {initial_len - len(df):,} rows with NaN lags → {len(df):,} rows remaining")
 
-    # Determine split point
     df["date"] = df["date"].astype(str)
+
     if df["date"].max() >= SPLIT_DATE and df["date"].min() < SPLIT_DATE:
-        print(f"[split] Time-based split at {SPLIT_DATE}")
+        print(f"[split] Time split at {SPLIT_DATE}")
         train_mask = df["date"] < SPLIT_DATE
     else:
-        # Fallback: 80/20 chronological
         dates_sorted = np.sort(df["date"].unique())
-        split_idx = int(len(dates_sorted) * 0.8)
-        split_date = dates_sorted[split_idx]
+        split_date   = dates_sorted[int(len(dates_sorted) * 0.8)]
         print(f"[split] Fallback 80/20 split at {split_date}")
         train_mask = df["date"] < split_date
 
-    feature_cols = [
-        c for c in df.columns
-        if c not in ID_COLS + [TARGET]
-    ]
+    feature_cols = [c for c in df.columns if c not in ID_COLS + [TARGET]]
 
     X_train = df.loc[train_mask, feature_cols].copy()
-    X_test = df.loc[~train_mask, feature_cols].copy()
+    X_test  = df.loc[~train_mask, feature_cols].copy()
     y_train = df.loc[train_mask, TARGET].copy()
-    y_test = df.loc[~train_mask, TARGET].copy()
+    y_test  = df.loc[~train_mask, TARGET].copy()
     id_train = df.loc[train_mask, ID_COLS + ["hour"]].copy()
     id_test = df.loc[~train_mask, ID_COLS + ["hour"]].copy()
 
@@ -104,36 +81,52 @@ def preprocess(df: pd.DataFrame):
     return X_train, X_test, y_train, y_test, id_train, id_test, feature_cols
 
 
-# ── training ─────────────────────────────────────────────────────────────
+# ── Training ──────────────────────────────────────────────────────────────
+
 def train_model(X_train: pd.DataFrame, y_train: pd.Series):
-    """Train a LightGBM regressor and return the fitted model."""
+    """Train LightGBM with Poisson objective and early stopping on a 10% holdout."""
+    val_split = int(len(X_train) * 0.9)
+    X_tr, X_val = X_train.iloc[:val_split], X_train.iloc[val_split:]
+    y_tr, y_val = y_train.iloc[:val_split], y_train.iloc[val_split:]
+
     model = lgb.LGBMRegressor(
-        n_estimators=500,
+        n_estimators=1000,     # upper bound; early stopping kicks in
         learning_rate=0.05,
         max_depth=6,
         num_leaves=31,
         subsample=0.8,
         colsample_bytree=0.8,
-        objective='poisson',
+        objective='poisson',   # count data
         random_state=42,
         verbose=-1,
     )
-    model.fit(X_train, y_train)
-    print("[train] LightGBM model training complete (objective=poisson)")
+    model.fit(
+        X_tr, y_tr,
+        eval_set=[(X_val, y_val)],
+        callbacks=[
+            lgb.early_stopping(stopping_rounds=50, verbose=False),
+            lgb.log_evaluation(period=-1),   # silent
+        ],
+    )
+    n_trees = model.best_iteration_ if model.best_iteration_ else model.n_estimators
+    print(f"[train] LightGBM training complete (objective=poisson). Best iteration: {n_trees}")
     return model
 
 
-# ── evaluation ───────────────────────────────────────────────────────────
-def evaluate(model, X_test: pd.DataFrame, y_test: pd.Series,
-             id_test: pd.DataFrame = None):
-    """Compute and print R², MAE, RMSE, and Precision@10 on the test set."""
-    preds = model.predict(X_test)
-    r2 = r2_score(y_test, preds)
-    mae = mean_absolute_error(y_test, preds)
-    rmse = np.sqrt(mean_squared_error(y_test, preds))
+# ── Evaluation ────────────────────────────────────────────────────────────
 
-    # Precision@10: per-date, how many of predicted top-10 zones
-    # are actually in the real top-10?
+def evaluate(model, X_test: pd.DataFrame, y_test: pd.Series,
+             id_test: pd.DataFrame, data_rich_only: bool = True):
+    """Evaluate using R², MAE, RMSE, per-hour R², and Precision@10."""
+    preds = np.clip(model.predict(X_test), 0, None)   # no negative predictions
+
+    # ── Overall metrics ────────────────────────────────────────────────────
+    r2   = r2_score(y_test, preds)
+    mae  = mean_absolute_error(y_test, preds)
+    rmse = np.sqrt(mean_squared_error(y_test, preds))
+    print(f"[eval] Overall  R²={r2:.4f}  MAE={mae:.4f}  RMSE={rmse:.4f}")
+
+    # ── Precision@10 ───────────────────────────────────────────────────────
     avg_p10 = 0.0
     if id_test is not None:
         eval_df = id_test.copy()
@@ -149,72 +142,99 @@ def evaluate(model, X_test: pd.DataFrame, y_test: pd.Series,
             p10 = len(actual_top10 & pred_top10) / 10
             p10_scores.append(p10)
         avg_p10 = np.mean(p10_scores) if p10_scores else 0.0
+    print(f"[eval] P@10:    {avg_p10:.4f} ({avg_p10*100:.1f}%)")
 
-    print(f"[eval] R²:   {r2:.4f}")
-    print(f"[eval] MAE:  {mae:.4f}")
-    print(f"[eval] RMSE: {rmse:.4f}")
-    print(f"[eval] P@10: {avg_p10:.4f} ({avg_p10*100:.1f}%)")
-    return preds, {"r2": r2, "mae": mae, "rmse": rmse, "precision_at_10": avg_p10}
+    # ── Per-hour R² ────────────────────────────────────────────────────────
+    hour_col = id_test["hour"].values
+    per_hour: dict[int, float] = {}
+    print("\n[eval] Per-hour R²:")
+    for h in sorted(set(hour_col)):
+        mask = hour_col == h
+        if mask.sum() < 10:
+            continue
+        r2_h = r2_score(y_test.values[mask], preds[mask])
+        per_hour[int(h)] = round(r2_h, 4)
+        rich = "✅" if h in DATA_RICH_HOURS else "⚠️"
+        print(f"  hour {h:>2}  R²={r2_h:>7.4f}  {rich}")
+
+    # ── Data-rich only summary ─────────────────────────────────────────────
+    if data_rich_only:
+        rich_mask = np.isin(hour_col, list(DATA_RICH_HOURS))
+        if rich_mask.sum() > 0:
+            r2_rich = r2_score(y_test.values[rich_mask], preds[rich_mask])
+            print(f"\n[eval] DATA-RICH (h0-15) R²: {r2_rich:.4f}")
+        else:
+            r2_rich = r2
+
+    return preds, {
+        "r2": r2, 
+        "mae": mae, 
+        "rmse": rmse, 
+        "precision_at_10": avg_p10, 
+        "per_hour_r2": per_hour
+    }
 
 
-# ── persistence ──────────────────────────────────────────────────────────
+# ── Persistence ───────────────────────────────────────────────────────────
+
 def save_model(model, path: Path = MODEL_PATH):
-    """Serialize the trained model with joblib."""
     path.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(model, path)
     print(f"[save] Model saved → {path}")
 
 
 def save_feature_importance(model, feature_names: list,
-                            path: Path = IMPORTANCE_PATH, top_n: int = 15):
-    """Write a plain-text feature importance report (top N)."""
-    importances = model.feature_importances_
-    fi = sorted(zip(feature_names, importances),
+                             path: Path = IMPORTANCE_PATH, top_n: int = 20):
+    fi = sorted(zip(feature_names, model.feature_importances_),
                 key=lambda x: x[1], reverse=True)
-
     lines = [
-        "ParkVisionSaathi – LightGBM Feature Importance (top 15)",
+        "ParkVisionSaathi – LightGBM Feature Importance",
         "=" * 55,
-        f"{'Rank':<6}{'Feature':<30}{'Importance':>12}",
+        f"{'Rank':<5}{'Feature':<30}{'Importance':>12}",
         "-" * 55,
     ]
     for rank, (feat, imp) in enumerate(fi[:top_n], 1):
-        lines.append(f"{rank:<6}{feat:<30}{imp:>12}")
+        lines.append(f"{rank:<5}{feat:<30}{imp:>12}")
     lines.append("-" * 55)
-
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"[save] Feature importance → {path}")
 
+    # Print top-5 to stdout
+    print("\n  Top-5 features:")
+    for feat, imp in fi[:5]:
+        print(f"    {feat:<30} {imp}")
+
 
 def save_predictions(id_test: pd.DataFrame, y_test: pd.Series,
                      preds: np.ndarray, db_path: Path = DB_PATH):
-    """Save test-set predictions to the 'forecast_predictions' table."""
     pred_df = id_test.copy()
-    pred_df["actual"] = y_test.values
-    pred_df["predicted"] = preds
-    # Ensure column order
+    pred_df["actual"]    = y_test.values
+    pred_df["predicted"] = preds.round(4)
     pred_df = pred_df[["grid_cell_id", "date", "hour", "actual", "predicted"]]
 
     conn = sqlite3.connect(str(db_path))
-    pred_df.to_sql("forecast_predictions", conn, if_exists="replace",
-                   index=False)
+    pred_df.to_sql("forecast_predictions", conn, if_exists="replace", index=False)
     conn.close()
-    print(f"[save] {len(pred_df):,} predictions → SQLite table "
-          f"'forecast_predictions'")
+    print(f"[save] {len(pred_df):,} predictions → SQLite table 'forecast_predictions'")
 
 
 def write_model_card(metrics: dict, n_train: int, n_test: int,
-                     feature_names: list, path: Path = MODEL_CARD_PATH):
-    """Write a Markdown model card summarising the training run."""
+                      feature_names: list, path: Path = MODEL_CARD_PATH):
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    per_hour_table = "\n".join(
+        f"| {h} | {r2} |"
+        for h, r2 in sorted(metrics.get("per_hour_r2", {}).items())
+    )
+
     card = f"""\
 # ParkVisionSaathi – Violation Count Forecast Model Card
 
 ## Overview
 | Field | Value |
 |---|---|
-| **Model** | LightGBM Regressor (v1) |
+| **Model** | LightGBM Regressor (objective=poisson) |
 | **Task** | Predict hourly violation count per 500 m grid cell |
 | **Training date** | {now} |
 | **Framework** | LightGBM via scikit-learn API |
@@ -222,7 +242,7 @@ def write_model_card(metrics: dict, n_train: int, n_test: int,
 ## Hyperparameters
 | Parameter | Value |
 |---|---|
-| n_estimators | 500 |
+| n_estimators | 1000 (with early stopping) |
 | learning_rate | 0.05 |
 | max_depth | 6 |
 | num_leaves | 31 |
@@ -238,8 +258,7 @@ def write_model_card(metrics: dict, n_train: int, n_test: int,
 | Test | {n_test:,} |
 
 Split strategy: time-based (train < {SPLIT_DATE}, test ≥ {SPLIT_DATE}).
-Falls back to 80/20 chronological if the date range does not support the
-fixed threshold.
+Falls back to 80/20 chronological if the date range does not support the fixed threshold.
 
 ## Evaluation Metrics (Test Set)
 | Metric | Value |
@@ -247,19 +266,24 @@ fixed threshold.
 | R² | {metrics['r2']:.4f} |
 | MAE | {metrics['mae']:.4f} |
 | RMSE | {metrics['rmse']:.4f} |
-| Precision@10 | {metrics.get('precision_at_10', 0):.4f} ({metrics.get('precision_at_10', 0)*100:.1f}%) |
+| Precision@10 | {metrics.get('precision_at_10', 0.0):.4f} ({metrics.get('precision_at_10', 0.0)*100:.1f}%) |
+
+## Per-Hour R² (⚠️ hours ≥16 have sparse data)
+| Hour | R² |
+|---|---|
+{per_hour_table}
 
 ## Features ({len(feature_names)})
 {chr(10).join('- ' + f for f in feature_names)}
 
 ## Artefacts
 - `models/lightgbm_v1.pkl` – serialised model (joblib)
-- `models/feature_importance.txt` – top-15 feature importance
+- `models/feature_importance.txt` – top-20 feature importance
 - SQLite table `forecast_predictions` – test-set actuals vs predictions
 
 ## Limitations & Caveats
-- Data covers Nov 2023 – May 2024 (Bengaluru); model may not generalise
-  to other cities or time periods without retraining.
+- Data covers Nov 2023 – May 2024 (Bengaluru); model may not generalise to other cities or time periods without retraining.
+- Hours 16–23 contain <4% of data (temporal cliff). Metrics for those hours are not reliable.
 - Grid cells with ≤ 30 observations are excluded during feature engineering.
 - Lag features cause the first ~168 rows per cell to be dropped.
 """
@@ -268,7 +292,8 @@ fixed threshold.
     print(f"[save] Model card → {path}")
 
 
-# ── main ─────────────────────────────────────────────────────────────────
+# ── Main ─────────────────────────────────────────────────────────────────
+
 if __name__ == "__main__":
     print("=" * 60)
     print("ParkVisionSaathi – LightGBM Forecast Training")
@@ -278,8 +303,7 @@ if __name__ == "__main__":
     df = load_features()
 
     # 2. Preprocess & split
-    X_train, X_test, y_train, y_test, id_train, id_test, feat_names = \
-        preprocess(df)
+    X_train, X_test, y_train, y_test, id_train, id_test, feat_names = preprocess(df)
 
     # 3. Train
     model = train_model(X_train, y_train)

@@ -1,7 +1,40 @@
+# ── Python ────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# ── Virtual environments ─────────────────
+.venv/
+venv/
+env/
+
+# ── IDE / OS ──────────────────────────────
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+Thumbs.db
+
+# ── Data (large / generated) ─────────────
 data/parkvision.db
 data/*.db
-data/jan to may police violation_anonymized791b166.csv
-**/__pycache__/
-*.pyc
-.DS_Store
-**/.DS_Store
+data/*.csv
+
+# ── ML artifacts ─────────────────────────
+models/*.pkl
+models/*.joblib
+
+# ── Agents / Config ──────────────────────
+.agents/
+.gemini/
+
+# ── Misc ─────────────────────────────────
+*.log
+.env
