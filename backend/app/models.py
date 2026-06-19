@@ -109,6 +109,16 @@ class TeamAssignment(BaseModel):
     priority_rank: int
 
 
+class SpilloverZone(BaseModel):
+    grid_cell_id: str
+    grid_lat: float
+    grid_lon: float
+    original_risk: float
+    adjusted_risk: float
+    risk_change_pct: float
+    spillover_type: str
+
+
 class SimulationResponse(BaseModel):
     num_teams: int
     hour: int
@@ -117,3 +127,5 @@ class SimulationResponse(BaseModel):
     uncovered_high_risk: list[dict]
     coverage_pct: float
     total_risk_covered: float
+    spillover_zones: list[SpilloverZone] = []
+

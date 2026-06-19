@@ -5,7 +5,7 @@
 |---|---|
 | **Model** | LightGBM Regressor (v1) |
 | **Task** | Predict hourly violation count per 500 m grid cell |
-| **Training date** | 2026-06-18 17:52:12 |
+| **Training date** | 2026-06-19 12:11:48 |
 | **Framework** | LightGBM via scikit-learn API |
 
 ## Hyperparameters
@@ -17,6 +17,7 @@
 | num_leaves | 31 |
 | subsample | 0.8 |
 | colsample_bytree | 0.8 |
+| objective | poisson |
 | random_state | 42 |
 
 ## Data Split
@@ -32,9 +33,10 @@ fixed threshold.
 ## Evaluation Metrics (Test Set)
 | Metric | Value |
 |---|---|
-| R² | 0.1982 |
-| MAE | 4.0615 |
-| RMSE | 7.0855 |
+| R² | 0.2280 |
+| MAE | 3.9696 |
+| RMSE | 6.9529 |
+| Precision@10 | 0.2875 (28.7%) |
 
 ## Features (19)
 - hour

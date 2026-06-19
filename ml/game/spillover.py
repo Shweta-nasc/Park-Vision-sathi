@@ -131,6 +131,11 @@ def simulate_spillover(
 ) -> pd.DataFrame:
     """Run the spillover simulation for every hour.
 
+    Conservation law: total risk in the system stays constant.
+    Displaced risk from patrolled zones is distributed to neighbours:
+        - 70% to 1st-degree neighbours
+        - 30% to 2nd-degree neighbours
+
     Returns a DataFrame with columns:
         grid_cell_id, hour, grid_lat, grid_lon, original_risk,
         adjusted_risk, spillover_type, risk_change_pct
@@ -164,7 +169,26 @@ def simulate_spillover(
             adjacency, first_degree, patrolled_cells
         )
 
-        # Assign spillover type and multiplier
+        # Build a risk lookup for this hour
+        risk_map = dict(zip(group["grid_cell_id"], group["risk_score"]))
+
+        # --- Conservation-preserving displacement ---
+        # Step 1: Compute total displaced risk from patrolled zones
+        total_displaced = 0.0
+        for cell in patrolled_cells:
+            orig = risk_map.get(cell, 0.0)
+            total_displaced += orig * (1 - REDUCTION_PATROLLED)
+
+        # Step 2: Distribute displaced risk proportionally to neighbours
+        # 70% to 1st-degree, 30% to 2nd-degree
+        displaced_n1 = total_displaced * 0.70
+        displaced_n2 = total_displaced * 0.30
+
+        # Compute per-cell spillover additions
+        n1_addition = displaced_n1 / max(len(first_degree), 1)
+        n2_addition = displaced_n2 / max(len(second_degree), 1)
+
+        # Step 3: Assign adjusted risk preserving total
         for _, row in group.iterrows():
             cell = row["grid_cell_id"]
             orig = row["risk_score"]
@@ -174,10 +198,10 @@ def simulate_spillover(
                 adjusted = orig * REDUCTION_PATROLLED
             elif cell in first_degree:
                 stype = "neighbor_1"
-                adjusted = orig * INCREASE_NEIGHBOUR1
+                adjusted = orig + n1_addition
             elif cell in second_degree:
                 stype = "neighbor_2"
-                adjusted = orig * INCREASE_NEIGHBOUR2
+                adjusted = orig + n2_addition
             else:
                 stype = "unaffected"
                 adjusted = orig

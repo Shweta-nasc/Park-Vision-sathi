@@ -51,45 +51,49 @@ def load_risk_scores(conn: sqlite3.Connection) -> pd.DataFrame:
     return df
 
 
-def generate_synthetic_patrols(
+def compute_real_patrol_history(
     risk_df: pd.DataFrame,
     conn: sqlite3.Connection,
-    seed: int = RANDOM_SEED,
 ) -> pd.DataFrame:
-    """Create synthetic patrol counts inversely weighted by risk.
+    """Derive patrol history from actual enforcement data.
 
-    Low-risk zones are assumed to already receive more routine patrols,
-    which the Stackelberg model should then *re-allocate* away from.
+    Approved violations imply police presence at that location/time,
+    so we count approved violations per (grid_cell_id, hour) as a
+    proxy for patrol frequency.
 
     Returns a DataFrame with columns: grid_cell_id, hour, patrol_count.
     """
-    rng = np.random.default_rng(seed)
+    query = """
+        SELECT grid_cell_id, hour,
+               COUNT(*) as raw_count
+        FROM violations
+        WHERE validation_status_clean = 'approved'
+          AND grid_cell_id IS NOT NULL
+          AND hour IS NOT NULL
+        GROUP BY grid_cell_id, hour
+    """
+    patrol_df = pd.read_sql_query(query, conn)
 
-    # Higher risk → lower patrol probability (inverse weighting)
-    max_risk = risk_df["risk_score"].max()
-    inverse_weight = 1 - (risk_df["risk_score"] / (max_risk + 1e-9))
-    # Map to probabilities for 0, 1, 2, 3
-    # More inverse_weight → heavier towards 3
-    probs_high = np.column_stack([
-        0.1 + 0.3 * (1 - inverse_weight),  # P(0)
-        0.2 + 0.1 * (1 - inverse_weight),  # P(1)
-        0.3 - 0.1 * (1 - inverse_weight),  # P(2)
-        0.4 - 0.3 * (1 - inverse_weight),  # P(3)
-    ])
-    # Normalise each row
-    probs_high = probs_high / probs_high.sum(axis=1, keepdims=True)
-
-    patrol_counts = np.array([
-        rng.choice([0, 1, 2, 3], p=p) for p in probs_high
-    ])
-
-    patrol_df = risk_df[["grid_cell_id", "hour"]].copy()
-    patrol_df["patrol_count"] = patrol_counts
+    if patrol_df.empty:
+        print("[stackelberg] WARNING: No approved violations found, "
+              "falling back to zero patrol counts.")
+        patrol_df = risk_df[["grid_cell_id", "hour"]].copy()
+        patrol_df["patrol_count"] = 0
+    else:
+        # Normalise to 0-3 range to match the fatigue model's expected scale
+        max_count = patrol_df["raw_count"].max()
+        if max_count > 0:
+            patrol_df["patrol_count"] = (
+                patrol_df["raw_count"] / max_count * 3
+            ).round().astype(int).clip(0, 3)
+        else:
+            patrol_df["patrol_count"] = 0
+        patrol_df = patrol_df.drop(columns=["raw_count"])
 
     # Persist
     patrol_df.to_sql("patrol_history", conn, if_exists="replace", index=False)
-    print(f"[stackelberg] Generated {len(patrol_df):,} synthetic patrol rows → "
-          f"patrol_history table.  Mean patrols: {patrol_counts.mean():.2f}")
+    print(f"[stackelberg] Computed real patrol history from approved violations: "
+          f"{len(patrol_df):,} rows.  Mean patrols: {patrol_df['patrol_count'].mean():.2f}")
     return patrol_df
 
 
@@ -168,7 +172,7 @@ def run() -> pd.DataFrame:
     conn = sqlite3.connect(str(DB_PATH))
     try:
         risk_df = load_risk_scores(conn)
-        patrol_df = generate_synthetic_patrols(risk_df, conn)
+        patrol_df = compute_real_patrol_history(risk_df, conn)
         result = compute_stackelberg(risk_df, patrol_df)
         save_results(result, conn)
         print_top_zones(result)

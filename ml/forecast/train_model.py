@@ -114,25 +114,47 @@ def train_model(X_train: pd.DataFrame, y_train: pd.Series):
         num_leaves=31,
         subsample=0.8,
         colsample_bytree=0.8,
+        objective='poisson',
         random_state=42,
         verbose=-1,
     )
     model.fit(X_train, y_train)
-    print("[train] LightGBM model training complete")
+    print("[train] LightGBM model training complete (objective=poisson)")
     return model
 
 
 # ── evaluation ───────────────────────────────────────────────────────────
-def evaluate(model, X_test: pd.DataFrame, y_test: pd.Series):
-    """Compute and print R², MAE, RMSE on the test set."""
+def evaluate(model, X_test: pd.DataFrame, y_test: pd.Series,
+             id_test: pd.DataFrame = None):
+    """Compute and print R², MAE, RMSE, and Precision@10 on the test set."""
     preds = model.predict(X_test)
     r2 = r2_score(y_test, preds)
     mae = mean_absolute_error(y_test, preds)
     rmse = np.sqrt(mean_squared_error(y_test, preds))
+
+    # Precision@10: per-date, how many of predicted top-10 zones
+    # are actually in the real top-10?
+    avg_p10 = 0.0
+    if id_test is not None:
+        eval_df = id_test.copy()
+        eval_df["actual"] = y_test.values
+        eval_df["predicted"] = preds
+        p10_scores = []
+        for date_val in eval_df["date"].unique():
+            day = eval_df[eval_df["date"] == date_val]
+            if len(day) < 10:
+                continue
+            actual_top10 = set(day.nlargest(10, "actual")["grid_cell_id"])
+            pred_top10 = set(day.nlargest(10, "predicted")["grid_cell_id"])
+            p10 = len(actual_top10 & pred_top10) / 10
+            p10_scores.append(p10)
+        avg_p10 = np.mean(p10_scores) if p10_scores else 0.0
+
     print(f"[eval] R²:   {r2:.4f}")
     print(f"[eval] MAE:  {mae:.4f}")
     print(f"[eval] RMSE: {rmse:.4f}")
-    return preds, {"r2": r2, "mae": mae, "rmse": rmse}
+    print(f"[eval] P@10: {avg_p10:.4f} ({avg_p10*100:.1f}%)")
+    return preds, {"r2": r2, "mae": mae, "rmse": rmse, "precision_at_10": avg_p10}
 
 
 # ── persistence ──────────────────────────────────────────────────────────
@@ -206,6 +228,7 @@ def write_model_card(metrics: dict, n_train: int, n_test: int,
 | num_leaves | 31 |
 | subsample | 0.8 |
 | colsample_bytree | 0.8 |
+| objective | poisson |
 | random_state | 42 |
 
 ## Data Split
@@ -224,6 +247,7 @@ fixed threshold.
 | R² | {metrics['r2']:.4f} |
 | MAE | {metrics['mae']:.4f} |
 | RMSE | {metrics['rmse']:.4f} |
+| Precision@10 | {metrics.get('precision_at_10', 0):.4f} ({metrics.get('precision_at_10', 0)*100:.1f}%) |
 
 ## Features ({len(feature_names)})
 {chr(10).join('- ' + f for f in feature_names)}
@@ -261,7 +285,7 @@ if __name__ == "__main__":
     model = train_model(X_train, y_train)
 
     # 4. Evaluate
-    preds, metrics = evaluate(model, X_test, y_test)
+    preds, metrics = evaluate(model, X_test, y_test, id_test)
 
     # 5. Save everything
     save_model(model)
