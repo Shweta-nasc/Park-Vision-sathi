@@ -2,3 +2,7 @@ data/parkvision.db
 data/*.db
 data/parkvision.db
 data/*.db
+.env
+__pycache__
+venv/
+

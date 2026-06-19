@@ -1,6 +1,12 @@
 # ParkVisionSaathi AI – End‑to‑End Build Guide (Hackathon Edition)
 
-**Goal:** Build a national‑level, hackathon‑winning prototype that predicts parking‑induced congestion, models violator–police interactions using game theory, and recommends patrol strategies on an interactive India map with LLM explanations. [file:1]
+> ⚠️ **CRITICAL: EXTERNAL DATA RESTRICTIONS** ⚠️
+>
+> **DO NOT use OSMnx, OpenStreetMap road network data, or any external datasets.** The hackathon rules prohibit external datasets. References to OSM in this document (lines ~97, ~118, ~149) are INCORRECT and must be ignored. **Use only:** (1) the provided violation CSV dataset, (2) MapMyIndia/Mappls APIs (Distance Matrix, Reverse Geocode, Nearby, Routing), and (3) Python/JS libraries (H3, pandas, LightGBM, etc.) which are tools, not data.
+>
+> **For road information:** Use Mappls Reverse Geocode API to get street names. Use Mappls Snap-to-Road API for road geometry. NEVER download road network graphs from OSM.
+
+**Goal:** Build a national‑level, hackathon‑winning prototype that detects parking‑induced congestion hotspots, quantifies their impact on traffic flow using Mappls data, models violator–police interactions using game theory, and optimizes patrol strategies on an interactive map with LLM explanations. [file:1]
 
 ---
 
