@@ -1,0 +1,128 @@
+{
+  "hour": 9,
+  "time_bucket": "morning_peak",
+  "points": [
+    {
+      "lat": 12.977343,
+      "lon": 77.575702,
+      "h3_id": "8928308280fffff",
+      "congestion_impact": 88.7,
+      "violation_count": 5838,
+      "impact_band": "CRITICAL"
+    },
+    {
+      "lat": 12.964238,
+      "lon": 77.577087,
+      "h3_id": "892830828ffffff",
+      "congestion_impact": 85.3,
+      "violation_count": 5280,
+      "impact_band": "CRITICAL"
+    },
+    {
+      "lat": 12.933596,
+      "lon": 77.690991,
+      "h3_id": "892830829ffffff",
+      "congestion_impact": 79.1,
+      "violation_count": 5166,
+      "impact_band": "CRITICAL"
+    },
+    {
+      "lat": 12.981066,
+      "lon": 77.610147,
+      "h3_id": "89283082affffff",
+      "congestion_impact": 76.4,
+      "violation_count": 4842,
+      "impact_band": "CRITICAL"
+    },
+    {
+      "lat": 12.976143,
+      "lon": 77.577490,
+      "h3_id": "89283082bffffff",
+      "congestion_impact": 72.8,
+      "violation_count": 4408,
+      "impact_band": "SEVERE"
+    },
+    {
+      "lat": 12.975534,
+      "lon": 77.575868,
+      "h3_id": "89283082cffffff",
+      "congestion_impact": 69.5,
+      "violation_count": 3994,
+      "impact_band": "SEVERE"
+    },
+    {
+      "lat": 12.964614,
+      "lon": 77.576230,
+      "h3_id": "89283082dffffff",
+      "congestion_impact": 65.2,
+      "violation_count": 3871,
+      "impact_band": "SEVERE"
+    },
+    {
+      "lat": 12.977631,
+      "lon": 77.577580,
+      "h3_id": "89283082effffff",
+      "congestion_impact": 62.1,
+      "violation_count": 3798,
+      "impact_band": "SEVERE"
+    },
+    {
+      "lat": 12.978101,
+      "lon": 77.579573,
+      "h3_id": "89283082fffffff",
+      "congestion_impact": 58.4,
+      "violation_count": 3485,
+      "impact_band": "SEVERE"
+    },
+    {
+      "lat": 12.981649,
+      "lon": 77.608963,
+      "h3_id": "892830830ffffff",
+      "congestion_impact": 55.9,
+      "violation_count": 3413,
+      "impact_band": "SEVERE"
+    },
+    {
+      "lat": 12.973351,
+      "lon": 77.579240,
+      "h3_id": "892830831ffffff",
+      "congestion_impact": 51.3,
+      "violation_count": 3309,
+      "impact_band": "SEVERE"
+    },
+    {
+      "lat": 12.982147,
+      "lon": 77.606763,
+      "h3_id": "892830832ffffff",
+      "congestion_impact": 47.6,
+      "violation_count": 3198,
+      "impact_band": "MODERATE"
+    },
+    {
+      "lat": 12.982485,
+      "lon": 77.610725,
+      "h3_id": "892830833ffffff",
+      "congestion_impact": 43.2,
+      "violation_count": 2963,
+      "impact_band": "MODERATE"
+    },
+    {
+      "lat": 12.979910,
+      "lon": 77.607261,
+      "h3_id": "892830834ffffff",
+      "congestion_impact": 39.8,
+      "violation_count": 2796,
+      "impact_band": "MODERATE"
+    },
+    {
+      "lat": 12.997656,
+      "lon": 77.548731,
+      "h3_id": "892830835ffffff",
+      "congestion_impact": 36.5,
+      "violation_count": 2670,
+      "impact_band": "MODERATE"
+    }
+  ],
+  "total_violations": 56031,
+  "severe_impact_count": 7
+}
