@@ -4,7 +4,7 @@ Simulation endpoint – Colonel Blotto patrol team allocation.
 
 from fastapi import APIRouter
 from backend.app.db import query_df
-from backend.app.models import SimulationRequest, SimulationResponse, TeamAssignment
+from backend.app.models import SimulationRequest, SimulationResponse, TeamAssignment, SpilloverZone
 
 router = APIRouter()
 
@@ -62,6 +62,39 @@ def run_simulation(req: SimulationRequest):
     covered_risk = sum(a.risk_score for a in assignments)
     coverage_pct = round(covered_risk / total_risk * 100, 2) if total_risk > 0 else 0
 
+    # Get spillover data for assigned zones
+    assigned_ids = [a.grid_cell_id for a in assignments]
+    if assigned_ids:
+        placeholders = ",".join(["?" for _ in assigned_ids])
+        spillover_data = query_df(f"""
+            SELECT grid_cell_id, grid_lat, grid_lon,
+                   original_risk, adjusted_risk,
+                   risk_change_pct, spillover_type
+            FROM game_spillover
+            WHERE hour = ?
+              AND spillover_type IN ('neighbor_1', 'neighbor_2')
+              AND grid_cell_id NOT IN ({placeholders})
+              AND ABS(risk_change_pct) > 3
+            ORDER BY risk_change_pct DESC
+            LIMIT 30
+        """, (req.hour, *assigned_ids))
+    else:
+        spillover_data = []
+
+    # Map database records to SpilloverZone objects
+    spillover_zones = [
+        SpilloverZone(
+            grid_cell_id=row["grid_cell_id"],
+            grid_lat=row["grid_lat"],
+            grid_lon=row["grid_lon"],
+            original_risk=row["original_risk"],
+            adjusted_risk=row["adjusted_risk"],
+            risk_change_pct=row["risk_change_pct"],
+            spillover_type=row["spillover_type"]
+        )
+        for row in spillover_data
+    ]
+
     return SimulationResponse(
         num_teams=req.num_teams,
         hour=req.hour,
@@ -70,4 +103,6 @@ def run_simulation(req: SimulationRequest):
         uncovered_high_risk=uncovered[:20],  # top 20 uncovered
         coverage_pct=coverage_pct,
         total_risk_covered=round(covered_risk, 2),
+        spillover_zones=spillover_zones,
     )
+
