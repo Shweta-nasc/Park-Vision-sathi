@@ -43,11 +43,20 @@ function initMap() {
         attributionControl: true,
     });
 
-    // MapmyIndia (Mappls) map tiles
-    L.tileLayer('https://apis.mapmyindia.com/advancedmaps/v1/qqwdxaoywxjpwgteztkzebtkigxwolpgekpd/maptiles/v2/default/{z}/{x}/{y}.png', {
+    // OPTION A: CartoDB Dark Matter map tiles (free, fallback)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 20,
+    }).addTo(state.map);
+
+    // OPTION B: MapmyIndia (Mappls) tiles (uncomment and replace key once allocated)
+    /*
+    L.tileLayer('https://apis.mapmyindia.com/advancedmaps/v1/YOUR_MAPMYINDIA_API_KEY/maptiles/v2/default/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.mapmyindia.com/">MapmyIndia</a> | ParkVisionSaathi',
         maxZoom: 19,
     }).addTo(state.map);
+    */
 
     // Initialize empty heat layer
     state.heatLayer = L.heatLayer([], {
@@ -147,7 +156,8 @@ async function loadHeatmap() {
 async function loadRiskSummary() {
     if (!state.apiConnected) return;
 
-    const data = await apiFetch(`/risk/summary?hour=${state.currentHour}`);
+    const type = state.currentView === 'spillover' ? 'spillover' : 'risk';
+    const data = await apiFetch(`/risk/summary?hour=${state.currentHour}&type=${type}`);
     if (data) {
         let high = 0, med = 0, low = 0, total = 0;
         data.forEach(row => {
@@ -286,6 +296,11 @@ async function runSimulation() {
         document.getElementById('simRiskCovered').textContent = data.total_risk_covered.toFixed(0);
         document.getElementById('simUncovered').textContent = data.uncovered_high_risk.length;
 
+        await Promise.all([
+            loadHeatmap(),
+            loadRiskSummary()
+        ]);
+
         showToast(`Simulation complete: ${numTeams} teams deployed`, 'success');
     }
 
@@ -395,6 +410,7 @@ function setupEventListeners() {
             btn.classList.add('active');
             state.currentView = btn.dataset.view;
             loadHeatmap();
+            loadRiskSummary();
         });
     });
 
