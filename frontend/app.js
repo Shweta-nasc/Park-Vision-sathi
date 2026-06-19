@@ -3,7 +3,7 @@
  * Interactive Leaflet Map with Heatmaps, Game-Theory Overlays, Routing, and Patrol Simulation.
  */
 
-const API = ''; // Empty string resolves to same host (http://localhost:8000)
+const API = window.location.origin.includes('8000') ? '' : 'http://localhost:8000';
 
 /* ═══ STATE ════════════════════════════════════════════════════════ */
 const state = {
