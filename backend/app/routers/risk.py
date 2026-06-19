@@ -86,8 +86,9 @@ def get_risk_scores(
 def get_risk_summary(
     hour: int = Query(default=None, ge=0, le=23),
     time_bucket: str = Query(default=None),
+    type: str = Query(default="risk", description="risk or spillover"),
 ):
-    """Get summary statistics for risk scores at a given hour or time bucket."""
+    """Get summary statistics for risk scores or spillover-adjusted risk at a given hour or time bucket."""
     if time_bucket and time_bucket in TIME_BUCKET_MAP:
         lo, hi = TIME_BUCKET_MAP[time_bucket]
         hour_clause = "hour >= ? AND hour < ?"
@@ -99,19 +100,39 @@ def get_risk_summary(
         hour_clause = "1=1"
         params = []
 
-    sql = f"""
-        SELECT
-            risk_label,
-            COUNT(*) as zone_count,
-            ROUND(AVG(risk_score), 2) as avg_score,
-            ROUND(MIN(risk_score), 2) as min_score,
-            ROUND(MAX(risk_score), 2) as max_score,
-            SUM(violation_count) as total_violations
-        FROM risk_scores
-        WHERE {hour_clause}
-        GROUP BY risk_label
-        ORDER BY avg_score DESC
-    """
+    if type == "spillover":
+        # Group and classify adjusted_risk
+        sql = f"""
+            SELECT
+                CASE 
+                    WHEN adjusted_risk >= 67 THEN 'HIGH'
+                    WHEN adjusted_risk >= 33 THEN 'MEDIUM'
+                    ELSE 'LOW'
+                END as risk_label,
+                COUNT(*) as zone_count,
+                ROUND(AVG(adjusted_risk), 2) as avg_score,
+                ROUND(MIN(adjusted_risk), 2) as min_score,
+                ROUND(MAX(adjusted_risk), 2) as max_score,
+                SUM(original_risk) as total_violations
+            FROM game_spillover
+            WHERE {hour_clause}
+            GROUP BY risk_label
+            ORDER BY avg_score DESC
+        """
+    else:
+        sql = f"""
+            SELECT
+                risk_label,
+                COUNT(*) as zone_count,
+                ROUND(AVG(risk_score), 2) as avg_score,
+                ROUND(MIN(risk_score), 2) as min_score,
+                ROUND(MAX(risk_score), 2) as max_score,
+                SUM(violation_count) as total_violations
+            FROM risk_scores
+            WHERE {hour_clause}
+            GROUP BY risk_label
+            ORDER BY avg_score DESC
+        """
     return query_df(sql, tuple(params))
 
 
