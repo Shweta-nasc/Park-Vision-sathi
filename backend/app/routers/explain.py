@@ -1,62 +1,65 @@
 """
-Explain endpoint – returns dynamic explanation text for a zone's congestion risk.
+Explain endpoint — natural-language zone explanation for field officers.
+
+Three-tier, cache-first (planner design), and offline-safe:
+  1. cache    → pre-generated Gemini explanation (data/processed/explanations_cache.json)
+  2. fallback → a grounded template built ONLY from the zone's real fields
+                (no hallucination, no network, survives a dead internet connection)
+
+A live Gemini tier can be slotted in between via ml/llm/gemini_client; it is
+intentionally not called here so the demo never depends on quota or the network.
 """
 
 from fastapi import APIRouter
-from backend.app.db import query_df
+from backend.app.data_loader import store
 from backend.app.models import ExplainRequest, ExplainResponse
 
 router = APIRouter()
 
 
+def _grounded_fallback(z: dict, hour: int) -> str:
+    """Build a factual explanation from the zone's real data only."""
+    ratio = z.get("travel_time_ratio")
+    ratio_txt = (
+        f"MapMyIndia measures a {ratio:.2f}x travel-time ratio here"
+        if ratio else "MapMyIndia travel-time data is unavailable for this zone"
+    )
+    return (
+        f"Zone {z['grid_cell_id']} on {z.get('road_name', 'this corridor')} "
+        f"({z.get('station', 'Unknown')} PS) scores {z['risk_score']:.0f}/100 on the "
+        f"Congestion Impact Index — {z['impact_band']} band — at {hour:02d}:00 IST. "
+        f"It recorded {z['violation_count']:,} violations (top type: {z.get('top_violation', 'N/A')}) "
+        f"and an estimated {z.get('estimated_lane_hours_blocked', 0)} lane-hours blocked per day. "
+        f"{ratio_txt}; the self-validating agent calibrates the score to "
+        f"{z.get('calibrated_score', z['risk_score'])}/100 against that live reading. "
+        f"Recommended: targeted enforcement during the morning peak around this zone."
+    )
+
+
 @router.post("/explain", response_model=ExplainResponse)
 def explain_zone(req: ExplainRequest):
-    """Get dynamic, data-driven explanations of congestion risk for a zone."""
-    # Fetch risk details for this zone to generate a realistic explanation
-    zone_data = query_df("""
-        SELECT risk_score, risk_label, violation_count, road_importance, repeat_offender, heavy_vehicle_ratio
-        FROM risk_scores
-        WHERE grid_cell_id = ? AND hour = ?
-    """, (req.zone_id, req.hour))
-
-    if zone_data:
-        z = zone_data[0]
-        score = z["risk_score"]
-        label = z["risk_label"]
-        violations = z["violation_count"]
-        importance = z["road_importance"]
-        repeat = z["repeat_offender"]
-        heavy = z["heavy_vehicle_ratio"]
-
-        explanation = (
-            f"Zone {req.zone_id} is classified as a {label} congestion risk area (Score: {score:.1f}/100) at hour {req.hour:02d}:00. "
-            f"There are currently {violations} active parking violations recorded in this sector. "
-            f"The congestion risk is driven by a high road importance weight of {importance:.2f} (key transit channel) "
-            f"and a repeat offender index of {repeat:.2f}. "
+    """Return the cached explanation for a zone, else a grounded fallback."""
+    cached = store.ensure().explanations.get(req.zone_id)
+    if cached and cached.get("explanation"):
+        return ExplainResponse(
+            zone_id=req.zone_id,
+            explanation=cached["explanation"],
+            is_cached=True,
+            source=cached.get("source", "cache"),
         )
-        if heavy > 0.15:
-            explanation += f"Additionally, heavy vehicle obstruction (ratio: {heavy:.1%}) contributes significantly to the bottleneck."
-        else:
-            explanation += "The layout and frequency of double parking violations block active vehicle lanes."
-    else:
-        # Fallback check on raw violations count
-        violations_data = query_df("""
-            SELECT COUNT(*) as cnt
-            FROM violations
-            WHERE grid_cell_id = ?
-        """, (req.zone_id,))
-        if violations_data and violations_data[0]["cnt"] > 0:
-            cnt = violations_data[0]["cnt"]
-            explanation = (
-                f"Zone {req.zone_id} has {cnt} historically recorded violations. "
-                f"No active risk score calculations are registered for hour {req.hour:02d}:00, but historical density indicates regular parking congestion."
-            )
-        else:
-            explanation = f"No active or historical traffic violation/risk data is available for Zone {req.zone_id} at hour {req.hour:02d}:00."
+
+    z = store.zone(req.zone_id)
+    if z:
+        return ExplainResponse(
+            zone_id=req.zone_id,
+            explanation=_grounded_fallback(z, req.hour),
+            is_cached=False,
+            source="fallback",
+        )
 
     return ExplainResponse(
         zone_id=req.zone_id,
-        explanation=explanation,
-        is_cached=True,
-        source="cache"
+        explanation=f"No congestion data is available for zone {req.zone_id} at {req.hour:02d}:00 IST.",
+        is_cached=False,
+        source="fallback",
     )

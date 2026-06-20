@@ -24,9 +24,9 @@
 **What they're really saying:** "Your dataset has no speed data. This is correlation at best."
 
 **Your scripted answer:**
-> *"Correct — we measure congestion RISK, not measured congestion. Our Congestion Impact Score uses 5 factors from the violation data itself: lane blockage type, intersection proximity, vehicle size, transit access blockage, and historical pattern. The 6th factor — traffic degradation — comes from MapMyIndia Distance Matrix API, which gives us real travel time ratios. City Market Circle shows 2.4x slower travel during peak hours. That's not our model's prediction. That's MapMyIndia's live data independently validating our top-scoring zone."*
+> *"Correct — we measure congestion RISK, not measured congestion. Our Congestion Impact Score uses 5 factors from the violation data itself: lane blockage type, intersection proximity, vehicle size, transit access blockage, and historical pattern. The 6th factor — traffic degradation — comes from MapMyIndia's Distance Matrix API, which gives us real travel-time ratios: 1.31x at City Market, 1.70x at Kamaraj Road. And we don't just trust our own score — our self-validating agent compares every zone against that live data and calibrates it. City Market's raw 85 drops to 72, because the road actually flows better than its violation count implies. The AI corrects itself against reality."*
 
-**Key number to land:** *"2.4x. Baseline 4 minutes, ETA 9.5 minutes. Real data."*
+**Key point to land:** *"Our agent re-checks all 15 top zones against live MapMyIndia data and recalibrates — that's validation, not hand-waving."*
 
 ---
 
@@ -75,6 +75,18 @@
 
 **Your scripted answer:**
 > *"The architecture is city-agnostic. Swap the violation CSV for any city's data, point the MapMyIndia API at new coordinates, and the Congestion Impact Score and game theory layer work identically. MapMyIndia covers 238 countries now. The only city-specific tuning is the junction weight matrix, which we can re-calibrate with one week of local data."*
+
+---
+
+## BONUS ATTACK — "Your self-validating agent only ever adjusts scores DOWN. Isn't that just systematic bias?"
+
+**What they're really saying:** "If it always corrects one direction, your prior is just wrong by a constant."
+
+**Your scripted answer:**
+> *"It adjusts down on these top zones because they're selected by violation volume — and high-violation roads in central Bengaluru genuinely flow better than their counts suggest. That's our whole thesis: violation density isn't congestion impact. The agent isn't a constant offset — the magnitude varies per zone, from 6% to 18%, and one zone validates with no change. A zone where live traffic was worse than the score would adjust UP; none happen to exist in this top-15 because we scored on counts. The agent is doing exactly its job: catching where counts mislead."*
+
+**If they push on rigor:**
+> *"It's a bounded, trust-weighted update — alpha 0.3 on the MapMyIndia signal, capped at ±30%. Deterministic, offline, no LLM. You can read every per-zone reason in the validation report."*
 
 ---
 
