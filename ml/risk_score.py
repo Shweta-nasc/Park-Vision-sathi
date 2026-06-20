@@ -31,7 +31,7 @@ import numpy as np
 import pandas as pd
 
 # ── Paths ────────────────────────────────────────────────────────────────
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = PROJECT_ROOT / "data" / "parkvision.db"
 JSON_OUT = PROJECT_ROOT / "data" / "risk_scores_by_hour.json"
 

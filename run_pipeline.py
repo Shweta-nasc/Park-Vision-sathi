@@ -81,7 +81,7 @@ def main():
                               evaluate, save_model, save_feature_importance,
                               save_predictions, write_model_card)
     df = load_features(DB_PATH)
-    X_train, X_test, y_train, y_test, id_test, feat_names = preprocess(df)
+    X_train, X_test, y_train, y_test, id_train, id_test, feat_names = preprocess(df)
     model = train_model(X_train, y_train)
     preds, metrics = evaluate(model, X_test, y_test, id_test)
     save_model(model)
