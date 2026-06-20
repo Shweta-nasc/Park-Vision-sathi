@@ -12,16 +12,23 @@ list of zones keyed by H3 id — the one source of truth shared by the map, the
 zone detail panel, the LLM explanations, the game-theory simulation, and the
 self-validating agent:
 
-  data/mock/hotspots.json            → ranked zones (congestion_impact, station, …)
+  data/mock/hotspots.json            → ranked zones (legacy score, station, …)
   data/enriched/traffic_context.json → REAL MapMyIndia travel-time + road + POIs
   data/processed/calibrated_scores.json → self-validating agent's calibrated scores
   data/processed/agent_log.json      → agent run summary + reasoning log
   data/processed/explanations_cache.json → cached Gemini zone explanations
+  data/processed/zone_congestion_impact.json → canonical Congestion Impact Score
+                                       (CIS) artifact, {h3_id: {time_bucket: …}}
 
 The frontend speaks `grid_cell_id` / `risk_score` and adapts those to
 `h3_id` / `congestion_impact` client-side (see frontend/src/api/adapters.ts).
-We therefore emit that wire vocabulary, with VALUES drawn from the real
-congestion data, so a single H3 zone universe flows end to end.
+
+`congestion_impact` (the QUANTIFY pillar's CIS) is served from the CIS artifact
+and is a value DISTINCT from the legacy enforcement `risk_score` — the two are no
+longer aliased (Decision 2; Requirements 10.1, 10.3). When the artifact is absent
+the congestion universe loads empty (and a warning is logged) rather than
+crashing, so the demo stays offline-safe and database-free (Requirements 11.3,
+14.3). Loading reads JSON only; nothing here touches a database or the network.
 
 Risk-component fields (density, road_importance, …) and game-theory fields
 (patrol_probability, violator_risk_score, …) are DERIVED here with transparent,
@@ -48,13 +55,26 @@ VIOLATOR_TIME_SAVED = 100.0   # value of time saved by parking illegally
 VIOLATOR_FINE = 500.0         # fine if caught
 
 
+def _display_path(path: Path) -> Path | str:
+    """Best-effort project-relative path for logging; absolute if outside the root.
+
+    ``Path.relative_to`` raises when ``path`` is not under ``PROJECT_ROOT`` (e.g.
+    a test fixture in a temp dir), so this guards it: the missing-artifact warning
+    must never itself raise (Requirement 14.3).
+    """
+    try:
+        return path.relative_to(PROJECT_ROOT)
+    except ValueError:
+        return path
+
+
 def _load(path: Path, default):
     """Load a JSON file, returning `default` if it is missing or invalid."""
     try:
         with open(path) as f:
             return json.load(f)
     except FileNotFoundError:
-        logger.warning("DataStore: %s not found — using fallback.", path.relative_to(PROJECT_ROOT))
+        logger.warning("DataStore: %s not found — using fallback.", _display_path(path))
         return default
     except (json.JSONDecodeError, OSError) as e:
         logger.error("DataStore: failed to read %s (%s).", path, e)
@@ -116,10 +136,19 @@ def _heavy_vehicle_ratio(top_violation: str) -> float:
 class DataStore:
     """Loads all JSON once and serves the API a single canonical zone universe."""
 
-    def __init__(self) -> None:
+    def __init__(self, data_dir: Path = DATA) -> None:
+        # Root of the pre-computed JSON artifacts. Defaults to the repo's `data/`
+        # dir; overridable (e.g. a test fixture dir) so the loader can be pointed
+        # at an alternate artifact set without touching the committed files.
+        self.data_dir = Path(data_dir)
         self.loaded = False
         self.zones: list[dict] = []
         self.zones_by_id: dict[str, dict] = {}
+        # Canonical Congestion Impact Score (CIS) artifact, loaded once at startup
+        # and keyed {h3_id: {time_bucket: breakdown}}. Empty when the artifact is
+        # absent (graceful empty zone universe — Requirement 14.3). The rich
+        # serving accessors over this structure are added in task 6.2.
+        self.congestion: dict[str, dict[str, dict]] = {}
         self.traffic_raw: dict = {}
         self.explanations: dict = {}
         self.calibrated: dict = {}
@@ -128,11 +157,19 @@ class DataStore:
 
     # ── load ────────────────────────────────────────────────────────────
     def load(self) -> "DataStore":
-        hotspots = _load(DATA / "mock" / "hotspots.json", [])
-        traffic = _load(DATA / "enriched" / "traffic_context.json", {})
-        calibrated = _load(DATA / "processed" / "calibrated_scores.json", {})
-        agent_log = _load(DATA / "processed" / "agent_log.json", {})
-        explanations = _load(DATA / "processed" / "explanations_cache.json", {})
+        hotspots = _load(self.data_dir / "mock" / "hotspots.json", [])
+        traffic = _load(self.data_dir / "enriched" / "traffic_context.json", {})
+        calibrated = _load(self.data_dir / "processed" / "calibrated_scores.json", {})
+        agent_log = _load(self.data_dir / "processed" / "agent_log.json", {})
+        explanations = _load(self.data_dir / "processed" / "explanations_cache.json", {})
+
+        # Canonical CIS artifact (the QUANTIFY pillar's single source of truth),
+        # read as JSON only — no database, no network (Requirements 7.3, 7.4, 11.3).
+        # A missing file is non-fatal: `_load` logs a warning and returns {}, so the
+        # backend starts with an empty congestion universe rather than crashing
+        # (Requirement 14.3). The artifact is keyed {h3_id: {time_bucket: breakdown}}.
+        congestion = _load(self.data_dir / "processed" / "zone_congestion_impact.json", {})
+        self.congestion = congestion if isinstance(congestion, dict) else {}
 
         self.traffic_raw = traffic
         self.calibrated = calibrated
@@ -143,6 +180,7 @@ class DataStore:
             "traffic_context_enriched": len(traffic),
             "calibrated_scores": len(calibrated),
             "explanations_cache": len(explanations),
+            "congestion_artifact_zones": len(self.congestion),
         }
 
         max_viol = max((h.get("violation_count", 0) for h in hotspots), default=1) or 1
@@ -152,6 +190,12 @@ class DataStore:
             tc = traffic.get(zid, {})
             cal = calibrated.get(zid, {})
             score = float(h.get("congestion_impact", 0.0))
+            # Congestion Impact Score served from the canonical artifact (NOT
+            # aliased to risk_score). `all_day` is the zone's default rollup; None
+            # when the artifact has no entry for this zone — e.g. the artifact is
+            # absent at startup, giving an empty congestion universe (Req 14.3).
+            cis = self.congestion.get(zid, {}).get("all_day")
+            congestion_impact = cis.get("congestion_impact") if isinstance(cis, dict) else None
             ratio = tc.get("travel_time_ratio")
             road = tc.get("road_name") or tc.get("street") or h.get("station", zid)
             viol = int(h.get("violation_count", 0))
@@ -163,9 +207,15 @@ class DataStore:
                 "grid_lat": h.get("lat"),
                 "grid_lon": h.get("lon"),
                 "hour": 9,
-                # score (raw congestion impact) + agent-calibrated
+                # `risk_score` keeps its legacy enforcement-priority role — it
+                # drives game-theory patrol allocation, simulation, and forecasts.
+                # It is NO LONGER aliased to the congestion impact (Decision 2;
+                # Requirements 10.1, 10.3).
                 "risk_score": round(score, 1),
-                "congestion_impact": round(score, 1),
+                # Congestion Impact Score (the QUANTIFY pillar) served straight from
+                # the canonical CIS artifact — a distinct value and source from
+                # `risk_score`; None when the artifact is absent (empty universe).
+                "congestion_impact": congestion_impact,
                 "calibrated_score": cal.get("calibrated_score", round(score, 1)),
                 "risk_label": _risk_label(score),
                 "impact_band": h.get("impact_band", _band(score)),
@@ -246,6 +296,216 @@ class DataStore:
                         "h3_id": z["grid_cell_id"], "intensity": round(float(intensity), 3)})
         pts.sort(key=lambda p: p["intensity"], reverse=True)
         return pts
+
+    # ── congestion impact score (CIS) serving ───────────────────────────
+    #
+    # These accessors read ONLY from the canonical CIS artifact (``self.congestion``,
+    # keyed {h3_id: {time_bucket: breakdown}}). They never touch the legacy
+    # enforcement ``risk_score`` — the Congestion Risk layer is served from a real
+    # ``congestion_impact`` distinct from ``risk_score`` (Decision 2; Req 10.1,
+    # 10.2, 10.3). Everything is in-memory and deterministic: a missing artifact
+    # makes ``self.congestion`` empty, so every accessor degrades to ``None`` /
+    # ``[]`` rather than raising (Req 7.3, 7.4, 14.3).
+
+    def _bucket_entry(self, buckets: Optional[dict], time_bucket: str) -> Optional[dict]:
+        """Pick one zone's breakdown for ``time_bucket`` with an ``all_day`` fallback.
+
+        ``buckets`` is a single zone's ``{time_bucket: breakdown}`` map. The
+        requested bucket is returned when present; otherwise the ``all_day`` rollup
+        is used (Req 12.3). As a final guard, if neither exists (a hand-built or
+        partial artifact with no ``all_day``), the lexicographically-first available
+        bucket is returned so a zone that genuinely has data is never reported empty
+        (Req 12.5). Returns ``None`` only when the zone carries no usable entry.
+        """
+        if not isinstance(buckets, dict) or not buckets:
+            return None
+        entry = buckets.get(time_bucket)
+        if not isinstance(entry, dict):
+            entry = buckets.get("all_day")
+        if not isinstance(entry, dict):
+            for key in sorted(buckets):
+                candidate = buckets[key]
+                if isinstance(candidate, dict):
+                    return candidate
+            return None
+        return entry
+
+    def _entries_for_bucket(self, time_bucket: str):
+        """Yield ``(h3_id, breakdown)`` for every zone at ``time_bucket``.
+
+        Iterates zones in sorted ``h3_id`` order (a stable base ordering that each
+        accessor then re-sorts for its own purpose) and applies the per-zone
+        ``all_day`` fallback via :meth:`_bucket_entry` (Req 12.3). Zones with no
+        usable entry are skipped, so an empty artifact yields nothing.
+        """
+        for h3_id in sorted(self.congestion):
+            entry = self._bucket_entry(self.congestion.get(h3_id), time_bucket)
+            if entry is not None:
+                yield h3_id, entry
+
+    def _calibrated_impact_for(self, zone_id: str) -> Optional[float]:
+        """The self-validating agent's calibrated CIS for ``zone_id``, or ``None``.
+
+        Reads the agent's calibration output (``data/processed/calibrated_scores.json``,
+        loaded once into ``self.calibrated`` keyed by ``zone_id``). Each record carries
+        the agent's bounded, trust-weighted ``calibrated_score`` (always within
+        [0, 100]); this returns it as a float WHERE a calibration record exists for
+        the zone and its value is numeric, and ``None`` otherwise — so a zone with no
+        calibration keeps ``calibrated_impact`` unset (Requirement 6.6). Reads only
+        in-memory state; no network, LLM, or database (Req 7.4).
+        """
+        record = self.calibrated.get(zone_id)
+        if not isinstance(record, dict):
+            return None
+        value = record.get("calibrated_score")
+        # Reject bools (a bool is an int subclass) and non-numerics.
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        return float(value)
+
+    def congestion_breakdown(self, zone_id: str, time_bucket: str = "all_day") -> Optional[dict]:
+        """Full Congestion Impact breakdown for one zone + time bucket.
+
+        Returns the stored breakdown dict (the contract shape produced by
+        ``ml.congestion.impact_score.score_zone`` and serialized into the artifact)
+        for ``zone_id`` at ``time_bucket``, falling back to that zone's ``all_day``
+        rollup when the requested bucket is unknown/missing (Req 12.3). Returns
+        ``None`` for an unknown ``zone_id`` so the router can turn it into a
+        structured 404 (Req 14.4). Reads only from the artifact (Req 8.6, 10.2).
+
+        The artifact carries ``calibrated_impact = None`` by default; WHERE the
+        self-validating agent produced a calibration for this zone, that value is
+        merged in here at serve time so ``/risk/{zone_id}`` exposes it (Req 6.6).
+        The merge is done on a shallow copy so the in-memory artifact entry is never
+        mutated; when no calibration exists the field stays ``None``.
+        """
+        self.ensure()
+        entry = self._bucket_entry(self.congestion.get(zone_id), time_bucket)
+        if entry is None:
+            return None
+        calibrated_impact = self._calibrated_impact_for(zone_id)
+        if calibrated_impact is None:
+            return entry
+        merged = dict(entry)
+        merged["calibrated_impact"] = calibrated_impact
+        return merged
+
+
+    def congestion_points(self, time_bucket: str = "all_day") -> list[dict]:
+        """Congestion Risk heatmap layer — one point per zone, intensity = CIS.
+
+        Each point carries ``lat``/``lon``/``h3_id``/``impact_band`` and an
+        ``intensity`` equal to the zone's ``congestion_impact`` (Req 8.3, 10.2) —
+        NOT the enforcement ``risk_score`` and NOT the raw violation count. Points
+        are sorted by descending intensity (``h3_id`` tie-break) for deterministic
+        output. An empty artifact yields ``[]`` (Req 14.3).
+        """
+        self.ensure()
+        pts = [
+            {
+                "lat": e.get("lat"),
+                "lon": e.get("lon"),
+                "h3_id": h3_id,
+                "intensity": round(float(e.get("congestion_impact") or 0.0), 3),
+                "impact_band": e.get("impact_band"),
+            }
+            for h3_id, e in self._entries_for_bucket(time_bucket)
+        ]
+        pts.sort(key=lambda p: (-p["intensity"], p["h3_id"]))
+        return pts
+
+    def violation_density_points(self, time_bucket: str = "all_day") -> list[dict]:
+        """Raw Violation Density heatmap layer — one point per zone, intensity = count.
+
+        Identical point shape to :meth:`congestion_points`, but ``intensity`` is the
+        zone's ``total_records`` (the raw violation count), NOT the CIS (Req 8.4).
+        Serving the count here — rather than the score — is what makes the
+        two-layer toggle genuinely different: a high-volume, low-impact zone ranks
+        high on this layer yet low on the Congestion Risk layer. Sorted by
+        descending intensity (``h3_id`` tie-break); empty artifact yields ``[]``.
+        """
+        self.ensure()
+        pts = [
+            {
+                "lat": e.get("lat"),
+                "lon": e.get("lon"),
+                "h3_id": h3_id,
+                "intensity": float(e.get("total_records") or 0),
+                "impact_band": e.get("impact_band"),
+            }
+            for h3_id, e in self._entries_for_bucket(time_bucket)
+        ]
+        pts.sort(key=lambda p: (-p["intensity"], p["h3_id"]))
+        return pts
+
+    def congestion_hotspots(self, time_bucket: str = "all_day",
+                            limit: Optional[int] = None) -> list[dict]:
+        """Zones ranked in DESCENDING congestion impact (Req 8.5).
+
+        Returns one dict per zone carrying every field the ``HotspotItem`` contract
+        needs — ``rank`` (1-based, assigned after ranking), ``zone_id``, ``h3_id``,
+        ``lat``, ``lon``, ``congestion_impact``, ``impact_band``,
+        ``violation_count`` (the zone's ``total_records``), ``station``,
+        ``top_violation`` (the most frequent of ``top_violations``), and
+        ``estimated_lane_hours_blocked``. Ranking is by descending CIS with an
+        ``h3_id`` tie-break for determinism; ``limit`` optionally truncates the list
+        (ranks still start at 1). Empty artifact yields ``[]``.
+        """
+        self.ensure()
+        items = []
+        for h3_id, e in self._entries_for_bucket(time_bucket):
+            top = e.get("top_violations") or []
+            items.append({
+                "zone_id": e.get("zone_id", h3_id),
+                "h3_id": h3_id,
+                "lat": e.get("lat"),
+                "lon": e.get("lon"),
+                "congestion_impact": float(e.get("congestion_impact") or 0.0),
+                "impact_band": e.get("impact_band"),
+                "violation_count": int(e.get("total_records") or 0),
+                "station": e.get("station"),
+                "top_violation": top[0] if top else None,
+                "estimated_lane_hours_blocked": float(e.get("estimated_lane_hours_blocked") or 0.0),
+            })
+        items.sort(key=lambda d: (-d["congestion_impact"], d["h3_id"]))
+        if limit is not None and limit >= 0:
+            items = items[:limit]
+        for rank, item in enumerate(items, start=1):
+            item["rank"] = rank
+        return items
+
+    def congestion_patrol_probabilities(self, time_bucket: str = "all_day") -> list[dict]:
+        """Stackelberg patrol probability per zone, proportional to CIS^1.5 (Req 8.7).
+
+        For each zone the unnormalized weight is ``max(congestion_impact, 0) **
+        PATROL_ALPHA`` (``PATROL_ALPHA == 1.5``); probabilities are those weights
+        normalized across zones so they sum to 1.0. The all-zero / empty case is
+        guarded: when every CIS is 0 (or there are no zones) the weight sum is 0,
+        so each ``patrol_probability`` is set to 0.0 with no division by zero (and
+        an empty artifact simply yields ``[]``). Probabilities are left unrounded so
+        the normalized sum stays exact. Sorted by descending probability (``h3_id``
+        tie-break); since probability is monotonic in CIS this is also descending
+        CIS order.
+        """
+        self.ensure()
+        rows: list[dict] = []
+        weights: list[float] = []
+        for h3_id, e in self._entries_for_bucket(time_bucket):
+            cis = float(e.get("congestion_impact") or 0.0)
+            rows.append({
+                "zone_id": e.get("zone_id", h3_id),
+                "h3_id": h3_id,
+                "lat": e.get("lat"),
+                "lon": e.get("lon"),
+                "congestion_impact": cis,
+            })
+            weights.append(max(cis, 0.0) ** PATROL_ALPHA)
+
+        wsum = sum(weights)
+        for row, weight in zip(rows, weights):
+            row["patrol_probability"] = (weight / wsum) if wsum > 0 else 0.0
+        rows.sort(key=lambda r: (-r["patrol_probability"], r["h3_id"]))
+        return rows
 
     def stations(self) -> list[dict]:
         """Aggregate zones by police station."""
