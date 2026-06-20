@@ -41,3 +41,4 @@ models/*.joblib
 
 node_modules/
 dataset/
+.kiro
