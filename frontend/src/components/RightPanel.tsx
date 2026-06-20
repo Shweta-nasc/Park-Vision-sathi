@@ -4,6 +4,7 @@ import { ZoneDetail } from './panels/ZoneDetail';
 import { SimulationPanel } from './panels/SimulationPanel';
 import { ForecastPanel } from './panels/ForecastPanel';
 import { GameTheoryPanel } from './panels/GameTheoryPanel';
+import { AgentPanel } from './panels/AgentPanel';
 import { ChatPanel } from './panels/ChatPanel';
 
 interface RightPanelProps {
@@ -15,6 +16,7 @@ const TABS: { id: PanelTab; label: string }[] = [
   { id: 'sim', label: 'Simulate' },
   { id: 'forecast', label: 'Forecast' },
   { id: 'game', label: 'Game' },
+  { id: 'agent', label: 'Agent' },
   { id: 'chat', label: 'Assistant' },
 ];
 
@@ -45,6 +47,7 @@ export function RightPanel({ onClose }: RightPanelProps) {
           {panel === 'sim' && <SimulationPanel />}
           {panel === 'forecast' && <ForecastPanel />}
           {panel === 'game' && <GameTheoryPanel />}
+          {panel === 'agent' && <AgentPanel />}
           {panel === 'chat' && <ChatPanel />}
         </ErrorBoundary>
       </div>

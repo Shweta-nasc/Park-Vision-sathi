@@ -159,3 +159,21 @@ export interface SpilloverArrow {
   hour: number;
   magnitude: number;
 }
+
+export interface AgentCalibrationEntry {
+  zone_id: string;
+  reasoning: string;
+}
+
+export interface AgentCalibration {
+  available: boolean;
+  detail?: string;
+  summary: {
+    total_zones: number;
+    validated: number;
+    accurate: number;
+    adjusted_up: number;
+    adjusted_down: number;
+  } | null;
+  log: AgentCalibrationEntry[];
+}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useAppState } from '@/state/AppState';
 import { MapOverlayProvider } from '@/state/MapOverlay';
 import { useStations } from '@/hooks/queries';
@@ -9,9 +9,8 @@ import { RightPanel } from './components/RightPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
-  const { station, setStation } = useAppState();
+  const { station, setStation, panelOpen, setPanelOpen } = useAppState();
   const { data: stations, isLoading, isError } = useStations();
-  const [panelOpen, setPanelOpen] = useState(false);
 
   /* Auto-select the first station as soon as the list arrives */
   useEffect(() => {
