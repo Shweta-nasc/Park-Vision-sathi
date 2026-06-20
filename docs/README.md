@@ -191,8 +191,8 @@ score = (
 | MODERATE | 26–50 | Routine coverage |
 | MINIMAL | 0–25 | Monitor only |
 
-**External validation:** MapMyIndia Distance Matrix API provides real travel time ratios.
-City Market Circle: 2.40x slower than baseline → CRITICAL score confirmed.
+**External validation:** MapMyIndia Distance Matrix API provides real travel-time ratios.
+City Market Circle measures **1.31x** — and the self-validating agent calibrates its raw 85.3 score down to 72.1 accordingly. Violation density is not congestion impact, and the agent proves it against live data.
 
 ---
 

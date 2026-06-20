@@ -17,7 +17,7 @@
 - Left map: where violations are recorded
 - Right map: where violations CHOKE traffic
 - **These are NOT the same map. That difference is the problem.**
-- City Market Circle: 20 violations → blocks 9.5 min of traffic. A quiet road: 80 violations → barely disrupts flow.
+- A high-violation zone can still flow at ~1.1x real travel time, while a busier-looking corridor chokes at 1.7x. Violation density and congestion impact are not the same map.
 
 **Speaking beat (7 seconds):**
 > *"2,000 parking violations. Every single day. In Bengaluru alone. But right now, traffic police have no system to see THIS—"*
@@ -35,7 +35,7 @@
 **Key numbers (all real, from dataset + Mappls API):**
 - **298,450** violation records, Bengaluru, Nov 2023–Apr 2024
 - **34.2 lane-hours** blocked daily by the top single zone (Upparpet/Subedar Chatram Road)
-- **2.40x** travel time degradation at City Market Circle — validated by MapMyIndia real-time data
+- **1.31x** real travel-time ratio at City Market Circle (MapMyIndia live data) — its #2 violation rank overstates its actual flow impact, and our self-validating agent corrects for it
 - **54 police stations**, limited patrol teams, zero data-driven deployment
 
 **Visual:** Simple stat cards in dark theme — no busy chart
@@ -74,10 +74,10 @@
 1. Click on City Market Circle zone (rank #2 on map)
 2. Right panel shows: Impact Score 85.3/100 CRITICAL, road name, 31.5 lane-hours blocked
 3. Click "Explain" → Gemini LLM generates natural language explanation
-4. Show MapMyIndia validation: 2.40x travel time (Baseline 4.0min → ETA 9.5min)
+4. Show MapMyIndia validation: 1.31x real travel-time ratio — and the self-validating agent calibrating City Market from 85.3 down to 72.1
 
 **Key LLM output to highlight (pre-cached for reliability):**
-> *"BGS Flyover at City Market Circle scores 85.3/100 — CRITICAL. Three bus stops within 60 metres make this an acute bus bay obstruction zone. MapMyIndia confirms 2.4x travel time degradation, independently validating our model prediction. Enforce NO PARKING between 08:30–12:00 IST."*
+> *"BGS Flyover at City Market Circle scores 85.3/100 — CRITICAL on violation impact. Three bus stops within 60 metres make this an acute bus-bay obstruction zone. But MapMyIndia shows a 1.31x travel-time ratio, so our self-validating agent calibrates the score down to 72 — violation density isn't the same as congestion impact. Enforce NO PARKING between 08:30–12:00 IST."*
 
 **Speaking beat:**
 > *"And if a field officer wants to understand WHY — one click. Gemini explains the zone in plain language, grounded in verified facts."*
@@ -108,13 +108,13 @@
 
 ## SLIDE 6 — OPTIMIZE: STACKELBERG GAME THEORY + SIMULATION
 
-**Title:** "Deploy 5 Teams. Cover 62% of Congestion Impact. Watch Violations Move."
+**Title:** "Deploy 5 Teams. Cover 43% of Top-Zone Congestion Impact. Watch Violations Move."
 
 **Demo action sequence:**
 1. Open Simulation panel
 2. Drag team slider: 3 → 5 → 8 teams
 3. Map shows: green (covered), red (uncovered), yellow (spillover — where violations migrate)
-4. Coverage % updates live: 62% with 5 teams
+4. Coverage % updates live: 43% of the top-15 congestion impact with 5 teams
 
 **Key concepts (one bullet each — no theory jargon):**
 - **Stackelberg Game:** Police are the "leader" — allocate proportional to risk. Violators are "followers" — they adapt.
@@ -124,7 +124,7 @@
 **Speaking beat:**
 > *"Violators are rational. You enforce here — they move there. Our game theory model predicts exactly where."*
 > *[drag slider from 5 to 3]*
-> *"With 3 teams? Coverage drops to 43%. These red zones are exposed. That's the resource case for more teams."*
+> *"With 3 teams? Coverage drops to 27%. These red zones are exposed. That's the resource case for more teams."*
 
 **Why this slide wins:** Live simulation is the WOW moment. Tangible, interactive, memorable.
 
@@ -165,7 +165,7 @@ Data: 298,450 records | H3 grid resolution 9 | MapMyIndia enrichment
 |---|---|---|
 | QUANTIFY | 6-factor Congestion Impact Score | 34.2 lane-hours/day blocked at top zone |
 | PREDICT | LightGBM + CatBoost ensemble | `___% Precision@10` (fill from P2) |
-| OPTIMIZE | Stackelberg game theory + spillover | 62% critical congestion covered with 5 teams |
+| OPTIMIZE | Stackelberg game theory + spillover | 43% of top-zone congestion impact covered with 5 teams |
 
 **Closing line (memorise this):**
 > *"Traffic police don't need another map with dots. They need to know: which violations choke traffic, where violations will be tomorrow, and where to send their five teams. ParkVision-Saathi answers all three."*
@@ -195,7 +195,7 @@ Data: 298,450 records | H3 grid resolution 9 | MapMyIndia enrichment
 ## DEMO RELIABILITY PROTOCOL
 
 **Before presenting:**
-1. Start backend: `uvicorn app.main:app --reload` (port 8000)
+1. Start backend (from project root): `uvicorn backend.app.main:app --reload --port 8000`
 2. Start frontend: `npm run dev` (port 5173)
 3. Pre-load: open browser to morning_peak heatmap, City Market Circle selected
 4. Verify: `/api/explain` returns cached response (not live Gemini call)
@@ -206,3 +206,52 @@ Data: 298,450 records | H3 grid resolution 9 | MapMyIndia enrichment
 - Screenshots pre-loaded as backup slides (Person 3 takes these Day 3 morning)
 - Narrate from screenshots: "Here's what the app shows..."
 - Never apologise. Say: "Let me walk you through what this produces."
+---
+
+## BACKUP SLIDE A — ACADEMIC FOUNDATIONS (show only if a judge asks "where's the science?")
+
+**Title:** "Built on Peer-Reviewed Foundations, Not Buzzwords"
+
+> **When to pull this up:** A judge questions whether the game theory / prediction is "real" or asks for sources. Stay on the main deck otherwise — this is an on-demand credibility card.
+
+**Our three pillars map to established, deployed research:**
+
+| Our component | Academic foundation | Why it's credible |
+|---|---|---|
+| Stackelberg patrol allocation (police = leader, violators = followers) | **Tambe (2011), _Security and Game Theory_, Cambridge Univ. Press** — the framework behind **ARMOR** (LAX airport, 2007), **IRIS** (US Federal Air Marshals, 2009), and **PROTECT** (US Coast Guard) | Same model class is in real daily government security use, not theoretical |
+| Applying security games to **traffic** enforcement | **STREETS — Brown, Saisubramanian, Varakantham & Tambe (2014), AAAI 28(2), 2966–2971** | First published use of Stackelberg games for *traffic* patrolling (developed for Singapore) — direct precedent for our domain |
+| Optimal placement of enforcement resources | **STOP (Speed Trap Optimal Patrolling) — Trejo, Clempner & Poznyak (2017), _Wireless Personal Communications_, Springer** | Derives Stackelberg equilibrium for where to place enforcement — analogous to our patrol placement |
+| Spatial distribution of inspectors / enforcement | **Borndörfer et al. (2012), _A Stackelberg Game to Optimize the Distribution of Controls in Transportation Networks_, Springer** | Game-theoretic spread of inspectors to enforce payment — analogous to spreading patrols |
+| Forecasting where to deploy from historical incidents | **Predictive policing (PredPol, est. 2012 → rebranded Geolitica, 2021)** | Precedent for incident-history hotspot forecasting — *and* its documented failure modes (feedback loops, displacement) are exactly why we add a Congestion Impact Score + self-validation instead of chasing raw counts |
+
+**One-line spoken answer (memorise):**
+> *"Our patrol model is a simplified Stackelberg security game — the same framework deployed at LAX and by the US Coast Guard. Tambe's group extended it to traffic patrolling in STREETS at AAAI 2014. We're standing on peer-reviewed, deployed work — just specialised to Bengaluru parking."*
+
+**Sources (inline links for the slide footer):**
+- Tambe, M. (2011). Security and Game Theory. Cambridge University Press. ARMOR/IRIS/PROTECT deployments: [USC Viterbi](https://viterbi.usc.edu/news/news/2010/milind-tambe-student.htm), [PROTECT (AAAI)](https://aaai.org/ojs/index.php/aimagazine/article/view/2401)
+- Brown et al. (2014), STREETS: [AAAI / OJS](https://ojs.aaai.org/index.php/AAAI/article/view/19028)
+- Trejo, Clempner & Poznyak (2017), STOP: [Springer](https://link.springer.com/article/10.1007/s11277-017-5029-y)
+- Borndörfer et al. (2012): [Springer](https://link.springer.com/chapter/10.1007/978-3-642-35582-0_17)
+- PredPol → Geolitica background: [The Markup investigation](https://themarkup.org/prediction-bias/2023/10/02/predictive-policing-software-terrible-at-predicting-crimes)
+
+> **Source-accuracy note for the team:** The master plan named "Lei et al. (2017), Transportation Research Part B" as the parking-enforcement reference. I could **not** verify that citation exists, so I replaced it with **STREETS (Brown et al., AAAI 2014)** — a verified, more on-point paper from the same research group (Tambe's). Do **not** cite "Lei et al." to a judge unless someone confirms the exact paper; an unverifiable citation is worse than none. Citations above were checked against their publisher/AAAI pages. *Content was rephrased for compliance with licensing restrictions.*
+
+---
+
+## BACKUP SLIDE B — SELF-VALIDATING AGENT (wow-moment #4, on-demand)
+
+**Title:** "Our AI Validates Itself Against Live Traffic Data"
+
+> **Status:** Agent is built (`ml/agent/validation_agent.py`) and produces `data/processed/calibrated_scores.json` + `agent_log.json`. Needs Person 1 to expose it (e.g. `/agent/validation-report`) and Person 3 to add a small panel before this is demo-live. See the data-consistency note below before scripting numbers.
+
+**What it does (one bullet each):**
+- After scoring zones, the agent queries the **real MapMyIndia travel-time ratio** for each top zone
+- It compares the slowdown our score *implies* against what Mappls *actually measures*
+- It calibrates each score up/down (bounded, trust-weight α=0.3) and logs a plain-English reason
+- Fully deterministic and offline — no LLM, no quota, survives a dead internet connection
+
+**Real output (15 top zones, on current enriched data):**
+- 15/15 validated against Mappls, mean adjustment 12.3%, max 18.4%
+- Example: *"Subedar Chatram Road — adjusted 89→72: Mappls shows only 1.08x travel time vs the 2.77x our score implied. The road absorbs the parking load better than violation counts suggest."*
+
+**Why it wins:** It directly proves memory-anchor #1 — *violation density ≠ congestion impact* — using live third-party data to correct our own model on stage.

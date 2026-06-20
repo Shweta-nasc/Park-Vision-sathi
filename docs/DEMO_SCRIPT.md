@@ -44,7 +44,7 @@
 
 **[point to travel time ratio]**
 
-> *"—real-time data. Baseline travel time: 4 minutes. With current traffic: 9.5 minutes. That's 2.4 times slower. Not our model. MapMyIndia's live data independently confirming our score."*
+> *"—real-time data. MapMyIndia shows a 1.31x travel-time ratio here. And here's the honest part: our self-validating agent reads that 1.31x and calibrates this zone from 85 down to 72. Our AI checks itself against live traffic — it doesn't just trust violation counts."*
 > *"And the number that matters for operations: 31.5 lane-hours blocked every single day. One lane, completely blocked, for more than a working day."*
 
 ---
@@ -86,11 +86,11 @@
 
 **[slowly drag slider from 5 down to 3]**
 
-> *"Watch what happens with 3 teams. Coverage drops from 62% to 43%. These zones go red. That's the data-driven case for resource allocation."*
+> *"Watch what happens with 3 teams. Coverage drops from 43% to 27% of the top-zone congestion impact. These zones go red. That's the data-driven case for resource allocation."*
 
 **[drag back to 8]**
 
-> *"With 8 teams? 78% coverage. The model shows you exactly what each additional team buys."*
+> *"With 8 teams? 64% coverage. The model shows you exactly what each additional team buys."*
 > *"And here's what most systems miss — the waterbed effect."*
 
 **[point to yellow spillover zones]**
@@ -135,7 +135,7 @@
 
 ## DEMO SETUP CHECKLIST (Day 3, 30 min before)
 
-- [ ] Backend running: `cd backend && uvicorn app.main:app --reload`
+- [ ] Backend running (from project root): `uvicorn backend.app.main:app --reload --port 8000`
 - [ ] Frontend running: `npm run dev` → opens http://localhost:5173
 - [ ] Verify heatmap loads with morning_peak data
 - [ ] Verify layer toggle switches between violation density and congestion risk
