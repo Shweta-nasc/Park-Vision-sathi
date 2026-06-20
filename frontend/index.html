@@ -1,181 +1,1205 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ParkVisionSaathi — Intelligent Traffic Patrol Dashboard</title>
-    <meta name="description" content="AI-powered traffic violation analytics, game-theory patrol optimization, and real-time risk heatmaps for Bengaluru">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ParkVision-Saathi AI — Tactical Gold Dashboard</title>
 
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- Leaflet Heat -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Leaflet core -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <!-- Leaflet.heat plugin for heatmap blobs -->
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
-    <link rel="stylesheet" href="styles.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --font: system-ui, -apple-system, sans-serif;
+      --gold-primary: #AA7C11;    /* Deep gold for readable primary highlights */
+      --gold-dark: #785808;       /* Deeper gold for text contrast */
+      --gold-light: #82620A;      /* Dark gold for box contents in light mode */
+      --gold-bg: #F7F6F2;         /* Off-white background */
+      --panel-bg: #FFFFFF;        /* Pure white for panels and cards */
+      --border-color: #E2DFD7;    /* Soft gold-gray border */
+      --text-main: #2C2A27;       /* Dark charcoal for high contrast body text */
+      --text-muted: #7E7A72;      /* Medium gray-brown for muted details */
+    }
+    body { font-family: var(--font); background: var(--gold-bg); color: var(--text-main); font-size: 14px; line-height: 1.5; }
+
+    /* ── Tab Bar ── */
+    .tab-bar { display: flex; align-items: center; gap: 0; background: var(--panel-bg); border-bottom: 1px solid var(--border-color); padding: 0 20px; height: 48px; position: sticky; top: 0; z-index: 100; }
+    .tab-bar-brand { display: flex; align-items: center; gap: 8px; margin-right: 24px; }
+    .brand-dot { width: 28px; height: 28px; border-radius: 8px; background: var(--gold-primary); display: flex; align-items: center; justify-content: center; }
+    .brand-dot svg { width: 16px; height: 16px; fill: var(--panel-bg); }
+    .brand-name { font-size: 14px; font-weight: 600; color: var(--text-main); letter-spacing: -0.3px; }
+    .brand-sub { font-size: 11px; color: var(--gold-primary); letter-spacing: 0.5px; text-transform: uppercase; }
+    .tab-btn { height: 48px; padding: 0 16px; border: none; background: transparent; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-muted); border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; white-space: nowrap; }
+    .tab-btn.active { color: var(--gold-primary); border-bottom-color: var(--gold-primary); }
+    .tab-btn:hover:not(.active) { color: var(--text-main); }
+    .tab-spacer { flex: 1; }
+
+    /* ── Chips ── */
+    .chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 1px solid; }
+    .chip-gold { background: rgba(170,124,17,0.08); color: var(--gold-primary); border-color: rgba(170,124,17,0.25); }
+    .chip-green { background: rgba(34,197,94,0.08); color: #15803D; border-color: rgba(34,197,94,0.25); }
+    .chip-red { background: rgba(239,68,68,0.08); color: #B91C1C; border-color: rgba(239,68,68,0.25); }
+    .chip-amber { background: rgba(245,158,11,0.08); color: #B45309; border-color: rgba(245,158,11,0.25); }
+    .chip-blue { background: rgba(59,130,246,0.08); color: #1D4ED8; border-color: rgba(59,130,246,0.25); }
+    .chip-dot { width: 7px; height: 7px; border-radius: 50%; }
+    .chip-dot-gold { background: var(--gold-primary); }
+    .chip-dot-green { background: #22C55E; }
+    .chip-dot-red { background: #EF4444; }
+    .chip-dot-amber { background: #F59E0B; }
+    .chip-dot-blue { background: #3B82F6; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .live-dot { animation: pulse 1.5s infinite; }
+
+    /* ── Views ── */
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* ── Police Shell: 2-Panel ── */
+    .police-shell { display: flex; flex-direction: column; height: calc(100vh - 48px); overflow: hidden; }
+    .police-topbar { background: var(--panel-bg); border-bottom: 1px solid var(--border-color); padding: 9px 16px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .topbar-title { font-size: 14px; font-weight: 600; color: var(--text-main); flex: 1; }
+    .police-body { display: grid; grid-template-columns: 320px 1fr; flex: 1; overflow: hidden; }
+    .police-left { background: var(--panel-bg); border-right: 1px solid var(--border-color); overflow-y: auto; padding: 14px; }
+
+    /* ── Map Column ── */
+    .map-col { display: flex; flex-direction: column; overflow: hidden; }
+    .map-area { position: relative; overflow: hidden; flex: 1; min-height: 0; }
+    #leaflet-map { position: absolute; inset: 0; width: 100%; height: 100%; }
+    #ctrl-leaflet-map { width: 100%; height: 100%; min-height: 280px; }
+
+    /* Leaflet popup gold theme */
+    .leaflet-popup-content-wrapper {
+      background: var(--panel-bg) !important;
+      border: 1px solid var(--border-color) !important;
+      border-radius: 8px !important;
+      color: var(--text-main) !important;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
+    }
+    .leaflet-popup-tip { background: var(--panel-bg) !important; }
+    .leaflet-popup-content { font-family: var(--font) !important; font-size: 12px !important; }
+    .leaflet-control-zoom a {
+      background: var(--panel-bg) !important;
+      color: var(--gold-primary) !important;
+      border-color: var(--border-color) !important;
+    }
+    .leaflet-control-zoom a:hover { background: var(--border-color) !important; }
+    .leaflet-control-attribution {
+      background: rgba(38,36,33,0.75) !important;
+      color: var(--text-muted) !important;
+      font-size: 9px !important;
+    }
+    .leaflet-control-attribution a { color: var(--gold-primary) !important; }
+
+    /* ── Layer Toggle ── */
+    .layer-toggle-container { position: absolute; top: 16px; left: 16px; background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 4px; display: flex; gap: 4px; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+    .layer-toggle-btn { padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; border: none; background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; gap: 6px; }
+    .layer-toggle-btn.active { background: var(--gold-primary); color: #FFF; }
+    .map-controls { position: absolute; right: 16px; top: 16px; display: flex; flex-direction: column; gap: 4px; z-index: 10; }
+    .map-btn { width: 32px; height: 32px; background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; color: var(--text-main); }
+    .map-btn:hover { background: var(--border-color); }
+
+    /* ── Map Legend ── */
+    .map-legend { position: absolute; right: 16px; bottom: 16px; background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; font-size: 11px; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+    .map-legend-title { font-weight: 600; margin-bottom: 6px; color: var(--gold-primary); text-transform: uppercase; letter-spacing: 0.5px; }
+    .legend-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; color: var(--text-muted); }
+    .legend-box { width: 14px; height: 10px; border-radius: 2px; }
+
+    /* ── Time Scrubber ── */
+    .time-scrubber { background: var(--panel-bg); border-top: 1px solid var(--border-color); padding: 14px 20px; flex-shrink: 0; }
+    .scrubber-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .scrubber-title { font-size: 12px; font-weight: 600; color: var(--gold-primary); text-transform: uppercase; letter-spacing: 0.5px; }
+    .scrubber-time-display { font-size: 18px; font-weight: 700; color: var(--gold-primary); font-family: monospace; }
+    .scrubber-buckets { display: flex; gap: 6px; }
+    .scrubber-bucket { padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border-color); color: var(--text-muted); background: #EAE7E0; transition: all 0.15s; }
+    .scrubber-bucket.active { background: rgba(170,124,17,0.1); color: var(--gold-primary); border-color: var(--gold-primary); font-weight: 600; }
+    .scrubber-track-wrap { position: relative; height: 24px; margin-top: 10px; display: flex; align-items: center; }
+    .scrubber-rail { position: relative; width: 100%; height: 6px; background: #E0DDD5; border-radius: 3px; cursor: pointer; }
+    .scrubber-fill { position: absolute; left: 0; top: 0; height: 100%; background: var(--gold-primary); border-radius: 3px; }
+    .scrubber-handle { position: absolute; top: 50%; transform: translate(-50%,-50%); width: 16px; height: 16px; background: var(--gold-primary); border-radius: 50%; border: 2px solid var(--panel-bg); cursor: grab; box-shadow: 0 2px 6px rgba(170,124,17,0.4); }
+    .scrubber-ticks { display: flex; justify-content: space-between; margin-top: 6px; }
+    .scrubber-tick { font-size: 10px; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; }
+    .scrubber-tick-mark { width: 1px; height: 5px; background: var(--border-color); margin-bottom: 2px; }
+
+    /* ── Panel Sections & Cards ── */
+    .panel-section { margin-bottom: 20px; }
+    .panel-section-title { font-size: 11px; font-weight: 600; color: var(--gold-primary); letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 10px; border-left: 2px solid var(--gold-primary); padding-left: 6px; }
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-card { background: rgba(0,0,0,0.02); border-radius: 8px; padding: 12px 10px; border: 1px solid var(--border-color); }
+    .stat-value { font-size: 18px; font-weight: 700; color: var(--text-main); }
+    .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .stat-delta { font-size: 10px; font-weight: 500; margin-top: 3px; }
+    .delta-up { color: #DC2626; }
+    .delta-dn { color: #15803D; }
+    .hotspot-list { display: flex; flex-direction: column; gap: 6px; }
+    .hotspot-item { display: flex; align-items: center; gap: 8px; background: #FFFFFF; border-radius: 8px; padding: 8px 10px; border: 1px solid var(--border-color); cursor: pointer; transition: border-color 0.15s, background-color 0.15s; }
+    .hotspot-item:hover { border-color: var(--gold-primary); background: rgba(170,124,17,0.02); }
+    .hotspot-item.selected { border-color: var(--gold-primary); background: rgba(170,124,17,0.05); }
+    .hotspot-rank { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+    .rank-1 { background: rgba(239,68,68,0.1); color: #B91C1C; }
+    .rank-2 { background: rgba(245,158,11,0.1); color: #B45309; }
+    .rank-3 { background: rgba(245,158,11,0.08); color: #B45309; }
+    .rank-n { background: rgba(0,0,0,0.04); color: var(--text-muted); }
+    .hotspot-info { flex: 1; min-width: 0; }
+    .hotspot-name { font-size: 12px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hotspot-sub { font-size: 11px; color: var(--text-muted); }
+    .metric-badge { padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; font-family: monospace; flex-shrink: 0; }
+    .badge-red { background: rgba(239,68,68,0.1); color: #B91C1C; }
+    .badge-amber { background: rgba(245,158,11,0.1); color: #B45309; }
+    .badge-gold { background: rgba(170,124,17,0.08); color: var(--gold-primary); }
+    .badge-green { background: rgba(34,197,94,0.1); color: #15803D; }
+    .explanation-box { background: rgba(170,124,17,0.04); border: 1px dashed rgba(170,124,17,0.3); border-radius: 6px; padding: 10px; font-size: 12px; color: var(--gold-dark); margin-top: 8px; line-height: 1.4; }
+
+    /* ── Patrol Simulator ── */
+    .team-slider-wrap { background: rgba(170,124,17,0.05); border-radius: 8px; padding: 12px; border: 1px solid rgba(170,124,17,0.2); }
+    .team-slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .team-slider-title { font-size: 12px; font-weight: 600; color: var(--gold-primary); }
+    .team-count-badge { font-size: 18px; font-weight: 700; color: var(--gold-primary); background: var(--panel-bg); border: 1px solid rgba(170,124,17,0.25); border-radius: 6px; padding: 1px 8px; min-width: 36px; text-align: center; }
+    .sim-bar { margin-top: 8px; }
+    .sim-bar-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+    .sim-track { height: 8px; background: rgba(170,124,17,0.12); border-radius: 4px; overflow: hidden; }
+    .sim-fill { height: 100%; background: var(--gold-primary); border-radius: 4px; transition: width 0.2s; }
+    .sim-info { font-size: 11px; color: var(--gold-primary); margin-top: 5px; text-align: center; font-weight: 500; }
+    input[type=range] { cursor: pointer; width: 100%; accent-color: var(--gold-primary); margin: 6px 0; }
+    .patrol-zone-list { display: flex; flex-direction: column; gap: 6px; }
+    .pz-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: #FFFFFF; border-radius: 7px; border: 1px solid var(--border-color); }
+    .pz-team { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; color: #FFF; background: var(--gold-primary); }
+    .pz-info { flex: 1; }
+    .pz-zone { font-size: 12px; font-weight: 600; color: var(--text-main); }
+    .pz-sub { font-size: 10px; color: var(--text-muted); }
+    .pz-prob { font-size: 12px; font-weight: 700; color: var(--gold-primary); font-family: monospace; }
+    .divider { height: 1px; background: var(--border-color); margin: 8px 0; }
+
+    /* ── Control Room ── */
+    .ctrl-layout { padding: 16px; display: flex; flex-direction: column; gap: 16px; min-height: calc(100vh - 48px); overflow-y: auto; }
+    .ctrl-topbar { display: flex; align-items: center; gap: 10px; }
+    .ctrl-title { font-size: 16px; font-weight: 700; color: var(--text-main); }
+    .ctrl-sub { font-size: 12px; color: var(--text-muted); }
+    .ctrl-spacer { flex: 1; }
+    .live-badge { display: flex; align-items: center; gap: 6px; background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2); border-radius: 20px; padding: 4px 10px; font-size: 12px; font-weight: 600; color: #15803D; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+    .kpi-card { background: var(--panel-bg); border-radius: 8px; border: 1px solid var(--border-color); padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .kpi-icon-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .kpi-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+    .kpi-icon svg { width: 18px; height: 18px; }
+    .kpi-icon-gold { background: rgba(170,124,17,0.1); color: var(--gold-primary); }
+    .kpi-icon-red { background: rgba(239,68,68,0.08); color: #B91C1C; }
+    .kpi-icon-green { background: rgba(34,197,94,0.08); color: #15803D; }
+    .kpi-icon-blue { background: rgba(59,130,246,0.08); color: #1D4ED8; }
+    .kpi-trend { font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
+    .trend-up { background: rgba(239,68,68,0.08); color: #B91C1C; }
+    .trend-dn { background: rgba(34,197,94,0.08); color: #15803D; }
+    .kpi-val { font-size: 28px; font-weight: 700; color: var(--gold-primary); font-family: monospace; margin-top: 4px; }
+    .kpi-label { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+    .ctrl-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .ctrl-row-3 { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 16px; }
+    @media (max-width: 1024px) {
+      .ctrl-row-3 { grid-template-columns: 1fr; }
+      .ctrl-row-2 { grid-template-columns: 1fr; }
+    }
+    .card { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .forecast-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .forecast-day { font-size: 11px; font-weight: 600; color: var(--text-muted); min-width: 32px; }
+    .forecast-track { flex: 1; height: 8px; background: #EAE7E0; border-radius: 4px; overflow: hidden; }
+    .forecast-fill { height: 100%; border-radius: 4px; }
+    .forecast-num { font-size: 11px; font-weight: 600; color: var(--text-main); min-width: 42px; text-align: right; font-family: monospace; }
+    .waterbed-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 4px; margin-top: 8px; }
+    .wb-cell { aspect-ratio: 1; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; cursor: pointer; }
+    .wb-enforced { background: rgba(34,197,94,0.15); color: #15803D; border: 1px solid rgba(34,197,94,0.3); }
+    .wb-spill-high { background: rgba(245,158,11,0.22); color: #B45309; }
+    .wb-spill-med { background: rgba(245,158,11,0.12); color: #B45309; opacity: 0.85; }
+    .wb-normal { background: rgba(170,124,17,0.08); color: var(--gold-primary); }
+    .wb-neutral { background: rgba(0,0,0,0.04); color: var(--text-muted); }
+    .station-table { width: 100%; border-collapse: collapse; }
+    .station-table th { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; padding: 4px 8px; text-align: left; border-bottom: 1px solid var(--border-color); }
+    .station-table td { font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--border-color); color: var(--text-main); }
+    .station-table tr:last-child td { border-bottom: none; }
+    .risk-pill { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 20px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+    .risk-pill-red { background: rgba(239,68,68,0.1); color: #B91C1C; }
+    .risk-pill-amber { background: rgba(245,158,11,0.1); color: #B45309; }
+    .risk-pill-green { background: rgba(34,197,94,0.1); color: #15803D; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    .api-status-bar { font-size: 11px; color: var(--text-muted); background: rgba(0,0,0,0.03); border: 1px solid var(--border-color); border-radius: 4px; padding: 3px 8px; display: inline-flex; align-items: center; gap: 5px; }
+  </style>
 </head>
 <body>
-    <!-- ── Top Navigation Bar ─────────────────────────────────────── -->
-    <nav id="topbar">
-        <div class="nav-brand">
-            <div class="brand-icon">🚔</div>
-            <div>
-                <h1>ParkVisionSaathi</h1>
-                <span class="nav-subtitle">AI‑Powered Patrol Intelligence</span>
-            </div>
-        </div>
-        <div class="nav-controls">
-            <div class="api-status" id="apiStatus">
-                <span class="status-dot"></span>
-                <span>Connecting...</span>
-            </div>
-        </div>
-    </nav>
+<h2 class="sr-only">ParkVision-Saathi AI — Tactical Gold Dashboard</h2>
 
-    <!-- ── Main Layout ────────────────────────────────────────────── -->
-    <div id="app-container">
-        <!-- Left Sidebar -->
-        <aside id="sidebar">
-            <!-- Stats Panel -->
-            <section class="panel" id="statsPanel">
-                <h2 class="panel-title">
-                    <span class="panel-icon">📊</span> Risk Overview
-                </h2>
-                <div class="stats-grid" id="statsGrid">
-                    <div class="stat-card high">
-                        <div class="stat-value" id="highRiskCount">—</div>
-                        <div class="stat-label">High Risk Zones</div>
-                    </div>
-                    <div class="stat-card medium">
-                        <div class="stat-value" id="medRiskCount">—</div>
-                        <div class="stat-label">Medium Risk</div>
-                    </div>
-                    <div class="stat-card low">
-                        <div class="stat-value" id="lowRiskCount">—</div>
-                        <div class="stat-label">Low Risk</div>
-                    </div>
-                    <div class="stat-card total">
-                        <div class="stat-value" id="totalViolations">—</div>
-                        <div class="stat-label">Total Violations</div>
-                    </div>
-                </div>
-            </section>
+<!-- ═══════════════ TAB BAR ═══════════════ -->
+<div class="tab-bar">
+  <div class="tab-bar-brand">
+    <div class="brand-dot">
+      <svg viewBox="0 0 16 16"><path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0zm1 11H7V9h2v2zm0-3H7V4h2v4z"/></svg>
+    </div>
+    <div>
+      <div class="brand-name">ParkVision-Saathi AI</div>
+      <div class="brand-sub">Gold Strategic Edition</div>
+    </div>
+  </div>
+  <button class="tab-btn active" onclick="switchView('police',this)">Field Officer Operations</button>
+  <button class="tab-btn" onclick="switchView('ctrl',this)">Strategic Control Room</button>
+  <div class="tab-spacer"></div>
+  <span class="chip chip-gold"><span class="chip-dot chip-dot-gold live-dot"></span>Dynamic Game Engine</span>
+  <span style="margin-left:8px;" id="api-indicator" class="api-status-bar">⬤ API connecting…</span>
+</div>
 
-            <!-- View Toggle -->
-            <section class="panel" id="viewPanel">
-                <h2 class="panel-title">
-                    <span class="panel-icon">🗺️</span> Map Layer
-                </h2>
-                <div class="view-toggles">
-                    <button class="view-btn active" data-view="risk" id="btnRisk">
-                        <span class="btn-icon">🔥</span> Risk Score
-                    </button>
-                    <button class="view-btn" data-view="violator" id="btnViolator">
-                        <span class="btn-icon">🎯</span> Violator Adapt.
-                    </button>
-                    <button class="view-btn" data-view="spillover" id="btnSpillover">
-                        <span class="btn-icon">🌊</span> Spillover
-                    </button>
-                    <button class="view-btn" data-view="raw" id="btnRaw">
-                        <span class="btn-icon">📍</span> Raw Density
-                    </button>
-                </div>
-            </section>
-
-            <!-- Simulation Panel -->
-            <section class="panel" id="simPanel">
-                <h2 class="panel-title">
-                    <span class="panel-icon">🎮</span> Patrol Simulation
-                </h2>
-                <div class="sim-control">
-                    <label for="teamSlider">Patrol Teams: <span id="teamCount" class="highlight">3</span></label>
-                    <input type="range" id="teamSlider" min="1" max="15" value="3" step="1">
-                    <div class="slider-labels">
-                        <span>1</span><span>5</span><span>10</span><span>15</span>
-                    </div>
-                </div>
-                <button class="sim-run-btn" id="runSimBtn">
-                    ▶ Run Simulation
-                </button>
-                <div id="simResults" class="sim-results hidden">
-                    <div class="sim-metric">
-                        <span>Coverage</span>
-                        <span class="sim-value" id="simCoverage">—</span>
-                    </div>
-                    <div class="sim-metric">
-                        <span>Risk Covered</span>
-                        <span class="sim-value" id="simRiskCovered">—</span>
-                    </div>
-                    <div class="sim-metric">
-                        <span>Uncovered HIGH Zones</span>
-                        <span class="sim-value warning" id="simUncovered">—</span>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Zone Detail Panel (shown on click) -->
-            <section class="panel hidden" id="zoneDetailPanel">
-                <h2 class="panel-title">
-                    <span class="panel-icon">📋</span> Zone Detail
-                    <button class="close-btn" id="closeZoneDetail">✕</button>
-                </h2>
-                <div id="zoneDetailContent"></div>
-            </section>
-
-            <!-- Game Theory Summary -->
-            <section class="panel" id="gamePanel">
-                <h2 class="panel-title">
-                    <span class="panel-icon">♟️</span> Game Theory
-                </h2>
-                <div id="gameSummary" class="game-summary">
-                    <p class="muted">Select an hour to see game theory analysis</p>
-                </div>
-            </section>
-        </aside>
-
-        <!-- Map Container -->
-        <main id="map-wrapper">
-            <div id="map"></div>
-
-            <!-- Time Slider Overlay -->
-            <div id="timeSliderContainer">
-                <div class="time-display">
-                    <span class="time-icon">🕐</span>
-                    <span id="currentTimeLabel">09:00</span>
-                    <span class="time-period" id="timePeriod">Morning Peak</span>
-                </div>
-                <div class="slider-wrapper">
-                    <input type="range" id="timeSlider" min="0" max="23" value="9" step="1">
-                    <div class="time-markers">
-                        <span>00</span><span>04</span><span>08</span><span>12</span>
-                        <span>16</span><span>20</span><span>23</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Map Legend -->
-            <div id="mapLegend">
-                <div class="legend-title" id="legendTitle">Risk Score</div>
-                <div class="legend-gradient"></div>
-                <div class="legend-labels">
-                    <span>Low (0)</span>
-                    <span>High (100)</span>
-                </div>
-            </div>
-
-            <!-- Loading Overlay -->
-            <div id="loadingOverlay" class="hidden">
-                <div class="loader">
-                    <div class="spinner"></div>
-                    <span>Loading data...</span>
-                </div>
-            </div>
-        </main>
+<!-- ═══════════════ FIELD OFFICER VIEW ═══════════════ -->
+<div id="view-police" class="view active">
+  <div class="police-shell">
+    <div class="police-topbar">
+      <span class="topbar-title">Bengaluru Tactical Resource Management</span>
+      <span class="chip chip-red"><span class="chip-dot chip-dot-red"></span><span id="topbar-critical">—</span> Critical Zones</span>
+      <span class="chip chip-amber"><span class="chip-dot chip-dot-amber"></span>Dynamic Thresholds Active</span>
+      <span class="chip chip-blue"><span class="chip-dot chip-dot-blue"></span><span id="topbar-teams">5</span> Teams Deployed</span>
     </div>
 
-    <script src="app.js"></script>
+    <div class="police-body">
+
+      <!-- LEFT PANEL -->
+      <div class="police-left">
+        <div class="panel-section">
+          <div class="panel-section-title">Zone Statistics</div>
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-value" style="color:#F87171" id="stat-violations">—</div>
+              <div class="stat-label">Total Violations</div>
+              <div class="stat-delta delta-up" id="stat-violations-delta">Loading…</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" style="color:#FCD34D" id="stat-zones">—</div>
+              <div class="stat-label">Severe-Impact Zones</div>
+              <div class="stat-delta" style="color:#F87171;font-weight:600;">High Risk</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" style="color:#93C5FD">54</div>
+              <div class="stat-label">Police Stations</div>
+              <div class="stat-delta delta-dn">3 offline</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" style="color:#4ADE80">66.6%</div>
+              <div class="stat-label">Approval Rate</div>
+              <div class="stat-delta" style="color:var(--text-muted)">Validated</div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-section">
+          <div class="panel-section-title">Top Hotspots — <span id="hotspot-hour-label">09:00</span></div>
+          <div class="hotspot-list" id="left-hotspot-list">
+            <div style="color:var(--text-muted);font-size:12px;padding:8px 0;">Loading from API…</div>
+          </div>
+        </div>
+        <div class="panel-section">
+          <div class="panel-section-title">Layer Insight</div>
+          <div class="explanation-box" id="left-insight-box">
+            <strong>Two-Layer Analysis:</strong><br>
+            Layer 1 tracks raw violation density. Layer 2 maps structural congestion risk.
+            A zone can rank low on violations but high on network choke vulnerability.
+          </div>
+        </div>
+      </div>
+
+      <!-- CENTER MAP -->
+      <div class="map-col">
+        <div class="map-area" id="main-map-canvas">
+          <!-- Real Leaflet map rendered here -->
+          <div id="leaflet-map"></div>
+
+          <div class="layer-toggle-container">
+            <button class="layer-toggle-btn active" id="layer-btn-density" onclick="setMapLayer('density')">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+              Layer 1: Violation Density
+            </button>
+            <button class="layer-toggle-btn" id="layer-btn-congestion" onclick="setMapLayer('congestion')">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              Layer 2: Congestion Risk
+            </button>
+          </div>
+
+          <div class="map-legend">
+            <div class="map-legend-title" id="legend-layer-title">Layer 1: Intensity Scale</div>
+            <div class="legend-row"><div class="legend-box" style="background:#EF4444"></div>Critical (HIGH)</div>
+            <div class="legend-row"><div class="legend-box" style="background:#F59E0B"></div>Elevated (MED)</div>
+            <div class="legend-row"><div class="legend-box" style="background:#D4AF37"></div>Nominal (LOW)</div>
+          </div>
+        </div>
+
+        <!-- TIME SCRUBBER -->
+        <div class="time-scrubber">
+          <div class="scrubber-header">
+            <div class="scrubber-title">Time Bucket Selector</div>
+            <div style="display:flex;align-items:center;gap:16px;">
+              <div class="scrubber-buckets" id="time-selector-container"></div>
+              <div class="scrubber-time-display" id="clock-display">09:00</div>
+            </div>
+          </div>
+          <div class="scrubber-track-wrap">
+            <div class="scrubber-rail" id="scrubber-rail">
+              <div class="scrubber-fill" id="scrubber-fill" style="width:50%"></div>
+              <div class="scrubber-handle" id="scrubber-handle" style="left:50%"></div>
+            </div>
+          </div>
+          <div class="scrubber-ticks" id="scrubber-ticks"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ CONTROL ROOM VIEW ═══════════════ -->
+<div id="view-ctrl" class="view">
+  <div class="ctrl-layout">
+    <div class="ctrl-topbar">
+      <div>
+        <div class="ctrl-title">Bengaluru Enforcement — Strategic Control Room</div>
+        <div class="ctrl-sub">Live overview · 54 stations · Game Theory Engine Active</div>
+      </div>
+      <div class="ctrl-spacer"></div>
+      <div class="live-badge"><div class="chip-dot chip-dot-green live-dot" style="width:8px;height:8px;border-radius:50%;"></div>Live Systems</div>
+    </div>
+
+    <!-- KPI ROW -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-icon-row">
+          <div class="kpi-icon kpi-icon-red">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="9" r="7"/><path d="M9 5v4l3 3"/></svg>
+          </div>
+          <span class="kpi-trend trend-up">↑ 12%</span>
+        </div>
+        <div class="kpi-val" id="ctrl-kpi-violations">—</div>
+        <div class="kpi-label">Violations Processed</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon-row">
+          <div class="kpi-icon kpi-icon-red">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3L3 15h12L9 3z"/><path d="M9 10v2M9 13v.5"/></svg>
+          </div>
+          <span class="kpi-trend trend-up">↑ 3</span>
+        </div>
+        <div class="kpi-val" id="ctrl-kpi-critical">—</div>
+        <div class="kpi-label">Critical Hotspots</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon-row">
+          <div class="kpi-icon kpi-icon-gold">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 2l2.5 5 5.5.8-4 3.9.9 5.5L9 14.5 4.1 17.2l.9-5.5-4-3.9L6.5 7z"/></svg>
+          </div>
+          <span class="kpi-trend trend-dn">Stable</span>
+        </div>
+        <div class="kpi-val" id="ctrl-kpi-equilibrium">—</div>
+        <div class="kpi-label">Equilibrium Index</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon-row">
+          <div class="kpi-icon kpi-icon-green">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9L7 13L15 5"/></svg>
+          </div>
+          <span class="kpi-trend trend-dn">↓ 5%</span>
+        </div>
+        <div class="kpi-val" id="ctrl-kpi-coverage">—</div>
+        <div class="kpi-label">Mitigation Coverage</div>
+      </div>
+    </div>
+
+    <!-- MIDDLE ROW -->
+    <div class="ctrl-row-3">
+      <!-- Map Card -->
+      <div class="card" style="padding: 0; overflow: hidden; position: relative; min-height: 280px;">
+        <div id="ctrl-map-canvas" style="position: relative; width: 100%; height: 100%; min-height: 280px; overflow: hidden;">
+          <!-- Leaflet mini-map for Control Room -->
+          <div id="ctrl-leaflet-map" style="width:100%;height:100%;min-height:280px;"></div>
+          <div class="ctrl-map-title" style="position: absolute; top: 12px; left: 12px; background: var(--panel-bg); border-radius: 6px; padding: 6px 10px; font-size: 12px; font-weight: 600; color: var(--text-main); border: 1px solid var(--border-color); z-index:500; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+            Live Strategic Heatmap
+          </div>
+        </div>
+      </div>
+
+      <!-- Asymmetric Layer Analysis -->
+      <div class="card">
+        <div class="panel-section-title">Asymmetric Layer Correlation</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">
+          Structural divergence between raw density footprints and traffic network impairment coefficients.
+        </p>
+        <div class="hotspot-list" id="ctrl-layer-analysis">
+          <div style="color:var(--text-muted);font-size:12px;">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Waterbed / Spillover Grid -->
+      <div class="card">
+        <div class="panel-section-title">Spillover / Waterbed Effect</div>
+        <div class="explanation-box" style="margin-top:0;margin-bottom:10px;">
+          Enforcement displacement tracking: patrols push violators into adjacent corridors.
+          Red = active spillover. Green = patrolled. Blue = stable.
+        </div>
+        <div class="waterbed-grid" id="ctrl-spillover-grid">
+          <!-- populated by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM ROW -->
+    <div class="ctrl-row-3">
+      <!-- Patrol Deployment & Game Allocations -->
+      <div class="card" style="display: flex; flex-direction: column; gap: 12px;">
+        <div class="panel-section-title" style="margin-bottom: 2px;">Patrol Deployment & Game Allocations</div>
+        
+        <div class="team-slider-wrap">
+          <div class="team-slider-header">
+            <span class="team-slider-title">Teams Deployed</span>
+            <span class="team-count-badge" id="team-count-badge">5</span>
+          </div>
+          <input type="range" min="1" max="12" value="5" step="1" id="team-slider" oninput="updateSimulator(this.value)">
+          <div class="sim-bar">
+            <div class="sim-bar-label"><span>Coverage Index</span><span id="cov-pct-label">62%</span></div>
+            <div class="sim-track"><div class="sim-fill" id="sim-cov-fill" style="width:62%"></div></div>
+          </div>
+          <div class="sim-info" id="sim-info-text">5 teams → 62% congestion impact covered</div>
+        </div>
+        
+        <div style="flex: 1; display: flex; flex-direction: column;">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Game-theoretic patrol priorities</div>
+          <div class="patrol-zone-list" id="right-allocation-list" style="flex: 1; max-height: 180px; overflow-y: auto;">
+            <div style="color:var(--text-muted);font-size:12px;padding:8px 0;">Loading allocations…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7-day forecast bars -->
+      <div class="card">
+        <div class="panel-section-title">7-Day Violation Forecast</div>
+        <div id="ctrl-forecast-bars">
+          <div style="color:var(--text-muted);font-size:12px;">Loading forecast…</div>
+        </div>
+      </div>
+
+      <!-- Station risk table -->
+      <div class="card">
+        <div class="panel-section-title">Station Risk Register</div>
+        <table class="station-table">
+          <thead>
+            <tr>
+              <th>Station</th>
+              <th>Violations</th>
+              <th>Risk</th>
+              <th>Teams</th>
+            </tr>
+          </thead>
+          <tbody id="ctrl-station-table-body">
+            <tr><td colspan="4" style="color:var(--text-muted);font-size:12px;">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ============================================================================
+ * CONFIG
+ * ============================================================================ */
+const API_BASE = 'http://localhost:8000';
+let apiOnline = false;
+
+/* ============================================================================
+ * MOCK DATA — used when API is unreachable
+ * ============================================================================ */
+const MOCK = {
+  sectors: [
+    { id:'upparpet',    name:'Upparpet / Elite Jct',       posX:35, posY:30, density:87, congestion:94, police_station:'Upparpet PS',    violations:5838 },
+    { id:'shivajinagar',name:'Shivajinagar Market',        posX:70, posY:65, density:79, congestion:28, police_station:'Shivajinagar PS', violations:3402 },
+    { id:'majestic',    name:'Majestic Bus Terminal',      posX:52, posY:48, density:74, congestion:71, police_station:'Cottonpet PS',    violations:2981 },
+    { id:'indiranagar', name:'Indiranagar 100ft Rd',       posX:15, posY:82, density:61, congestion:55, police_station:'Indiranagar PS',  violations:2114 },
+    { id:'koramangala', name:'Koramangala 5th Block',      posX:85, posY:20, density:55, congestion:48, police_station:'Koramangala PS',  violations:1856 },
+    { id:'silkboard',   name:'Silk Board Flyover',         posX:60, posY:78, density:48, congestion:88, police_station:'BTM PS',          violations:1423 },
+  ],
+  getHotspots(hour) {
+    const scale = (hour >= 8 && hour <= 11) ? 1.3 : hour < 6 ? 0.4 : 0.85;
+    return this.sectors.map((s, i) => ({
+      id: s.id, name: s.name, x: s.posX, y: s.posY,
+      densityScore: Math.round(s.density * scale),
+      congestionScore: Math.min(100, Math.round(s.congestion * (0.9 + scale * 0.1))),
+      violations: Math.round(s.violations * scale),
+      police_station: s.police_station,
+      risk_label: s.density > 70 ? 'HIGH' : s.density > 50 ? 'MEDIUM' : 'LOW',
+      patrol_probability: +(0.05 + (s.density / 100) * 0.35).toFixed(3),
+      rank: i + 1,
+    }));
+  },
+  getHeatmap(hour, layer) {
+    const sc = (hour >= 8 && hour <= 11) ? 1.4 : 0.8;
+    if (layer === 'density') {
+      return [
+        { x:70, y:65, size:110*sc, color:'#EF4444' },
+        { x:52, y:48, size:90*sc,  color:'#F59E0B' },
+        { x:35, y:30, size:55*sc,  color:'#D4AF37' },
+        { x:85, y:20, size:65*sc,  color:'#F59E0B' },
+        { x:60, y:78, size:45*sc,  color:'#D4AF37' },
+      ];
+    } else {
+      return [
+        { x:35, y:30, size:130*sc, color:'#EF4444' },
+        { x:15, y:82, size:90*sc,  color:'#F59E0B' },
+        { x:52, y:48, size:80*sc,  color:'#F59E0B' },
+        { x:60, y:78, size:95*sc,  color:'#EF4444' },
+        { x:70, y:65, size:40*sc,  color:'#D4AF37' },
+      ];
+    }
+  },
+};
+
+/* ============================================================================
+ * API CLIENT — real endpoints with mock fallback
+ * ============================================================================ */
+async function apiFetch(path, fallback) {
+  try {
+    const res = await fetch(API_BASE + path, { signal: AbortSignal.timeout(4000) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    apiOnline = true;
+    updateApiIndicator(true);
+    return data;
+  } catch {
+    if (apiOnline) { apiOnline = false; updateApiIndicator(false); }
+    return typeof fallback === 'function' ? fallback() : fallback;
+  }
+}
+
+function updateApiIndicator(online) {
+  const el = document.getElementById('api-indicator');
+  el.textContent = online ? '⬤ API Connected' : '⬤ API Offline (mock)';
+  el.style.color = online ? '#4ADE80' : '#FCD34D';
+}
+
+async function fetchHotspots(hour) {
+  // Try real API: map hour to bucket, get top risk zones + patrol probs
+  const zones = await apiFetch(`/risk/top_zones?hour=${hour}&n=6`, null);
+  if (zones && Array.isArray(zones) && zones.length) {
+    const stackelberg = await apiFetch(`/game/stackelberg_strategy?hour=${hour}&limit=50`, []);
+    const probMap = {};
+    (stackelberg || []).forEach(s => { probMap[s.grid_cell_id] = s.patrol_probability; });
+    return zones.map((z, i) => ({
+      id: z.grid_cell_id,
+      name: z.grid_cell_id,
+      x: latLonToCanvasPct(z.grid_lat, z.grid_lon).x,
+      y: latLonToCanvasPct(z.grid_lat, z.grid_lon).y,
+      densityScore: Math.round((z.risk_score || 0) * 100),
+      congestionScore: Math.round((z.risk_score || 0) * 85 + 10),
+      violations: z.violation_count || 0,
+      police_station: z.grid_cell_id,
+      risk_label: z.risk_label || 'LOW',
+      patrol_probability: probMap[z.grid_cell_id] || 0.05,
+      rank: i + 1,
+    }));
+  }
+  return MOCK.getHotspots(hour);
+}
+
+async function fetchHeatmap(hour, layer) {
+  const type = layer === 'density' ? 'raw' : 'spillover';
+  const data = await apiFetch(`/heatmap?hour=${hour}&type=${type}`, null);
+  if (data && data.points && data.points.length) {
+    const max = data.max_intensity || 1;
+    return data.points.slice(0, 8).map(p => {
+      const norm = p.intensity / max;
+      const pct = latLonToCanvasPct(p.lat, p.lon);
+      const color = norm > 0.7 ? '#EF4444' : norm > 0.4 ? '#F59E0B' : '#D4AF37';
+      return { x: pct.x, y: pct.y, size: 40 + norm * 100, color };
+    });
+  }
+  return MOCK.getHeatmap(hour, layer);
+}
+
+// Bengaluru approximate bounding box → canvas %
+function latLonToCanvasPct(lat, lon) {
+  const latMin = 12.85, latMax = 13.15, lonMin = 77.45, lonMax = 77.75;
+  const x = Math.round(((lon - lonMin) / (lonMax - lonMin)) * 90 + 5);
+  const y = Math.round((1 - (lat - latMin) / (latMax - latMin)) * 90 + 5);
+  return { x: Math.max(5, Math.min(95, x)), y: Math.max(5, Math.min(95, y)) };
+}
+
+async function fetchSimulation(teams, hour) {
+  const body = JSON.stringify({ num_teams: teams, hour, strategy: 'stackelberg' });
+  try {
+    const res = await fetch(API_BASE + '/simulate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    apiOnline = true; updateApiIndicator(true);
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchRiskSummary(hour) {
+  return apiFetch(`/risk/summary?hour=${hour}`, []);
+}
+
+async function fetchGameSummary(hour) {
+  return apiFetch(`/game/summary?hour=${hour}`, {});
+}
+
+async function fetchSpillover(hour) {
+  return apiFetch(`/game/spillover_forecast?hour=${hour}&limit=25`, []);
+}
+
+/* ============================================================================
+ * STATE
+ * ============================================================================ */
+let currentLayer = 'density';
+let currentBucketIdx = 1;
+let activeHour = 9;
+let teamCount = 5;
+let selectedHotspot = 0;
+let cachedHotspots = [];
+
+const BUCKETS = [
+  { name:'Night',     start:0,  end:6  },
+  { name:'Morning',   start:6,  end:12 },
+  { name:'Midday',    start:12, end:17 },
+  { name:'Afternoon', start:17, end:24 },
+];
+
+/* ============================================================================
+ * VIEW SWITCHING
+ * ============================================================================ */
+function switchView(id, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+  if (id === 'ctrl') {
+    // Let the DOM paint first, then fix Leaflet's size calculation
+    setTimeout(() => {
+      if (ctrlMap) ctrlMap.invalidateSize();
+      refreshControlRoom();
+    }, 50);
+  }
+}
+
+/* ============================================================================
+ * LAYER TOGGLE
+ * ============================================================================ */
+function setMapLayer(layer) {
+  currentLayer = layer;
+  document.getElementById('layer-btn-density').classList.toggle('active', layer === 'density');
+  document.getElementById('layer-btn-congestion').classList.toggle('active', layer === 'congestion');
+  const legendTitle = document.getElementById('legend-layer-title');
+  const rightStatus = document.getElementById('right-panel-layer-status');
+  const leftInsight = document.getElementById('left-insight-box');
+  if (layer === 'density') {
+    legendTitle.textContent = 'Layer 1: Violation Counts';
+    if (rightStatus) rightStatus.textContent = 'Analyzing absolute cluster densities. Patrol routes optimized for high-volume sweeps across core hot zones.';
+    leftInsight.innerHTML = '<strong>Layer 1 — Density:</strong><br>Raw violation volume per grid cell. High-density zones prioritize enforcement sweeps.';
+  } else {
+    legendTitle.textContent = 'Layer 2: Network Congestion Risk';
+    if (rightStatus) rightStatus.textContent = 'Analyzing traffic choke multipliers. Patrol intercept vectors redirected to protect high-vulnerability bottlenecks.';
+    leftInsight.innerHTML = '<strong>Layer 2 — Congestion:</strong><br>Structural network impairment scores. A zone with few violations can still be a critical chokepoint.';
+  }
+  refresh();
+}
+
+/* ============================================================================
+ * TIME SCRUBBER
+ * ============================================================================ */
+function renderTimeBuckets() {
+  const c = document.getElementById('time-selector-container');
+  c.innerHTML = '';
+  BUCKETS.forEach((b, i) => {
+    const el = document.createElement('div');
+    el.className = 'scrubber-bucket' + (i === currentBucketIdx ? ' active' : '');
+    el.textContent = b.name;
+    el.onclick = () => selectBucket(i);
+    c.appendChild(el);
+  });
+}
+
+function selectBucket(i) {
+  currentBucketIdx = i;
+  activeHour = BUCKETS[i].start;
+  renderTimeBuckets();
+  buildTicks();
+  refresh();
+}
+
+function buildTicks() {
+  const c = document.getElementById('scrubber-ticks');
+  c.innerHTML = '';
+  const b = BUCKETS[currentBucketIdx];
+  for (let h = b.start; h < b.end; h++) {
+    const tick = document.createElement('div');
+    tick.className = 'scrubber-tick';
+    tick.innerHTML = `<div class="scrubber-tick-mark"></div><span>${String(h).padStart(2,'0')}:00</span>`;
+    c.appendChild(tick);
+  }
+}
+
+function updateScrubberUI() {
+  const b = BUCKETS[currentBucketIdx];
+  const range = b.end - b.start;
+  const pct = ((activeHour - b.start) / range) * 100;
+  document.getElementById('scrubber-fill').style.width = pct + '%';
+  document.getElementById('scrubber-handle').style.left = pct + '%';
+  document.getElementById('clock-display').textContent = String(activeHour).padStart(2,'0') + ':00';
+  document.getElementById('hotspot-hour-label').textContent = String(activeHour).padStart(2,'0') + ':00';
+}
+
+// Drag
+(function initScrubber() {
+  let dragging = false;
+  function onMove(e) {
+    if (!dragging) return;
+    const rail = document.getElementById('scrubber-rail');
+    const rect = rail.getBoundingClientRect();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const pct = Math.max(0, Math.min(1, (cx - rect.left) / rect.width));
+    const b = BUCKETS[currentBucketIdx];
+    const newHour = Math.round(b.start + pct * (b.end - b.start));
+    activeHour = Math.max(b.start, Math.min(b.end - 1, newHour));
+    updateScrubberUI();
+    refresh();
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    const rail = document.getElementById('scrubber-rail');
+    rail.addEventListener('mousedown', e => { dragging = true; onMove(e); e.preventDefault(); });
+    rail.addEventListener('touchstart', e => { dragging = true; onMove(e); }, { passive: false });
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('touchmove', onMove, { passive: true });
+    document.addEventListener('mouseup', () => dragging = false);
+    document.addEventListener('touchend', () => dragging = false);
+  });
+})();
+
+/* ============================================================================
+ * LEAFLET MAP SETUP
+ * ============================================================================ */
+const STADIA_KEY = 'qqwdxaoywxjpwgteztkzebtkigxwolpgekpd';
+const TILE_URL   = `https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png?api_key=${STADIA_KEY}`;
+const TILE_OPTS  = {
+  minZoom: 10, maxZoom: 18,
+  attribution: '© <a href="https://stadiamaps.com/">Stadia Maps</a> © <a href="https://openmaptiles.org/">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+};
+
+// Bengaluru city centre
+const BLR = [12.9716, 77.5946];
+
+let mainMap = null, ctrlMap = null;
+let mainHeatLayer = null, mainMarkersLayer = null;
+let ctrlHeatLayer = null, ctrlMarkersLayer = null;
+
+function initMaps() {
+  // ── Field Officer main map ──
+  mainMap = L.map('leaflet-map', { zoomControl: true, attributionControl: true })
+              .setView(BLR, 13);
+  L.tileLayer(TILE_URL, TILE_OPTS).addTo(mainMap);
+  mainMarkersLayer = L.layerGroup().addTo(mainMap);
+
+  // ── Control Room mini-map ──
+  ctrlMap = L.map('ctrl-leaflet-map', { zoomControl: false, attributionControl: false })
+              .setView(BLR, 12);
+  L.tileLayer(TILE_URL, TILE_OPTS).addTo(ctrlMap);
+  ctrlMarkersLayer = L.layerGroup().addTo(ctrlMap);
+}
+
+/* ============================================================================
+ * RENDER FUNCTIONS  (Leaflet-powered)
+ * ============================================================================ */
+function renderHeatmap(points) {
+  if (!mainMap) return;
+  if (mainHeatLayer) { mainMap.removeLayer(mainHeatLayer); mainHeatLayer = null; }
+  if (!points || !points.length) return;
+  // Convert API { lat, lon, intensity } or mock { x%, y%, size, color } to [lat, lng, intensity]
+  const heatPoints = points.map(p => {
+    if (p.lat !== undefined) return [p.lat, p.lon, p.intensity || 0.8];
+    // Mock points come as canvas-% — convert back to approx lat/lon
+    const c = canvasPctToLatLon(p.x, p.y);
+    return [c.lat, c.lon, (p.size || 80) / 140];
+  });
+  mainHeatLayer = L.heatLayer(heatPoints, {
+    radius: 40, blur: 30, maxZoom: 17,
+    gradient: { 0.2: '#D4AF37', 0.5: '#F59E0B', 0.8: '#EF4444', 1.0: '#DC2626' },
+  }).addTo(mainMap);
+}
+
+function renderMarkers(hotspots) {
+  if (!mainMap) return;
+  mainMarkersLayer.clearLayers();
+  hotspots.forEach((r, idx) => {
+    const score  = currentLayer === 'density' ? r.densityScore : r.congestionScore;
+    const color  = score > 70 ? '#EF4444' : score > 50 ? '#F59E0B' : '#D4AF37';
+    const latlng = r.lat !== undefined
+      ? [r.lat, r.lon]
+      : canvasPctToLatLon(r.x, r.y);
+
+    const icon = L.divIcon({
+      className: '',
+      iconSize: [28, 36],
+      iconAnchor: [14, 36],
+      html: `<div style="
+        width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+        background:${color};border:2px solid #262421;
+        box-shadow:0 4px 12px rgba(0,0,0,0.5);
+        display:flex;align-items:center;justify-content:center;cursor:pointer;">
+        <svg style="transform:rotate(45deg);width:11px;height:11px;fill:#fff" viewBox="0 0 24 24">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+        </svg></div>`,
+    });
+
+    const marker = L.marker(latlng, { icon })
+      .bindPopup(buildPopup(r, idx))
+      .on('click', () => { selectedHotspot = idx; renderLeftPanel(cachedHotspots); });
+    mainMarkersLayer.addLayer(marker);
+  });
+}
+
+function buildPopup(r, idx) {
+  const score = currentLayer === 'density' ? r.densityScore : r.congestionScore;
+  const label = currentLayer === 'density' ? 'Density Score' : 'Congestion Score';
+  return `<div style="font-family:system-ui;min-width:180px;">
+    <div style="font-weight:700;font-size:13px;color:var(--gold-primary);margin-bottom:6px;">${r.name}</div>
+    <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border-color);">
+      <span style="color:var(--text-muted)">${label}</span>
+      <span style="font-weight:700;font-family:monospace">${score}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border-color);">
+      <span style="color:var(--text-muted)">Violations</span>
+      <span style="font-weight:700;font-family:monospace">${(r.violations||0).toLocaleString()}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:3px 0;">
+      <span style="color:var(--text-muted)">Patrol Prob.</span>
+      <span style="font-weight:700;font-family:monospace">${r.patrol_probability ? (r.patrol_probability*100).toFixed(1)+'%' : '—'}</span>
+    </div>
+    <div style="color:var(--text-muted);font-size:10px;margin-top:6px;">${r.police_station||''}</div>
+  </div>`;
+}
+
+// Inverse of latLonToCanvasPct for mock data that only has x/y percentages
+function canvasPctToLatLon(xPct, yPct) {
+  const latMin = 12.85, latMax = 13.15, lonMin = 77.45, lonMax = 77.75;
+  const lon = lonMin + ((xPct - 5) / 90) * (lonMax - lonMin);
+  const lat = latMax - ((yPct - 5) / 90) * (latMax - latMin);
+  return { lat: Math.max(latMin, Math.min(latMax, lat)), lon: Math.max(lonMin, Math.min(lonMax, lon)) };
+}
+
+/* Control Room mini-map layers */
+function renderControlRoomHeatmap(points) {
+  if (!ctrlMap) return;
+  if (ctrlHeatLayer) { ctrlMap.removeLayer(ctrlHeatLayer); ctrlHeatLayer = null; }
+  if (!points || !points.length) return;
+  const heatPoints = points.map(p => {
+    if (p.lat !== undefined) return [p.lat, p.lon, p.intensity || 0.8];
+    const c = canvasPctToLatLon(p.x, p.y);
+    return [c.lat, c.lon, (p.size || 80) / 140];
+  });
+  ctrlHeatLayer = L.heatLayer(heatPoints, {
+    radius: 35, blur: 25,
+    gradient: { 0.2: '#D4AF37', 0.5: '#F59E0B', 0.8: '#EF4444', 1.0: '#DC2626' },
+  }).addTo(ctrlMap);
+}
+
+function renderControlRoomMarkers(hotspots) {
+  if (!ctrlMap) return;
+  ctrlMarkersLayer.clearLayers();
+  hotspots.slice(0, 6).forEach(r => {
+    const score = currentLayer === 'density' ? r.densityScore : r.congestionScore;
+    const color = score > 70 ? '#EF4444' : score > 50 ? '#F59E0B' : '#D4AF37';
+    const latlng = r.lat !== undefined
+      ? [r.lat, r.lon]
+      : canvasPctToLatLon(r.x, r.y);
+    const icon = L.divIcon({
+      className: '',
+      iconSize: [18, 22],
+      iconAnchor: [9, 22],
+      html: `<div style="width:16px;height:16px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+        background:${color};border:1.5px solid #262421;box-shadow:0 2px 6px rgba(0,0,0,0.5);"></div>`,
+    });
+    L.marker(latlng, { icon }).bindTooltip(r.name, { permanent: false }).addTo(ctrlMarkersLayer);
+  });
+}
+
+function badgeClass(label) {
+  if (label === 'HIGH') return 'badge-red';
+  if (label === 'MEDIUM') return 'badge-amber';
+  return 'badge-gold';
+}
+
+function renderLeftPanel(hotspots) {
+  cachedHotspots = hotspots;
+  const feed = document.getElementById('left-hotspot-list');
+  feed.innerHTML = '';
+  // Stats
+  const totalViolations = hotspots.reduce((s, h) => s + (h.violations || 0), 0);
+  const highCount = hotspots.filter(h => h.risk_label === 'HIGH').length;
+  document.getElementById('stat-violations').textContent = totalViolations > 1000
+    ? (totalViolations/1000).toFixed(0)+'K' : totalViolations || '—';
+  document.getElementById('stat-zones').textContent = highCount || hotspots.length;
+  document.getElementById('topbar-critical').textContent = highCount;
+
+  hotspots.forEach((r, idx) => {
+    const rankCls = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : 'rank-n';
+    const score = currentLayer === 'density' ? r.densityScore : r.congestionScore;
+    const badgeCls = score > 70 ? 'badge-red' : score > 50 ? 'badge-amber' : 'badge-gold';
+    const div = document.createElement('div');
+    div.className = 'hotspot-item' + (idx === selectedHotspot ? ' selected' : '');
+    div.innerHTML = `
+      <div class="hotspot-rank ${rankCls}">${idx+1}</div>
+      <div class="hotspot-info">
+        <div class="hotspot-name">${r.name}</div>
+        <div class="hotspot-sub">${r.violations ? r.violations.toLocaleString()+' records' : r.police_station || ''}</div>
+      </div>
+      <span class="metric-badge ${badgeCls}">${score}</span>`;
+    div.onclick = () => { selectedHotspot = idx; renderLeftPanel(hotspots); };
+    feed.appendChild(div);
+  });
+}
+
+function renderRightAllocations(hotspots) {
+  const feed = document.getElementById('right-allocation-list');
+  if (!feed) return;
+  feed.innerHTML = '';
+  hotspots.forEach((r, idx) => {
+    const colors = ['#D4AF37','#EF4444','#3B82F6','#22C55E','#F59E0B','#A78BFA'];
+    const col = colors[idx % colors.length];
+    const metric = currentLayer === 'density'
+      ? `Density: ${r.densityScore}`
+      : `Congestion: ${r.congestionScore}`;
+    const prob = r.patrol_probability ? `${(r.patrol_probability*100).toFixed(1)}% patrol` : '';
+    const div = document.createElement('div');
+    div.className = 'pz-item';
+    div.innerHTML = `
+      <div class="pz-team" style="background:${col}">${idx+1}</div>
+      <div class="pz-info">
+        <div class="pz-zone">${r.name}</div>
+        <div class="pz-sub">${metric}</div>
+      </div>
+      <div class="pz-prob">${prob}</div>`;
+    feed.appendChild(div);
+  });
+}
+
+/* ============================================================================
+ * SIMULATOR
+ * ============================================================================ */
+async function updateSimulator(val) {
+  teamCount = parseInt(val);
+  const badge = document.getElementById('team-count-badge');
+  if (badge) badge.textContent = teamCount;
+  const topbar = document.getElementById('topbar-teams');
+  if (topbar) topbar.textContent = teamCount;
+
+  // Try real simulation API
+  const result = await fetchSimulation(teamCount, activeHour);
+  let covPct;
+  if (result && result.coverage_pct !== undefined) {
+    covPct = Math.round(result.coverage_pct);
+  } else {
+    covPct = Math.min(100, Math.round(40 + teamCount * 9.5));
+  }
+  const label = document.getElementById('cov-pct-label');
+  if (label) label.textContent = covPct + '%';
+  const fill = document.getElementById('sim-cov-fill');
+  if (fill) fill.style.width = covPct + '%';
+  const info = document.getElementById('sim-info-text');
+  if (info) info.textContent = `${teamCount} teams → ${covPct}% congestion impact covered`;
+  const ctrlCov = document.getElementById('ctrl-kpi-coverage');
+  if (ctrlCov) ctrlCov.textContent = covPct + '%';
+}
+
+/* ============================================================================
+ * MAIN REFRESH — fetches data and re-renders the field view
+ * ============================================================================ */
+async function refresh() {
+  updateScrubberUI();
+  const [hotspots, heatCells] = await Promise.all([
+    fetchHotspots(activeHour),
+    fetchHeatmap(activeHour, currentLayer),
+  ]);
+  renderHeatmap(heatCells);
+  renderMarkers(hotspots);
+  renderLeftPanel(hotspots);
+  renderRightAllocations(hotspots);
+}
+
+/* ============================================================================
+ * CONTROL ROOM REFRESH
+ * ============================================================================ */
+async function refreshControlRoom() {
+  const [riskSummary, gameSummary, spillover, hotspots, heatCells] = await Promise.all([
+    fetchRiskSummary(activeHour),
+    fetchGameSummary(activeHour),
+    fetchSpillover(activeHour),
+    fetchHotspots(activeHour),
+    fetchHeatmap(activeHour, currentLayer),
+  ]);
+
+  // Render Control Room Map
+  renderControlRoomHeatmap(heatCells);
+  renderControlRoomMarkers(hotspots);
+
+  // KPIs
+  let highZones = 0, totalViol = 0;
+  if (riskSummary && Array.isArray(riskSummary)) {
+    riskSummary.forEach(r => {
+      totalViol += r.total_violations || 0;
+      if (r.risk_label === 'HIGH') highZones = r.zone_count || 0;
+    });
+  }
+  document.getElementById('ctrl-kpi-violations').textContent =
+    totalViol > 1000 ? (totalViol/1000).toFixed(1)+'K' : (totalViol || '—');
+  document.getElementById('ctrl-kpi-critical').textContent = highZones || '—';
+
+  const eq = gameSummary && gameSummary.stackelberg
+    ? (gameSummary.stackelberg.avg_patrol_prob || 0.842).toFixed(3)
+    : '0.842';
+  document.getElementById('ctrl-kpi-equilibrium').textContent = eq;
+
+  // Coverage from last sim
+  const covEl = document.getElementById('ctrl-kpi-coverage');
+  if (!covEl.textContent || covEl.textContent === '—') {
+    covEl.textContent = Math.min(100, Math.round(40 + teamCount * 9.5)) + '%';
+  }
+
+  // Layer Analysis Card
+  renderLayerAnalysis();
+
+  // Spillover grid
+  renderSpilloverGrid(spillover);
+
+  // Forecast bars (mock 7-day)
+  renderForecastBars();
+
+  // Station table
+  renderStationTable();
+  
+  // Allocations list
+  renderRightAllocations(hotspots);
+}
+
+function renderLayerAnalysis() {
+  const container = document.getElementById('ctrl-layer-analysis');
+  const pairs = [
+    { name:'Upparpet / Elite Jct',    density:87, congestion:19, note:'High volume, low network impact' },
+    { name:'Silk Board Flyover',      density:48, congestion:88, note:'Low count — extreme choke risk' },
+    { name:'Shivajinagar Market',     density:79, congestion:28, note:'High density, minor bottleneck' },
+    { name:'Majestic Bus Terminal',   density:74, congestion:71, note:'Both layers elevated' },
+    { name:'Indiranagar 100ft Rd',    density:61, congestion:55, note:'Balanced — standard patrol' },
+  ];
+  container.innerHTML = '';
+  pairs.forEach(p => {
+    const diverge = Math.abs(p.density - p.congestion);
+    let badgeCls = 'badge-gold', badgeText = 'BALANCED';
+    if (p.congestion > p.density + 20) { badgeCls = 'badge-red'; badgeText = 'CHOKE RISK'; }
+    else if (p.density > p.congestion + 20) { badgeCls = 'badge-amber'; badgeText = 'DENSITY'; }
+    const div = document.createElement('div');
+    div.className = 'hotspot-item';
+    div.innerHTML = `
+      <div class="hotspot-info">
+        <div class="hotspot-name">${p.name}</div>
+        <div class="hotspot-sub">${p.note}</div>
+      </div>
+      <span class="metric-badge ${badgeCls}">${badgeText}</span>`;
+    container.appendChild(div);
+  });
+}
+
+function renderSpilloverGrid(spillover) {
+  const grid = document.getElementById('ctrl-spillover-grid');
+  grid.innerHTML = '';
+  const types = ['patrolled','neighbor_1','neighbor_2','unaffected','neutral'];
+  const classMap = {
+    patrolled: 'wb-enforced', neighbor_1: 'wb-spill-high',
+    neighbor_2: 'wb-spill-med', unaffected: 'wb-normal', neutral: 'wb-neutral',
+  };
+  const labelMap = { patrolled:'ENF', neighbor_1:'↑↑', neighbor_2:'↑', unaffected:'OK', neutral:'—' };
+  // Build distribution from API or fallback pattern
+  let dist = { patrolled:0, neighbor_1:0, neighbor_2:0, unaffected:0, neutral:0 };
+  if (spillover && Array.isArray(spillover) && spillover.length) {
+    spillover.forEach(s => { if (dist[s.spillover_type] !== undefined) dist[s.spillover_type]++; });
+  } else {
+    dist = { patrolled:2, neighbor_1:4, neighbor_2:5, unaffected:7, neutral:7 };
+  }
+  const cells = [];
+  types.forEach(t => { for (let i=0; i<Math.max(1, dist[t]||1); i++) cells.push(t); });
+  cells.slice(0,25).forEach(t => {
+    const cell = document.createElement('div');
+    cell.className = 'wb-cell ' + classMap[t];
+    cell.textContent = labelMap[t];
+    cell.title = t;
+    grid.appendChild(cell);
+  });
+}
+
+function renderForecastBars() {
+  const c = document.getElementById('ctrl-forecast-bars');
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const vals = [1428,1612,1380,1890,2102,980,650];
+  const max = Math.max(...vals);
+  c.innerHTML = '';
+  days.forEach((d, i) => {
+    const pct = Math.round((vals[i] / max) * 100);
+    const color = pct > 80 ? '#EF4444' : pct > 60 ? '#F59E0B' : '#D4AF37';
+    const row = document.createElement('div');
+    row.className = 'forecast-row';
+    row.innerHTML = `
+      <div class="forecast-day">${d}</div>
+      <div class="forecast-track"><div class="forecast-fill" style="width:${pct}%;background:${color}"></div></div>
+      <div class="forecast-num">${vals[i].toLocaleString()}</div>`;
+    c.appendChild(row);
+  });
+}
+
+function renderStationTable() {
+  const stations = [
+    { name:'Upparpet PS',    violations:5838, risk:'HIGH',   teams:2 },
+    { name:'Shivajinagar PS',violations:3402, risk:'HIGH',   teams:1 },
+    { name:'Cottonpet PS',   violations:2981, risk:'HIGH',   teams:1 },
+    { name:'Indiranagar PS', violations:2114, risk:'MEDIUM', teams:1 },
+    { name:'Koramangala PS', violations:1856, risk:'MEDIUM', teams:0 },
+    { name:'BTM PS',         violations:1423, risk:'MEDIUM', teams:0 },
+    { name:'Yelahanka PS',   violations:892,  risk:'LOW',    teams:0 },
+  ];
+  const riskCls = { HIGH:'risk-pill-red', MEDIUM:'risk-pill-amber', LOW:'risk-pill-green' };
+  const tbody = document.getElementById('ctrl-station-table-body');
+  tbody.innerHTML = '';
+  stations.forEach(s => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-weight:600;color:var(--text-main)">${s.name}</td>
+      <td style="font-family:monospace">${s.violations.toLocaleString()}</td>
+      <td><span class="risk-pill ${riskCls[s.risk]}">${s.risk}</span></td>
+      <td style="text-align:center">${s.teams || '—'}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ============================================================================
+ * BOOTSTRAP
+ * ============================================================================ */
+window.addEventListener('DOMContentLoaded', async () => {
+  // Init Leaflet maps first — must happen after DOM is ready
+  initMaps();
+
+  renderTimeBuckets();
+  buildTicks();
+  updateApiIndicator(false);
+  setMapLayer('density');   // triggers refresh() internally
+
+  // Also check API health in background
+  try {
+    const r = await fetch(API_BASE + '/health', { signal: AbortSignal.timeout(3000) });
+    if (r.ok) { apiOnline = true; updateApiIndicator(true); refresh(); }
+  } catch { /* API offline — mock data already shown */ }
+});
+</script>
 </body>
 </html>
