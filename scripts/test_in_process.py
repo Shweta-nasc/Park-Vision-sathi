@@ -1,6 +1,5 @@
-import json
-from backend.app.routers import stations, heatmap, risk, simulate, game
-from backend.app.models import SimulationRequest
+from backend.app.routers import stations, heatmap, risk, simulate, game, explain, traffic
+from backend.app.models import SimulationRequest, ExplainRequest
 
 def test_api():
     print("=== Testing list_stations ===")
@@ -47,5 +46,16 @@ def test_api():
     print(f"What-If keys count: {len(res_whatif.keys())}")
     print("What-If keys:", list(res_whatif.keys()))
 
+    print("\n=== Testing explain endpoint ===")
+    zone_id = res_priorities[0]["grid_cell_id"] if res_priorities else "89185f540c7ffff"
+    req_explain = ExplainRequest(zone_id=zone_id, hour=9)
+    res_explain = explain.explain_zone(req_explain)
+    print("Explain response:", res_explain.model_dump())
+
+    print("\n=== Testing traffic context endpoint ===")
+    res_traffic = traffic.get_traffic_context(zone_id=zone_id)
+    print("Traffic response:", res_traffic.model_dump())
+
 if __name__ == "__main__":
     test_api()
+
