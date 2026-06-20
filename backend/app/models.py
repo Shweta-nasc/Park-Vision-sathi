@@ -129,3 +129,26 @@ class SimulationResponse(BaseModel):
     total_risk_covered: float
     spillover_zones: list[SpilloverZone] = []
 
+
+class TrafficContext(BaseModel):
+    zone_id: str
+    road_name: Optional[str] = None
+    road_type: Optional[str] = None
+    travel_time_peak_min: Optional[float] = None
+    travel_time_offpeak_min: Optional[float] = None
+    travel_time_ratio: Optional[float] = None
+    nearby_pois: list[str] = []
+
+
+class ExplainRequest(BaseModel):
+    zone_id: str
+    hour: int
+
+
+class ExplainResponse(BaseModel):
+    zone_id: str
+    explanation: str
+    is_cached: bool
+    source: str
+
+
