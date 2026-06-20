@@ -12,16 +12,23 @@ list of zones keyed by H3 id — the one source of truth shared by the map, the
 zone detail panel, the LLM explanations, the game-theory simulation, and the
 self-validating agent:
 
-  data/mock/hotspots.json            → ranked zones (congestion_impact, station, …)
+  data/mock/hotspots.json            → ranked zones (legacy score, station, …)
   data/enriched/traffic_context.json → REAL MapMyIndia travel-time + road + POIs
   data/processed/calibrated_scores.json → self-validating agent's calibrated scores
   data/processed/agent_log.json      → agent run summary + reasoning log
   data/processed/explanations_cache.json → cached Gemini zone explanations
+  data/processed/zone_congestion_impact.json → canonical Congestion Impact Score
+                                       (CIS) artifact, {h3_id: {time_bucket: …}}
 
 The frontend speaks `grid_cell_id` / `risk_score` and adapts those to
 `h3_id` / `congestion_impact` client-side (see frontend/src/api/adapters.ts).
-We therefore emit that wire vocabulary, with VALUES drawn from the real
-congestion data, so a single H3 zone universe flows end to end.
+
+`congestion_impact` (the QUANTIFY pillar's CIS) is served from the CIS artifact
+and is a value DISTINCT from the legacy enforcement `risk_score` — the two are no
+longer aliased (Decision 2; Requirements 10.1, 10.3). When the artifact is absent
+the congestion universe loads empty (and a warning is logged) rather than
+crashing, so the demo stays offline-safe and database-free (Requirements 11.3,
+14.3). Loading reads JSON only; nothing here touches a database or the network.
 
 Risk-component fields (density, road_importance, …) and game-theory fields
 (patrol_probability, violator_risk_score, …) are DERIVED here with transparent,
@@ -48,13 +55,26 @@ VIOLATOR_TIME_SAVED = 100.0   # value of time saved by parking illegally
 VIOLATOR_FINE = 500.0         # fine if caught
 
 
+def _display_path(path: Path) -> Path | str:
+    """Best-effort project-relative path for logging; absolute if outside the root.
+
+    ``Path.relative_to`` raises when ``path`` is not under ``PROJECT_ROOT`` (e.g.
+    a test fixture in a temp dir), so this guards it: the missing-artifact warning
+    must never itself raise (Requirement 14.3).
+    """
+    try:
+        return path.relative_to(PROJECT_ROOT)
+    except ValueError:
+        return path
+
+
 def _load(path: Path, default):
     """Load a JSON file, returning `default` if it is missing or invalid."""
     try:
         with open(path) as f:
             return json.load(f)
     except FileNotFoundError:
-        logger.warning("DataStore: %s not found — using fallback.", path.relative_to(PROJECT_ROOT))
+        logger.warning("DataStore: %s not found — using fallback.", _display_path(path))
         return default
     except (json.JSONDecodeError, OSError) as e:
         logger.error("DataStore: failed to read %s (%s).", path, e)
@@ -116,10 +136,19 @@ def _heavy_vehicle_ratio(top_violation: str) -> float:
 class DataStore:
     """Loads all JSON once and serves the API a single canonical zone universe."""
 
-    def __init__(self) -> None:
+    def __init__(self, data_dir: Path = DATA) -> None:
+        # Root of the pre-computed JSON artifacts. Defaults to the repo's `data/`
+        # dir; overridable (e.g. a test fixture dir) so the loader can be pointed
+        # at an alternate artifact set without touching the committed files.
+        self.data_dir = Path(data_dir)
         self.loaded = False
         self.zones: list[dict] = []
         self.zones_by_id: dict[str, dict] = {}
+        # Canonical Congestion Impact Score (CIS) artifact, loaded once at startup
+        # and keyed {h3_id: {time_bucket: breakdown}}. Empty when the artifact is
+        # absent (graceful empty zone universe — Requirement 14.3). The rich
+        # serving accessors over this structure are added in task 6.2.
+        self.congestion: dict[str, dict[str, dict]] = {}
         self.traffic_raw: dict = {}
         self.explanations: dict = {}
         self.calibrated: dict = {}
@@ -128,11 +157,19 @@ class DataStore:
 
     # ── load ────────────────────────────────────────────────────────────
     def load(self) -> "DataStore":
-        hotspots = _load(DATA / "mock" / "hotspots.json", [])
-        traffic = _load(DATA / "enriched" / "traffic_context.json", {})
-        calibrated = _load(DATA / "processed" / "calibrated_scores.json", {})
-        agent_log = _load(DATA / "processed" / "agent_log.json", {})
-        explanations = _load(DATA / "processed" / "explanations_cache.json", {})
+        hotspots = _load(self.data_dir / "mock" / "hotspots.json", [])
+        traffic = _load(self.data_dir / "enriched" / "traffic_context.json", {})
+        calibrated = _load(self.data_dir / "processed" / "calibrated_scores.json", {})
+        agent_log = _load(self.data_dir / "processed" / "agent_log.json", {})
+        explanations = _load(self.data_dir / "processed" / "explanations_cache.json", {})
+
+        # Canonical CIS artifact (the QUANTIFY pillar's single source of truth),
+        # read as JSON only — no database, no network (Requirements 7.3, 7.4, 11.3).
+        # A missing file is non-fatal: `_load` logs a warning and returns {}, so the
+        # backend starts with an empty congestion universe rather than crashing
+        # (Requirement 14.3). The artifact is keyed {h3_id: {time_bucket: breakdown}}.
+        congestion = _load(self.data_dir / "processed" / "zone_congestion_impact.json", {})
+        self.congestion = congestion if isinstance(congestion, dict) else {}
 
         self.traffic_raw = traffic
         self.calibrated = calibrated
@@ -143,6 +180,7 @@ class DataStore:
             "traffic_context_enriched": len(traffic),
             "calibrated_scores": len(calibrated),
             "explanations_cache": len(explanations),
+            "congestion_artifact_zones": len(self.congestion),
         }
 
         max_viol = max((h.get("violation_count", 0) for h in hotspots), default=1) or 1
@@ -152,6 +190,12 @@ class DataStore:
             tc = traffic.get(zid, {})
             cal = calibrated.get(zid, {})
             score = float(h.get("congestion_impact", 0.0))
+            # Congestion Impact Score served from the canonical artifact (NOT
+            # aliased to risk_score). `all_day` is the zone's default rollup; None
+            # when the artifact has no entry for this zone — e.g. the artifact is
+            # absent at startup, giving an empty congestion universe (Req 14.3).
+            cis = self.congestion.get(zid, {}).get("all_day")
+            congestion_impact = cis.get("congestion_impact") if isinstance(cis, dict) else None
             ratio = tc.get("travel_time_ratio")
             road = tc.get("road_name") or tc.get("street") or h.get("station", zid)
             viol = int(h.get("violation_count", 0))
@@ -163,9 +207,15 @@ class DataStore:
                 "grid_lat": h.get("lat"),
                 "grid_lon": h.get("lon"),
                 "hour": 9,
-                # score (raw congestion impact) + agent-calibrated
+                # `risk_score` keeps its legacy enforcement-priority role — it
+                # drives game-theory patrol allocation, simulation, and forecasts.
+                # It is NO LONGER aliased to the congestion impact (Decision 2;
+                # Requirements 10.1, 10.3).
                 "risk_score": round(score, 1),
-                "congestion_impact": round(score, 1),
+                # Congestion Impact Score (the QUANTIFY pillar) served straight from
+                # the canonical CIS artifact — a distinct value and source from
+                # `risk_score`; None when the artifact is absent (empty universe).
+                "congestion_impact": congestion_impact,
                 "calibrated_score": cal.get("calibrated_score", round(score, 1)),
                 "risk_label": _risk_label(score),
                 "impact_band": h.get("impact_band", _band(score)),
