@@ -40,3 +40,4 @@ models/*.joblib
 .env
 
 node_modules/
+dataset/

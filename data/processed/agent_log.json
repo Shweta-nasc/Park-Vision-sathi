@@ -1,0 +1,147 @@
+{
+  "total_zones": 15,
+  "validated": 15,
+  "no_data": 0,
+  "accurate": 1,
+  "adjusted_up": 0,
+  "adjusted_down": 14,
+  "mean_abs_adjustment_pct": 12.3,
+  "max_abs_adjustment_pct": 18.4,
+  "log": [
+    {
+      "zone_id": "8928308280fffff",
+      "station": "Upparpet",
+      "raw_score": 88.7,
+      "calibrated_score": 72.4,
+      "mappls_ratio": 1.076,
+      "status": "adjusted_down",
+      "reasoning": "⬇️ Adjusted DOWN 89→72: Mappls shows only 1.08x travel time on Subedar Chatram Road, Gandhi Nagar vs the 2.77x our score implied. The road appears to absorb the parking load better than violations alone suggest."
+    },
+    {
+      "zone_id": "892830828ffffff",
+      "station": "City Market",
+      "raw_score": 85.3,
+      "calibrated_score": 72.1,
+      "mappls_ratio": 1.307,
+      "status": "adjusted_down",
+      "reasoning": "⬇️ Adjusted DOWN 85→72: Mappls shows only 1.31x travel time on BGS Flyover, City Market Circle vs the 2.71x our score implied. The road appears to absorb the parking load better than violations alone suggest."
+    },
+    {
+      "zone_id": "892830829ffffff",
+      "station": "HAL Old Airport",
+      "raw_score": 79.1,
+      "calibrated_score": 66.9,
+      "mappls_ratio": 1.259,
+      "status": "adjusted_down",
+      "reasoning": "⬇️ Adjusted DOWN 79→67: Mappls shows only 1.26x travel time on New Horizon College Road, Kadubisanahalli vs the 2.58x our score implied. The road appears to absorb the parking load better than violations alone suggest."
+    },
+    {
+      "zone_id": "89283082affffff",
+      "station": "Shivajinagar",
+      "raw_score": 76.4,
+      "calibrated_score": 68.9,
+      "mappls_ratio": 1.704,
+      "status": "adjusted_down",
+      "reasoning": "⬇️ Adjusted DOWN 76→69: Mappls shows only 1.70x travel time on Kamaraj Road, Sivanchetti Gardens vs the 2.53x our score implied. The road appears to absorb the parking load better than violations alone suggest."
+    },
+    {
+      "zone_id": "89283082bffffff",
+      "station": "Upparpet",
+      "raw_score": 72.8,
+      "calibrated_score": 60.3,
+      "mappls_ratio": 1.052,
+      "status": "adjusted_down",
+      "reasoning": "⬇️ Adjusted DOWN 73→60: Mappls shows only 1.05x travel time on BB Naidu Road, Gandhi Nagar vs the 2.46x our score implied. The road appears to absorb the parking load better than violations alone suggest."
+    },
+    {
+      "zone_id": "89283082cffffff",
+      "station": "Upparpet",
+      "raw_score": 69.5,
+      "calibrated_score": 62.6,
+      "mappls_ratio": 1.594,
+      "status": "adjusted_down",
+      "reasoning": "⬇️ Adjusted DOWN 70→63: Mappls shows only 1.59x travel time on Subedar Chatram Road, Gandhi Nagar vs the 2.39x our score implied. The road appears to absorb the parking load better than violations alone suggest."
+    },
+    {
+      "zone_id": "89283082dffffff",
+      "station": "City Market",
+      "raw_score": 65.2,
+      "calibrated_score": 58.6,
+      "mappls_ratio": 1.529,
+      "status": "adjusted_down",
+      "reasoning": "⬇️ Adjusted DOWN 65→59: Mappls shows only 1.53x travel time on Mysore Road, Chickpete vs the 2.30x our score implied. The road appears to absorb the parking load better than violations alone suggest."
+    },
+    {
+      "zone_id": "89283082effffff",
+      "station": "Upparpet",
+      "raw_score": 62.1,
+      "calibrated_score": 52.1,
+      "mappls_ratio": 1.039,
+      "status": "adjusted_down",
+      "reasoning": "⬇️ Adjusted DOWN 62→52: Mappls shows only 1.04x travel time on 4th Main Road, Gandhi Nagar vs the 2.24x our score implied. The road appears to absorb the parking load better than violations alone suggest."
+    },
+    {
+      "zone_id": "89283082fffffff",
+      "station": "Upparpet",
+      "raw_score": 58.4,
+      "calibrated_score": 48.9,
+      "mappls_ratio": 0.995,
+      "status": "adjusted_down",
+      "reasoning": "⬇️ Adjusted DOWN 58→49: Mappls shows only 0.99x travel time on 2nd Main Road, Gandhi Nagar vs the 2.17x our score implied. The road appears to absorb the parking load better than violations alone suggest."
+    },
+    {
+      "zone_id": "892830830ffffff",
+      "station": "Shivajinagar",
+      "raw_score": 55.9,
+      "calibrated_score": 52.6,
+      "mappls_ratio": 1.699,
+      "status": "adjusted_down",
+      "reasoning": "⬇️ Adjusted DOWN 56→53: Mappls shows only 1.70x travel time on Dispensary Road, Shivaji Nagar vs the 2.12x our score implied. The road appears to absorb the parking load better than violations alone suggest."
+    },
+    {
+      "zone_id": "892830831ffffff",
+      "station": "Upparpet",
+      "raw_score": 51.3,
+      "calibrated_score": 43.4,
+      "mappls_ratio": 0.992,
+      "status": "adjusted_down",
+      "reasoning": "⬇️ Adjusted DOWN 51→43: Mappls shows only 0.99x travel time on 3rd Cross Road, Chickpete vs the 2.03x our score implied. The road appears to absorb the parking load better than violations alone suggest."
+    },
+    {
+      "zone_id": "892830832ffffff",
+      "station": "Shivajinagar",
+      "raw_score": 47.6,
+      "calibrated_score": 45.2,
+      "mappls_ratio": 1.628,
+      "status": "validated_accurate",
+      "reasoning": "✅ Validated: 48/100 matches Mappls data on Dispensary Road, Shivaji Nagar (1.63x travel time, within tolerance of the 1.95x implied). Model accurate — no change."
+    },
+    {
+      "zone_id": "892830833ffffff",
+      "station": "Shivajinagar",
+      "raw_score": 43.2,
+      "calibrated_score": 40.5,
+      "mappls_ratio": 1.478,
+      "status": "adjusted_down",
+      "reasoning": "⬇️ Adjusted DOWN 43→41: Mappls shows only 1.48x travel time on Kamaraj Road, Sivanchetti Gardens vs the 1.86x our score implied. The road appears to absorb the parking load better than violations alone suggest."
+    },
+    {
+      "zone_id": "892830834ffffff",
+      "station": "Shivajinagar",
+      "raw_score": 39.8,
+      "calibrated_score": 34.5,
+      "mappls_ratio": 0.997,
+      "status": "adjusted_down",
+      "reasoning": "⬇️ Adjusted DOWN 40→34: Mappls shows only 1.00x travel time on Main Guard Cross Road, Shivaji Nagar vs the 1.80x our score implied. The road appears to absorb the parking load better than violations alone suggest."
+    },
+    {
+      "zone_id": "892830835ffffff",
+      "station": "Rajajinagar",
+      "raw_score": 36.5,
+      "calibrated_score": 33.0,
+      "mappls_ratio": 1.176,
+      "status": "adjusted_down",
+      "reasoning": "⬇️ Adjusted DOWN 36→33: Mappls shows only 1.18x travel time on Padmabhushan Dr MC Modi Road, Rajaji Nagar vs the 1.73x our score implied. The road appears to absorb the parking load better than violations alone suggest."
+    }
+  ]
+}
