@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ParkVisionSaathi — Patrol Operations</title>
+    <meta name="description" content="AI-powered patrol operations dashboard for traffic violation management and intelligent force deployment">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet Heat -->
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    
+    <link rel="stylesheet" href="styles.css?v=5">
+</head>
+<body>
+
+    <!-- ═══ Station Selection Screen ═══ -->
+    <div id="stationScreen" class="station-screen">
+        <div class="station-screen-bg"></div>
+        <div class="station-screen-content">
+            <div class="brand-block">
+                <div class="brand-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>
+                </div>
+                <h1 class="brand-title">ParkVisionSaathi</h1>
+                <p class="brand-subtitle">Patrol Operations Dashboard</p>
+            </div>
+            <div class="select-card">
+                <div class="select-card-header">
+                    <h2>Select Your Station</h2>
+                    <p>Choose your police station to view jurisdiction data</p>
+                </div>
+                <div class="select-search-wrap">
+                    <svg class="select-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input type="text" id="stationSearch" class="select-search" placeholder="Search by station name..." autocomplete="off">
+                </div>
+                <div id="stationList" class="select-list">
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                </div>
+                <div class="select-footer">
+                    <span id="stationCountLabel">Loading stations…</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ Main App Shell ═══ -->
+    <div id="appShell" class="app-shell hidden">
+
+        <!-- Left Nav Rail -->
+        <nav class="nav-rail">
+            <div class="nav-brand" title="ParkVisionSaathi">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
+            <div class="nav-items">
+                <button class="nav-item active" data-tab="map" title="Live Map">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+                    <span>Map</span>
+                </button>
+                <button class="nav-item" data-tab="areas" title="Priority Areas">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg>
+                    <span>Areas</span>
+                </button>
+                <button class="nav-item" data-tab="dispatch" title="Dispatch">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span>Dispatch</span>
+                </button>
+                <button class="nav-item" data-tab="assistant" title="AI Assistant">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    <span>Assist</span>
+                </button>
+            </div>
+            <button class="nav-item nav-station-switch" id="switchStationBtn" title="Switch station">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+            </button>
+        </nav>
+
+        <!-- Top Header -->
+        <header class="top-header">
+            <div class="header-left">
+                <div class="station-badge">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>
+                    <span id="currentStationName">—</span>
+                </div>
+                <div class="header-divider"></div>
+                <div class="header-meta">
+                    <span class="meta-item" id="headerZoneCount">0 zones</span>
+                    <span class="meta-dot">·</span>
+                    <span class="meta-item meta-high" id="headerHighCount">0 high priority</span>
+                </div>
+            </div>
+            <div class="header-center">
+                <div class="time-selector">
+                    <label for="hourSelect">Hour</label>
+                    <select id="hourSelect"></select>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="status-pill" id="apiStatusPill">
+                    <span class="status-dot"></span>
+                    <span>Connecting</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Center Workspace -->
+        <main class="center-workspace">
+            <div class="map-container">
+                <div id="map"></div>
+                <div class="map-controls">
+                    <div class="layer-toggle">
+                        <button class="layer-btn active" data-layer="risk">Risk</button>
+                        <button class="layer-btn" data-layer="violator">Violator</button>
+                        <button class="layer-btn" data-layer="spillover">Spillover</button>
+                    </div>
+                </div>
+                <div id="mapLoading" class="map-loading hidden">
+                    <div class="loading-spinner"></div>
+                    <span>Loading…</span>
+                </div>
+            </div>
+            <div id="priorityStrip" class="priority-strip">
+                <div class="strip-header">
+                    <h3>Priority Areas</h3>
+                    <span class="strip-subtitle" id="stripStation">Under this station</span>
+                </div>
+                <div id="priorityCards" class="priority-cards"></div>
+            </div>
+        </main>
+
+        <!-- Right Panel -->
+        <aside id="rightPanel" class="right-panel">
+            <div class="panel-tabs">
+                <button class="panel-tab active" data-panel="details">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                    Zone Detail
+                </button>
+                <button class="panel-tab" data-panel="sim">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    Simulation
+                </button>
+                <button class="panel-tab" data-panel="chat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    Assistant
+                </button>
+            </div>
+            <div id="detailsPanel" class="panel-content active">
+                <div id="detailsEmpty" class="empty-state">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="1.5"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>
+                    <p>Click a hotspot on the map or select a priority area to see details</p>
+                </div>
+                <div id="detailsContent" class="details-content hidden"></div>
+            </div>
+            <div id="simPanel" class="panel-content">
+                <div class="sim-container" style="padding:16px; display:flex; flex-direction:column; gap:16px;">
+                    <h3 style="margin:0; font-size:14px; font-weight:600;">Patrol Simulation</h3>
+                    <p style="font-size:12px; margin:0; color:#9CA3AF;">Simulate team deployment based on game-theoretic mixed strategies.</p>
+                    <div class="sim-control">
+                        <label for="teamSlider" style="font-size:12px; font-weight:500; display:flex; justify-content:space-between;">
+                            <span>Patrol Teams:</span>
+                            <span id="teamCount" class="highlight" style="font-weight:600; color:#2A9D8F;">6</span>
+                        </label>
+                        <input type="range" id="teamSlider" min="1" max="15" value="6" step="1" style="width:100%; margin-top:8px;">
+                    </div>
+                    <button class="detail-btn detail-btn-primary" id="runSimBtn" style="width:100%; margin-top:4px;">
+                        Run Simulation
+                    </button>
+                    <div id="simResults" class="sim-results hidden" style="margin-top:16px; display:flex; flex-direction:column; gap:8px;">
+                        <div style="display:flex; justify-content:space-between; font-size:12px; border-bottom:1px solid #374151; padding-bottom:4px;">
+                            <span>Coverage</span>
+                            <span id="simCoverage" style="font-weight:600; color:#2A9D8F;">—</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:12px; border-bottom:1px solid #374151; padding-bottom:4px;">
+                            <span>Risk Covered</span>
+                            <span id="simRiskCovered" style="font-weight:600;">—</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:12px; border-bottom:1px solid #374151; padding-bottom:4px;">
+                            <span>Uncovered High Risk</span>
+                            <span id="simUncovered" style="font-weight:600; color:#EF4444;">—</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="chatPanel" class="panel-content">
+                <div id="chatMessages" class="chat-messages">
+                    <div class="chat-welcome">
+                        <p><strong>Patrol Assistant</strong></p>
+                        <p class="text-muted">Ask about priority areas, patrol strategy, violations, or route planning.</p>
+                    </div>
+                </div>
+                <div class="chat-prompts">
+                    <button class="prompt-chip" data-prompt="Summarize high-priority areas">📊 Priority summary</button>
+                    <button class="prompt-chip" data-prompt="Suggest patrol strategy for this shift">🎯 Patrol strategy</button>
+                    <button class="prompt-chip" data-prompt="Why is this area high risk?">❓ Explain risk</button>
+                    <button class="prompt-chip" data-prompt="How many officers are needed?">👮 Force needed</button>
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="chatInput" placeholder="Ask the patrol assistant..." autocomplete="off">
+                    <button id="chatSend" class="chat-send-btn" title="Send">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    </button>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Mobile Bottom Nav -->
+    <nav id="mobileNav" class="mobile-nav">
+        <button class="mobile-tab active" data-tab="map">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>
+            Map
+        </button>
+        <button class="mobile-tab" data-tab="areas">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+            Areas
+        </button>
+        <button class="mobile-tab" data-tab="assistant">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Assist
+        </button>
+    </nav>
+
+    <script src="app.js?v=5"></script>
+</body>
+</html>
