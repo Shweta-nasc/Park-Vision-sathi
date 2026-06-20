@@ -1,0 +1,24 @@
+{
+  "_note": "Sample CongestionBreakdown for the #1 zone. The 6-component score is the MODEL's raw prediction (88.7). MapMyIndia's real travel_time_ratio (1.076x) is the external validator; the self-validating agent reconciles them, calibrating to 72.4. Identity kept in sync with hotspots.json / traffic_context.json.",
+  "zone_id": "8928308280fffff",
+  "hour": 9,
+  "congestion_impact": 88.7,
+  "calibrated_impact": 72.4,
+  "impact_band": "CRITICAL",
+  "lane_blockage_component": 0.88,
+  "intersection_impact_component": 0.55,
+  "traffic_degradation_component": 0.68,
+  "access_blockage_component": 0.70,
+  "vehicle_size_component": 0.40,
+  "severity_component": 0.79,
+  "mappls_travel_time_ratio": 1.076,
+  "top_violations": [
+    "WRONG PARKING",
+    "PARKING IN A MAIN ROAD",
+    "PARKING NEAR BUSTOP/SCHOOL/HOSPITAL ETC"
+  ],
+  "station": "Upparpet",
+  "junction": null,
+  "total_records": 5838,
+  "estimated_lane_hours_blocked": 34.2
+}

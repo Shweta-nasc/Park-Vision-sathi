@@ -1,127 +1,50 @@
 """
-Heatmap endpoint – returns lat/lon/intensity arrays for Leaflet heatLayer.
+Heatmap endpoint — lat/lon/intensity points for the map layers.
+
+Layers (frontend maps these to the `type` param):
+  raw       → violation density  (where violations happen)
+  risk      → congestion impact   (where violations choke traffic)
+  spillover → agent-calibrated impact
+
+Served from the in-memory DataStore (real H3 zones). No database.
 """
 
 from fastapi import APIRouter, Query
-from backend.app.db import query_df
+from backend.app.data_loader import store
 
 router = APIRouter()
-
-TIME_BUCKET_MAP = {
-    "night_0_6": (0, 6),
-    "morning_6_10": (6, 10),
-    "midday_10_16": (10, 16),
-    "evening_16_22": (16, 22),
-    "night_22_24": (22, 24),
-}
 
 
 @router.get("/heatmap")
 def get_heatmap(
-    hour: int = Query(default=None, ge=0, le=23, description="Hour of day"),
-    time_bucket: str = Query(default=None, description="Time bucket"),
-    type: str = Query(default="risk", description="risk, violator, spillover, or raw"),
+    hour: int = Query(default=None, ge=0, le=23, description="Hour of day (informational)"),
+    time_bucket: str = Query(default=None, description="Time bucket (informational)"),
+    type: str = Query(default="risk", description="risk | raw | spillover"),
 ):
-    """
-    Get heatmap data points for Leaflet visualization.
-
-    Types:
-    - risk: Risk score heatmap (from risk_scores table)
-    - violator: Violator adaptation risk (from game_violator_adaptation)
-    - spillover: Spillover-adjusted risk (from game_spillover)
-    - raw: Raw violation density
-    """
-    if time_bucket and time_bucket in TIME_BUCKET_MAP:
-        lo, hi = TIME_BUCKET_MAP[time_bucket]
-        hour_clause = "hour >= ? AND hour < ?"
-        params = [lo, hi]
-    elif hour is not None:
-        hour_clause = "hour = ?"
-        params = [hour]
-    else:
-        hour_clause = "1=1"
-        params = []
-
-    if type == "risk":
-        data = query_df(f"""
-            SELECT grid_lat as lat, grid_lon as lon, AVG(risk_score) as intensity
-            FROM risk_scores
-            WHERE {hour_clause} AND risk_score > 0
-            GROUP BY grid_cell_id
-            ORDER BY intensity DESC
-        """, tuple(params))
-
-    elif type == "violator":
-        data = query_df(f"""
-            SELECT grid_lat as lat, grid_lon as lon, AVG(violator_risk_score) as intensity
-            FROM game_violator_adaptation
-            WHERE {hour_clause} AND violator_risk_score > 0
-            GROUP BY grid_cell_id
-            ORDER BY intensity DESC
-        """, tuple(params))
-
-    elif type == "spillover":
-        data = query_df(f"""
-            SELECT grid_lat as lat, grid_lon as lon, AVG(adjusted_risk) as intensity
-            FROM game_spillover
-            WHERE {hour_clause} AND adjusted_risk > 0
-            GROUP BY grid_cell_id
-            ORDER BY intensity DESC
-        """, tuple(params))
-
-    elif type == "raw":
-        data = query_df(f"""
-            SELECT grid_lat as lat, grid_lon as lon, COUNT(*) as intensity
-            FROM violations
-            WHERE {hour_clause}
-            GROUP BY grid_cell_id
-            ORDER BY intensity DESC
-        """, tuple(params))
-
-    else:
-        return {"error": f"Unknown heatmap type: {type}. Use: risk, violator, spillover, raw"}
-
-    if not data:
-        return {"hour": hour, "time_bucket": time_bucket, "heatmap_type": type, "points": [],
-                "min_intensity": 0, "max_intensity": 0}
-
-    intensities = [d["intensity"] for d in data]
+    """Heatmap points for Leaflet/Mappls heat layers."""
+    layer = type if type in {"risk", "raw", "spillover"} else "risk"
+    points = store.heatmap_points(layer)
+    intensities = [p["intensity"] for p in points]
     return {
         "hour": hour,
         "time_bucket": time_bucket,
         "heatmap_type": type,
-        "points": data,
-        "min_intensity": min(intensities),
-        "max_intensity": max(intensities),
+        "points": points,
+        "min_intensity": min(intensities) if intensities else 0,
+        "max_intensity": max(intensities) if intensities else 0,
     }
 
 
 @router.get("/heatmap/patrol_overlay")
 def get_patrol_overlay(
     hour: int = Query(default=None, ge=0, le=23),
-    time_bucket: str = Query(default=None)
+    time_bucket: str = Query(default=None),
 ):
-    """Get patrol probability overlay for map markers (circle sizes)."""
-    if time_bucket and time_bucket in TIME_BUCKET_MAP:
-        lo, hi = TIME_BUCKET_MAP[time_bucket]
-        hour_clause = "hour >= ? AND hour < ?"
-        params = [lo, hi]
-    elif hour is not None:
-        hour_clause = "hour = ?"
-        params = [hour]
-    else:
-        hour_clause = "1=1"
-        params = []
-
-    data = query_df(f"""
-        SELECT grid_lat as lat, grid_lon as lon,
-               AVG(patrol_probability) as probability,
-               AVG(risk_score) as risk_score
-        FROM game_stackelberg
-        WHERE {hour_clause}
-        GROUP BY grid_cell_id
-        HAVING probability > 0.001
-        ORDER BY probability DESC
-        LIMIT 50
-    """, tuple(params))
-    return {"hour": hour, "time_bucket": time_bucket, "patrols": data}
+    """Patrol-probability overlay for map markers (circle sizing)."""
+    zones = store.top_zones(50)
+    patrols = [
+        {"lat": z["grid_lat"], "lon": z["grid_lon"],
+         "probability": z["patrol_probability"], "risk_score": z["risk_score"]}
+        for z in zones if z["patrol_probability"] > 0.001
+    ]
+    return {"hour": hour, "time_bucket": time_bucket, "patrols": patrols}

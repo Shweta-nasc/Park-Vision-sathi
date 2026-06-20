@@ -1,0 +1,69 @@
+{
+  "_README": "Mock JSON responses for ParkVision-Saathi API endpoints. Person 3 (Frontend) develops against these while real backend data is being built.",
+  "_NOTE": "All coordinates are REAL Bengaluru locations from the dataset. Station names and violation types are from actual data.",
+  
+  "endpoints": {
+    "GET /api/heatmap?time_bucket=morning_peak": {
+      "mock_file": "heatmap.json",
+      "schema": "HeatmapResponse",
+      "description": "Heatmap points for map layer — supports violation_density and congestion_risk toggle"
+    },
+    "GET /api/hotspots?time_bucket=morning_peak&limit=15": {
+      "mock_file": "hotspots.json",
+      "schema": "List[HotspotItem]",
+      "description": "Top-15 ranked hotspot zones by congestion impact score"
+    },
+    "GET /api/congestion/{zone_id}?hour=9": {
+      "mock_file": "congestion_breakdown.json",
+      "schema": "CongestionBreakdown",
+      "description": "6-component breakdown of congestion impact score for zone detail panel"
+    },
+    "GET /api/risk?hour=9": {
+      "mock_file": "risk_scores.json",
+      "schema": "List[RiskScoreResponse]",
+      "description": "Risk scores per grid cell — used by existing backend routers"
+    },
+    "GET /api/forecast?zone_id=": {
+      "mock_file": "forecast.json",
+      "schema": "List[ForecastPoint]",
+      "description": "LightGBM/CatBoost ensemble predictions for tomorrow's hotspots"
+    },
+    "GET /api/game/stackelberg_strategy?hour=9": {
+      "mock_file": "stackelberg_strategy.json",
+      "schema": "List[StackelbergResponse]",
+      "description": "Game-theoretic patrol probabilities per zone"
+    },
+    "GET /api/game/violator_adaptation?hour=9": {
+      "mock_file": "violator_adaptation.json",
+      "schema": "List[ViolatorAdaptationResponse]",
+      "description": "Rational violator utility analysis — where violators would move"
+    },
+    "GET /api/game/spillover_forecast?hour=9": {
+      "mock_file": "spillover.json",
+      "schema": "List[SpilloverResponse]",
+      "description": "Waterbed effect predictions — patrolled, neighbor_1, neighbor_2, unaffected"
+    },
+    "GET /api/game/summary?hour=9": {
+      "mock_file": "game_summary.json",
+      "schema": "GameSummary (custom)",
+      "description": "Aggregate stats across all game theory models"
+    },
+    "POST /api/simulate": {
+      "mock_file": "simulate.json",
+      "schema": "SimulationResponse",
+      "request_body": {"num_teams": 5, "hour": 9, "time_bucket": "morning_peak"},
+      "description": "What-if simulation: team allocation, coverage %, uncovered zones, spillover"
+    },
+    "POST /api/explain": {
+      "mock_file": "explain.json",
+      "schema": "ExplainResponse",
+      "request_body": {"zone_id": "8928308280fffff", "hour": 9},
+      "description": "LLM-generated zone explanation (cached or live from Gemini)"
+    },
+    "GET /api/traffic/{zone_id}": {
+      "mock_file": "traffic_context.json",
+      "schema": "TrafficContext",
+      "description": "MapMyIndia enrichment data: travel times, road type, nearby POIs"
+    }
+  }
+}

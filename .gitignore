@@ -38,3 +38,6 @@ models/*.joblib
 # ── Misc ─────────────────────────────────
 *.log
 .env
+
+node_modules/
+dataset/

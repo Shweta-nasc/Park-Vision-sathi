@@ -1,0 +1,16 @@
+{
+  "_note": "Sample TrafficContext shape. The live backend serves the REAL enriched values from data/enriched/traffic_context.json (15 zones). Kept in sync with zone 8928308280fffff.",
+  "zone_id": "8928308280fffff",
+  "road_name": "Subedar Chatram Road, Gandhi Nagar",
+  "road_type": "primary",
+  "travel_time_peak_min": 7.5,
+  "travel_time_offpeak_min": 7.0,
+  "travel_time_ratio": 1.076,
+  "nearby_pois": [
+    "Bus Stop (112m)",
+    "Flix Bus Bengaluru Bus Stop (197m)",
+    "Dawaa Dost Kempegowda Bus Store (344m)",
+    "International Airport Bus Stop (349m)",
+    "Private Bus Station (361m)"
+  ]
+}

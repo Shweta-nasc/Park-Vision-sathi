@@ -1,147 +1,188 @@
-# ParkVisionSaathi 🚔
+# ParkVision-Saathi 🚦
 
-**AI-powered patrol operations dashboard** for traffic violation management and intelligent police force deployment.
+> **Quantify. Predict. Optimize.** — a data-driven parking-enforcement intelligence system for Bengaluru Traffic Police.
 
-Built for the Smart India Hackathon — uses game theory, ML forecasting, and real-time risk analysis to optimize patrol routes across Bangalore's 54 police stations.
+Illegal parking doesn't just annoy — it chokes traffic. ParkVision-Saathi quantifies *which* violations actually hurt traffic flow, predicts where tomorrow's hotspots will be, and optimizes where to send limited patrol teams. Built in 3 days for a hackathon.
 
-![License](https://img.shields.io/badge/license-MIT-green)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-teal)
+![FastAPI](https://img.shields.io/badge/FastAPI-2.0-teal)
+![Data](https://img.shields.io/badge/data-JSON%20%2B%20in--memory-orange)
+![License](https://img.shields.io/badge/license-MIT-green)
 
 ---
 
-## Features
+## The Three Pillars
 
-| Feature | Description |
-|---------|-------------|
-| **Hotspot Detection** | Time-aware DBSCAN clustering on lat/lon per hour bucket |
-| **Risk Scoring** | 0–100 composite score (density, road importance, peak weight, repeat offenders, heavy vehicles) |
-| **Game Theory** | Stackelberg patrol probability, violator adaptation (Expected Utility), spillover forecasting |
-| **ML Forecasting** | LightGBM regressor with 22 engineered features (lag, rolling, calendar, spatial) |
-| **Operations Dashboard** | Mappls map with heatmap overlays, priority area ranking, zone detail, AI chat assistant |
-| **Station-based Workflow** | Select station → view jurisdiction data → dispatch to priority zones |
+| Pillar | Problem | Our Answer |
+|---|---|---|
+| **QUANTIFY** | Which violations actually choke traffic? | 6-factor **Congestion Impact Score** (0–100) per zone |
+| **PREDICT** | Where will tomorrow's hotspots be? | Forecast of top zones (see *Honest limitations* below) |
+| **OPTIMIZE** | Where should patrol teams go? | **Stackelberg** game theory + **waterbed** spillover simulation |
 
 ---
 
-## Project Structure
+## Key Features
+
+- **Two-Layer Map Toggle** — *Violation Density* vs *Congestion Risk Impact*. They are not the same map, and that difference is the whole point.
+- **Congestion Impact Score** — 6 weighted components, including a **real MapMyIndia travel-time ratio**.
+- **Self-Validating Agent** 🤖 — after scoring, the agent checks every top zone against live MapMyIndia traffic data and **calibrates its own scores** with plain-English reasoning. Deterministic and offline-safe.
+- **LLM Zone Explanations** — Gemini-generated, cache-first, grounded in real facts (no hallucinated numbers).
+- **Team Allocation Simulator** — drag a team slider, watch coverage % and predicted spillover update live.
+- **Real MapMyIndia Enrichment** — travel-time ratios, road names, and nearby POIs for the top hotspot zones.
+
+---
+
+## Architecture (planner-aligned: JSON + in-memory, **no database**)
 
 ```
-Park-Vision-Sathi/
-├── backend/
-│   └── app/
-│       ├── main.py              # FastAPI entry point
-│       ├── db.py                # SQLite connection helper
-│       ├── models.py            # Pydantic response models
-│       └── routers/
-│           ├── risk.py          # /hotspots, /risk, /risk/top_zones
-│           ├── forecast.py      # /forecast/zones
-│           ├── game.py          # /game/stackelberg, /game/violator, /game/spillover
-│           ├── heatmap.py       # /heatmap
-│           ├── simulate.py      # /simulate
-│           └── stations.py      # /stations, /stations/{name}/priority_areas
-├── frontend/
-│   ├── index.html               # Dashboard UI (Mappls SDK)
-│   ├── styles.css               # Light theme, sea-green accent
-│   └── app.js                   # Full application logic
-├── ml/
-│   ├── hotspot_dbscan.py        # Time-aware DBSCAN clustering
-│   ├── risk_score.py            # Composite risk scoring engine
-│   ├── game/
-│   │   ├── stackelberg.py       # Patrol probability optimization
-│   │   ├── expected_utility.py  # Violator adaptation modeling
-│   │   └── spillover.py         # Waterbed effect forecasting
-│   └── forecast/
-│       ├── feature_engineering.py
-│       └── train_model.py       # LightGBM training
-├── data/
-│   ├── load_and_clean.py        # CSV → SQLite loader
-│   └── forecast_features.csv    # Engineered features
-├── models/
-│   ├── lightgbm_v1.pkl          # Trained model
-│   └── MODEL_CARD.md            # Model documentation
-├── scripts/
-│   └── seed_db.py               # Database seeding utility
-├── run_pipeline.py              # End-to-end ML pipeline runner
-└── requirements.txt
+Frontend
+  ├── React + Vite + TypeScript  (frontend/src, port 5173)
+  └── Vanilla dashboard          (served by the API at /dashboard)
+        ↕ REST
+Backend — FastAPI (port 8000)
+  └── In-memory DataStore (backend/app/data_loader.py)
+        loads pre-computed JSON once at startup — NO SQLite, NO Postgres
+Data (single real H3 source of truth)
+  ├── data/mock/hotspots.json              top hotspot zones (congestion impact)
+  ├── data/enriched/traffic_context.json   REAL MapMyIndia travel-time + POIs
+  ├── data/processed/calibrated_scores.json self-validating agent output
+  ├── data/processed/agent_log.json         agent run summary + reasoning log
+  └── data/processed/explanations_cache.json cached Gemini explanations
+Maps: MapMyIndia / Mappls SDK (vector tiles, traffic layer, heatmap)
 ```
+
+**Constraints followed (per the build plan):**
+- ✅ No OpenStreetMap / OSMnx — MapMyIndia only
+- ✅ No PostgreSQL / Redis / Docker — pre-computed JSON loaded into memory
+- ✅ Demo survives offline — cached explanations + deterministic agent, no runtime LLM/network dependency
 
 ---
 
 ## Quick Start
 
-### 1. Install dependencies
-
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+# 1. Environment
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
+
+# 2. (Re)generate the self-validating agent outputs (optional — already committed)
+python -m ml.agent.validation_agent
+
+# 3. Run the backend from the PROJECT ROOT (absolute imports require this)
+uvicorn backend.app.main:app --reload --port 8000
+#   API docs:  http://localhost:8000/docs
+#   Dashboard: http://localhost:8000/dashboard/
+
+# 4. Verify everything end-to-end (in-process, no server needed)
+PYTHONPATH=. python scripts/verify_backend.py
+
+# 5. (Optional) React frontend
+cd frontend && npm install && npm run dev   # http://localhost:5173
 ```
 
-### 2. Run the ML pipeline (first time only)
+Set keys in `.env` (only needed to *re-generate* enrichment/explanations — the
+committed JSON already contains the results):
 
-```bash
-python3 run_pipeline.py
+```env
+MAPPLS_STATIC_KEY=your_key_here
+GEMINI_API_KEY=your_key_here
 ```
-
-This runs DBSCAN → Risk Scoring → Game Theory → Forecasting and populates the SQLite database.
-
-### 3. Start the API server
-
-```bash
-python3 -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-### 4. Open the dashboard
-
-```
-http://localhost:8000/dashboard/
-```
-
-Select a station → view map with heatmaps → drill into priority areas → use AI assistant.
 
 ---
 
 ## API Endpoints
 
+Every route is served at the bare path (React wire contract) **and** under `/api` (planner contract).
+
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | API health + DB table status |
-| GET | `/stations` | List all 54 police stations |
-| GET | `/stations/{name}/priority_areas` | Ranked zones with force + ETA |
-| GET | `/stations/{name}/summary` | Zone count, high-risk count |
-| GET | `/heatmap?hour=&type=` | Heatmap point data (risk/violator/spillover) |
-| GET | `/risk/top_zones?hour=&n=` | Top N risk zones with full data |
-| GET | `/hotspots?hour=` | DBSCAN cluster centroids |
-| GET | `/risk?hour=` | All risk-scored grid cells |
-| GET | `/game/stackelberg_strategy` | Patrol probability per zone |
-| GET | `/game/violator_adaptation` | Violator risk scores |
-| GET | `/game/spillover_forecast` | Spillover effect data |
-| GET | `/forecast/zones?horizon=` | LightGBM violation forecasts |
+|---|---|---|
+| GET | `/health` | Status + datasets loaded into memory |
+| GET | `/heatmap?type=risk\|raw\|spillover` | Map points (congestion impact / violation density / calibrated) |
+| GET | `/hotspots?limit=` | Ranked hotspot zones |
+| GET | `/risk/top_zones?n=` | Top-N zones by congestion impact |
+| GET | `/risk/{zone_id}` | Full zone detail (scores, components, game theory, real Mappls) |
+| GET | `/stations` · `/stations/{name}/priority_areas` | Station list + ranked priority zones |
+| GET | `/traffic/{zone_id}` | Real MapMyIndia travel-time ratio, road, POIs |
+| POST | `/explain` | Cached Gemini zone explanation (grounded fallback if uncached) |
+| GET | `/game/stackelberg_strategy` · `/game/violator_adaptation` · `/game/spillover_arrows` | Game-theory outputs |
+| POST | `/simulate` | Team allocation → coverage % + waterbed spillover |
+| GET | `/agent/validation-report` | 🤖 Self-validating agent: calibration summary + per-zone reasoning |
+| GET | `/forecast/top_risk_zones` | Predicted top zones (proxy — see limitations) |
 
 ---
 
-## Configuration
+## The Congestion Impact Score
 
-### Mappls API Key
+A 6-component weighted score (0–100):
 
-The dashboard uses MapmyIndia (Mappls) for map tiles. Set your API key in `frontend/index.html`:
-
-```html
-<script src="https://apis.mappls.com/advancedmaps/api/YOUR_KEY_HERE/map_sdk?..."></script>
+```
+score = 0.30·lane_blockage      +  # main-road & double parking → lanes lost
+        0.25·intersection_impact +  # junction-approach violations → wasted green time
+        0.25·traffic_degradation +  # MapMyIndia real travel_time_ratio
+        0.10·access_blockage     +  # bus stops, hospitals, schools
+        0.10·vehicle_size            # heavy-vehicle obstruction
 ```
 
-Get a free key at [apis.mappls.com/console](https://apis.mappls.com/console/).
+| Band | Score |
+|---|---|
+| CRITICAL | 76–100 |
+| SEVERE | 51–75 |
+| MODERATE | 26–50 |
+| MINIMAL | 0–25 |
 
 ---
 
-## Tech Stack
+## The Self-Validating Agent 🤖
 
-- **Backend:** Python 3.10+, FastAPI, SQLite, SQLAlchemy
-- **ML:** scikit-learn (DBSCAN), LightGBM, scipy, numpy, pandas
-- **Frontend:** Vanilla HTML/CSS/JS, Mappls SDK v3.0
-- **Game Theory:** Stackelberg equilibrium, Expected Utility, Spillover modeling
+`ml/agent/validation_agent.py` — wow-moment of the demo. After the model scores
+each zone, the agent:
+
+1. Reads the model's raw Congestion Impact Score.
+2. Compares the slowdown the score *implies* against the **real MapMyIndia travel-time ratio**.
+3. Calibrates the score with a bounded, trust-weighted update (α = 0.3, capped ±30%).
+4. Logs a plain-English reason for every zone.
+
+It is **deterministic and offline** — no LLM, no quota, no network. Example
+(real output): *Subedar Chatram Road — adjusted 89 → 72 because MapMyIndia shows
+only 1.08x travel time, not the 2.77x the raw score implied.* That correction is
+the thesis in action: **violation density ≠ congestion impact.**
 
 ---
+
+## Game-Theory Model
+
+- **Patrol probability** ∝ score^1.5, normalized (Stackelberg — police as leader).
+- **Violator utility** = (1 − patrol_prob)·time_saved − patrol_prob·fine (followers best-respond).
+- **Waterbed effect** — enforcing a zone displaces violator pressure to the nearest uncovered zone.
+
+Academic grounding (see `docs/presentation_outline.md`): Tambe (2011) security
+games (ARMOR/IRIS/PROTECT); STREETS (Brown et al., AAAI 2014, traffic patrolling);
+STOP (Trejo et al., 2017).
+
+---
+
+## Data & Honest Limitations
+
+- The analysis is built on the Bengaluru Traffic Police violation dataset (~298k records, Nov 2023 – Apr 2024). The live API serves the **top hotspot zones, fully enriched** with real MapMyIndia data.
+- **Temporal patterns reflect enforcement-shift recording**, not raw parking behaviour — so the forecast is best read as *predicted detection hotspots*, useful for patrol scheduling.
+- **The forecast endpoint is a transparent proxy** derived from historical volume (`is_proxy: true`). The LightGBM artefact in `models/` was trained on synthetic seed data keyed by a different grid; a real per-H3 ensemble is the next integration step.
+- **Congestion Impact is a proxy score**, not a measured value — the MapMyIndia ratio is the one externally measured signal, which is exactly why the self-validating agent exists.
+
+---
+
+## Team
+
+| Person | Role |
+|---|---|
+| Person 1 | Backend — FastAPI, in-memory DataStore, API |
+| Person 2 | ML — Congestion Impact Score, forecasting, game theory |
+| Person 3 | Frontend — Vite/React, MapMyIndia SDK, UI/UX |
+| Person 4 | Integration — LLM, MapMyIndia enrichment, self-validating agent, docs, presentation |
+
+## Acknowledgements
+
+MapMyIndia / Mappls (maps + traffic APIs) · Google Gemini (zone explanations) · Uber H3 (spatial indexing) · FastAPI.
 
 ## License
 
