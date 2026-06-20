@@ -105,22 +105,19 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 
-// ── Station Selection Screen ────────────────────────────────────────────
+// ── Auto-select first station (skip selection screen) ───────────────────
 async function loadStations() {
     try {
         const r = await fetch(`${API}/stations`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         state.stations = await r.json();
-        renderStationList(state.stations);
-        const lbl = document.getElementById('stationCountLabel');
-        if (lbl) lbl.textContent = `${state.stations.length} stations available`;
+        // Auto-select the first station and jump straight to dashboard
+        if (state.stations.length > 0) {
+            selectStation(state.stations[0]);
+        }
     } catch (e) {
         console.error('Station load error:', e);
-        document.getElementById('stationList').innerHTML =
-            `<div style="padding:32px;text-align:center;color:#9CA3AF">
-                <p style="font-size:14px;margin-bottom:8px">Could not load stations</p>
-                <p style="font-size:12px">Check that the API is running on port 8000</p>
-            </div>`;
+        showToast('Could not load stations. Check that the API is running on port 8000', 'error');
     }
 }
 
@@ -154,10 +151,10 @@ function renderStationList(list) {
 
 function selectStation(s) {
     state.station = s;
-    document.getElementById('stationScreen').classList.add('hidden');
-    document.getElementById('appShell').classList.remove('hidden');
-    document.getElementById('currentStationName').textContent = s.name;
-    document.getElementById('stripStation').textContent = `Under ${s.name}`;
+    document.getElementById('stationScreen')?.classList.add('hidden');
+    document.getElementById('appShell')?.classList.remove('hidden');
+    const nameEl = document.getElementById('currentStationName');
+    if (nameEl) nameEl.textContent = s.name;
 
     initMap(s.lat, s.lon);
     loadDashboard();
@@ -177,8 +174,8 @@ function initMap(lat, lon) {
         attributionControl: true,
     });
 
-    // CartoDB Dark Matter map tiles (free, offline fallback)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    // CartoDB Light map tiles
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
         subdomains: 'abcd',
         maxZoom: 20,
@@ -209,7 +206,6 @@ async function loadDashboard() {
     showLoading(true);
     await Promise.all([
         loadHeatmap(),
-        loadPriorityAreas(),
         loadStationSummary()
     ]);
     showLoading(false);
@@ -878,11 +874,7 @@ function bindEvents() {
         chip.addEventListener('click', () => { addMsg('user', chip.dataset.prompt); reply(chip.dataset.prompt); });
     });
 
-    // Switch police station
-    document.getElementById('switchStationBtn')?.addEventListener('click', () => {
-        document.getElementById('stationScreen').classList.remove('hidden');
-        document.getElementById('appShell').classList.add('hidden');
-    });
+    // Switch station button removed — app auto-selects the first station
 
     // Patrol simulation setup
     const teamSlider = document.getElementById('teamSlider');
