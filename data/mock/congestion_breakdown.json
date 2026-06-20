@@ -1,0 +1,21 @@
+{
+  "zone_id": "8928308280fffff",
+  "hour": 9,
+  "congestion_impact": 82.4,
+  "impact_band": "CRITICAL",
+  "lane_blockage_component": 0.85,
+  "intersection_impact_component": 0.72,
+  "traffic_degradation_component": 0.68,
+  "access_blockage_component": 0.45,
+  "vehicle_size_component": 0.38,
+  "severity_component": 0.79,
+  "top_violations": [
+    "DOUBLE PARKING",
+    "PARKING IN A MAIN ROAD",
+    "PARKING NEAR ROAD CROSSING"
+  ],
+  "station": "Koramangala Traffic PS",
+  "junction": "Sony World Junction",
+  "total_records": 142,
+  "estimated_lane_hours_blocked": 22.5
+}

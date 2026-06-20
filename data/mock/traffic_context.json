@@ -1,0 +1,15 @@
+{
+  "zone_id": "8928308280fffff",
+  "road_name": "Kempegowda Road, Gandhi Nagar",
+  "road_type": "primary",
+  "travel_time_peak_min": 18.2,
+  "travel_time_offpeak_min": 6.1,
+  "travel_time_ratio": 2.99,
+  "nearby_pois": [
+    "KBS (Kempegowda Bus Station)",
+    "Majestic Metro Station",
+    "Gandhi Nagar Market",
+    "Corporation Circle",
+    "BMTC Bus Stand"
+  ]
+}

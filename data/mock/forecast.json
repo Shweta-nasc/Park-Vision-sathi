@@ -1,0 +1,92 @@
+[
+  {
+    "zone_id": "8928308280fffff",
+    "lat": 12.9346,
+    "lon": 77.6124,
+    "predicted_count": 52.3,
+    "predicted_risk": 84.7,
+    "confidence_lower": 38.1,
+    "confidence_upper": 66.5
+  },
+  {
+    "zone_id": "892830828ffffff",
+    "lat": 12.9716,
+    "lon": 77.5946,
+    "predicted_count": 41.8,
+    "predicted_risk": 76.2,
+    "confidence_lower": 29.4,
+    "confidence_upper": 54.2
+  },
+  {
+    "zone_id": "892830829ffffff",
+    "lat": 12.9767,
+    "lon": 77.5713,
+    "predicted_count": 38.2,
+    "predicted_risk": 72.9,
+    "confidence_lower": 26.7,
+    "confidence_upper": 49.7
+  },
+  {
+    "zone_id": "89283082affffff",
+    "lat": 12.9950,
+    "lon": 77.5898,
+    "predicted_count": 33.5,
+    "predicted_risk": 68.1,
+    "confidence_lower": 22.1,
+    "confidence_upper": 44.9
+  },
+  {
+    "zone_id": "89283082bffffff",
+    "lat": 12.9352,
+    "lon": 77.6245,
+    "predicted_count": 29.7,
+    "predicted_risk": 61.4,
+    "confidence_lower": 18.9,
+    "confidence_upper": 40.5
+  },
+  {
+    "zone_id": "89283082cffffff",
+    "lat": 12.9157,
+    "lon": 77.6421,
+    "predicted_count": 25.1,
+    "predicted_risk": 55.8,
+    "confidence_lower": 15.3,
+    "confidence_upper": 34.9
+  },
+  {
+    "zone_id": "89283082dffffff",
+    "lat": 12.9855,
+    "lon": 77.6052,
+    "predicted_count": 21.4,
+    "predicted_risk": 49.3,
+    "confidence_lower": 12.8,
+    "confidence_upper": 30.0
+  },
+  {
+    "zone_id": "89283082effffff",
+    "lat": 12.9498,
+    "lon": 77.5847,
+    "predicted_count": 18.2,
+    "predicted_risk": 42.7,
+    "confidence_lower": 10.5,
+    "confidence_upper": 25.9
+  },
+  {
+    "zone_id": "89283082fffffff",
+    "lat": 12.9621,
+    "lon": 77.6378,
+    "predicted_count": 14.6,
+    "predicted_risk": 36.5,
+    "confidence_lower": 7.9,
+    "confidence_upper": 21.3
+  },
+  {
+    "zone_id": "892830830ffffff",
+    "lat": 13.0022,
+    "lon": 77.5678,
+    "predicted_count": 11.3,
+    "predicted_risk": 29.8,
+    "confidence_lower": 5.4,
+    "confidence_upper": 17.2
+  }
+]
