@@ -27,6 +27,7 @@ import type {
   TrafficContext,
   ViolatorRecord,
   Zone,
+  AgentCalibration,
 } from '@/types/api';
 
 /** Map planner layer name → backend heatmap `type` param. */
@@ -51,8 +52,10 @@ export const api = {
       .get<any[]>(`/stations/${encodeURIComponent(station)}/priority_areas`, { hour, limit })
       .then((rows) => rows.map((r) => adaptPriorityArea(r, hour))),
 
-  heatmap: async (hour: number, layer: MapLayer): Promise<HeatmapResponse> => {
-    const raw = await http.get<any>('/heatmap', { hour, type: LAYER_TO_BACKEND[layer] });
+  heatmap: async (hour: number, layer: MapLayer, resolution?: number): Promise<HeatmapResponse> => {
+    const params: Record<string, string | number> = { hour, type: LAYER_TO_BACKEND[layer] };
+    if (resolution != null) params.resolution = resolution;
+    const raw = await http.get<any>('/heatmap', params);
     const points: HeatmapPoint[] = (raw.points ?? []).map((p: any) => ({
       lat: p.lat,
       lon: p.lon,
@@ -116,4 +119,12 @@ export const api = {
 
   traffic: (h3_id: string): Promise<TrafficContext> =>
     http.get<any>(`/traffic/${encodeURIComponent(h3_id)}`).then(adaptTraffic),
+
+  agentCalibration: (limit = 50): Promise<AgentCalibration> =>
+    http.get<any>('/agent/calibration', { limit }).then((r) => ({
+      available: !!r.available,
+      detail: r.detail,
+      summary: r.summary ?? null,
+      log: r.log ?? [],
+    })),
 };

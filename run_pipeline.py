@@ -103,9 +103,16 @@ def main():
     done(t0)
 
     # ── 7. Spillover simulation ───────────────────────────────────────────
-    t0 = step("7 / 7  Spillover Simulation")
+    t0 = step("7 / 8  Spillover Simulation")
     from spillover import run as run_spill
     run_spill()
+    done(t0)
+
+    # ── 8. Self-Validating Congestion Agent ───────────────────────────────
+    t0 = step("8 / 8  Self-Validating Agent (Mappls calibration)")
+    sys.path.insert(0, str(PROJECT_ROOT / "ml" / "agent"))
+    from validation_agent import run as run_agent
+    run_agent()
     done(t0)
 
     total = time.time() - total_t0
@@ -128,6 +135,8 @@ def main():
         "data/whatif_coverage.json",
         "data/violator_utility.json",
         "data/spillover_arrows.json",
+        "data/processed/calibrated_scores.json",
+        "data/processed/agent_log.json",
     ]
     for j in json_files:
         p = PROJECT_ROOT / j

@@ -16,11 +16,45 @@ TIME_BUCKET_MAP = {
 }
 
 
+def _aggregate_resolution(points: list[dict], resolution: int) -> list[dict]:
+    """Aggregate fine-grained points into coarser spatial bins.
+
+    `resolution` is the number of decimal places of lat/lon to snap to:
+    higher = finer detail. 4 ≈ ~11 m, 3 ≈ ~110 m, 2 ≈ ~1.1 km.
+    Intensities of merged points are averaged; the bin centroid is the mean
+    of member coordinates. Used to serve coarse blobs when zoomed out and
+    fine spots when zoomed in.
+    """
+    bins: dict[tuple, dict] = {}
+    for p in points:
+        key = (round(p["lat"], resolution), round(p["lon"], resolution))
+        b = bins.setdefault(key, {"lat_sum": 0.0, "lon_sum": 0.0, "int_sum": 0.0, "n": 0})
+        b["lat_sum"] += p["lat"]
+        b["lon_sum"] += p["lon"]
+        b["int_sum"] += p["intensity"]
+        b["n"] += 1
+    out = [
+        {
+            "lat": b["lat_sum"] / b["n"],
+            "lon": b["lon_sum"] / b["n"],
+            "intensity": b["int_sum"] / b["n"],
+        }
+        for b in bins.values()
+    ]
+    out.sort(key=lambda d: d["intensity"], reverse=True)
+    return out
+
+
 @router.get("/heatmap")
 def get_heatmap(
     hour: int = Query(default=None, ge=0, le=23, description="Hour of day"),
     time_bucket: str = Query(default=None, description="Time bucket"),
     type: str = Query(default="risk", description="risk, violator, spillover, or raw"),
+    resolution: int = Query(
+        default=None, ge=2, le=5,
+        description="Optional spatial aggregation: lat/lon decimal places to snap to "
+                    "(2≈1km blobs, 5≈full detail). Omit for full resolution.",
+    ),
 ):
     """
     Get heatmap data points for Leaflet visualization.
@@ -30,6 +64,8 @@ def get_heatmap(
     - violator: Violator adaptation risk (from game_violator_adaptation)
     - spillover: Spillover-adjusted risk (from game_spillover)
     - raw: Raw violation density
+
+    Pass `resolution` to aggregate points into coarser bins for multi-zoom rendering.
     """
     if time_bucket and time_bucket in TIME_BUCKET_MAP:
         lo, hi = TIME_BUCKET_MAP[time_bucket]
@@ -83,13 +119,17 @@ def get_heatmap(
 
     if not data:
         return {"hour": hour, "time_bucket": time_bucket, "heatmap_type": type, "points": [],
-                "min_intensity": 0, "max_intensity": 0}
+                "min_intensity": 0, "max_intensity": 0, "resolution": resolution}
+
+    if isinstance(resolution, int):
+        data = _aggregate_resolution(data, resolution)
 
     intensities = [d["intensity"] for d in data]
     return {
         "hour": hour,
         "time_bucket": time_bucket,
         "heatmap_type": type,
+        "resolution": resolution,
         "points": data,
         "min_intensity": min(intensities),
         "max_intensity": max(intensities),

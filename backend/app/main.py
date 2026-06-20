@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from backend.app.routers import risk, forecast, game, simulate, heatmap, stations, explain, traffic
+from backend.app.routers import risk, forecast, game, simulate, heatmap, stations, explain, traffic, agent
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
 
@@ -34,6 +34,7 @@ app.include_router(heatmap.router, tags=["Heatmap"])
 app.include_router(stations.router, tags=["Stations"])
 app.include_router(explain.router, tags=["Explanations"])
 app.include_router(traffic.router, tags=["Traffic Context"])
+app.include_router(agent.router, tags=["Agent"])
 
 
 @app.get("/", tags=["Health"])

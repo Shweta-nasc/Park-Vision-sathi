@@ -1,0 +1,165 @@
+{
+  "total_zones": 1409,
+  "validated": 39,
+  "accurate": 8,
+  "adjusted_up": 0,
+  "adjusted_down": 31,
+  "log": [
+    {
+      "zone_id": "2585_15537",
+      "reasoning": "Adjusted DOWN 32->29: Mappls shows only 1.26x near New Horizon College Road, Kadubisanahalli despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2585_15538",
+      "reasoning": "Adjusted DOWN 30->28: Mappls shows only 1.26x near New Horizon College Road, Kadubisanahalli despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2586_15537",
+      "reasoning": "Adjusted DOWN 39->36: Mappls shows only 1.26x near New Horizon College Road, Kadubisanahalli despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2586_15538",
+      "reasoning": "Adjusted DOWN 45->41: Mappls shows only 1.26x near New Horizon College Road, Kadubisanahalli despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2586_15539",
+      "reasoning": "Adjusted DOWN 34->32: Mappls shows only 1.26x near New Horizon College Road, Kadubisanahalli despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2587_15537",
+      "reasoning": "Validated: model score 22 matches Mappls (1.26x travel time near New Horizon College Road, Kadubisanahalli)."
+    },
+    {
+      "zone_id": "2587_15538",
+      "reasoning": "Adjusted DOWN 37->34: Mappls shows only 1.26x near New Horizon College Road, Kadubisanahalli despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2591_15515",
+      "reasoning": "Adjusted DOWN 43->39: Mappls shows only 1.31x near BGS Flyover, City Market Circle despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2592_15514",
+      "reasoning": "Adjusted DOWN 42->40: Mappls shows only 1.53x near Mysore Road, Chickpete despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2592_15515",
+      "reasoning": "Adjusted DOWN 55->49: Mappls shows only 1.31x near BGS Flyover, City Market Circle despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2592_15516",
+      "reasoning": "Adjusted DOWN 46->42: Mappls shows only 1.31x near BGS Flyover, City Market Circle despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2593_15514",
+      "reasoning": "Adjusted DOWN 44->41: Mappls shows only 1.53x near Mysore Road, Chickpete despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2593_15515",
+      "reasoning": "Adjusted DOWN 46->43: Mappls shows only 1.53x near Mysore Road, Chickpete despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2593_15516",
+      "reasoning": "Adjusted DOWN 40->37: Mappls shows only 1.31x near BGS Flyover, City Market Circle despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2594_15514",
+      "reasoning": "Validated: model score 41 matches Mappls (1.59x travel time near Subedar Chatram Road, Gandhi Nagar)."
+    },
+    {
+      "zone_id": "2594_15515",
+      "reasoning": "Adjusted DOWN 51->43: Mappls shows only 0.99x near 3rd Cross Road, Chickpete despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2594_15516",
+      "reasoning": "Adjusted DOWN 42->36: Mappls shows only 0.99x near 3rd Cross Road, Chickpete despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2595_15514",
+      "reasoning": "Adjusted DOWN 51->44: Mappls shows only 1.08x near Subedar Chatram Road, Gandhi Nagar despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2595_15515",
+      "reasoning": "Adjusted DOWN 65->54: Mappls shows only 1.04x near 4th Main Road, Gandhi Nagar despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2595_15516",
+      "reasoning": "Adjusted DOWN 46->39: Mappls shows only 0.99x near 2nd Main Road, Gandhi Nagar despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2595_15520",
+      "reasoning": "Adjusted DOWN 39->34: Mappls shows only 1.00x near Main Guard Cross Road, Shivaji Nagar despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2595_15521",
+      "reasoning": "Adjusted DOWN 42->36: Mappls shows only 1.00x near Main Guard Cross Road, Shivaji Nagar despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2595_15522",
+      "reasoning": "Validated: model score 36 matches Mappls (1.70x travel time near Kamaraj Road, Sivanchetti Gardens)."
+    },
+    {
+      "zone_id": "2596_15514",
+      "reasoning": "Adjusted DOWN 42->37: Mappls shows only 1.08x near Subedar Chatram Road, Gandhi Nagar despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2596_15515",
+      "reasoning": "Adjusted DOWN 43->37: Mappls shows only 0.99x near 2nd Main Road, Gandhi Nagar despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2596_15516",
+      "reasoning": "Adjusted DOWN 32->28: Mappls shows only 0.99x near 2nd Main Road, Gandhi Nagar despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2596_15520",
+      "reasoning": "Adjusted DOWN 56->52: Mappls shows only 1.63x near Dispensary Road, Shivaji Nagar despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2596_15521",
+      "reasoning": "Adjusted DOWN 54->50: Mappls shows only 1.63x near Dispensary Road, Shivaji Nagar despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2596_15522",
+      "reasoning": "Adjusted DOWN 54->49: Mappls shows only 1.48x near Kamaraj Road, Sivanchetti Gardens despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2596_15523",
+      "reasoning": "Validated: model score 31 matches Mappls (1.48x travel time near Kamaraj Road, Sivanchetti Gardens)."
+    },
+    {
+      "zone_id": "2597_15520",
+      "reasoning": "Validated: model score 35 matches Mappls (1.63x travel time near Dispensary Road, Shivaji Nagar)."
+    },
+    {
+      "zone_id": "2597_15521",
+      "reasoning": "Validated: model score 34 matches Mappls (1.63x travel time near Dispensary Road, Shivaji Nagar)."
+    },
+    {
+      "zone_id": "2597_15522",
+      "reasoning": "Validated: model score 24 matches Mappls (1.48x travel time near Kamaraj Road, Sivanchetti Gardens)."
+    },
+    {
+      "zone_id": "2598_15510",
+      "reasoning": "Adjusted DOWN 43->38: Mappls shows only 1.18x near Padmabhushan Dr MC Modi Road, Rajaji Nagar despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2599_15508",
+      "reasoning": "Adjusted DOWN 45->40: Mappls shows only 1.18x near Padmabhushan Dr MC Modi Road, Rajaji Nagar despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2599_15509",
+      "reasoning": "Adjusted DOWN 47->41: Mappls shows only 1.18x near Padmabhushan Dr MC Modi Road, Rajaji Nagar despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2599_15510",
+      "reasoning": "Adjusted DOWN 44->39: Mappls shows only 1.18x near Padmabhushan Dr MC Modi Road, Rajaji Nagar despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2600_15509",
+      "reasoning": "Adjusted DOWN 43->38: Mappls shows only 1.18x near Padmabhushan Dr MC Modi Road, Rajaji Nagar despite high violations \u2014 wide road may absorb the parking impact."
+    },
+    {
+      "zone_id": "2600_15510",
+      "reasoning": "Adjusted DOWN 48->42: Mappls shows only 1.18x near Padmabhushan Dr MC Modi Road, Rajaji Nagar despite high violations \u2014 wide road may absorb the parking impact."
+    }
+  ]
+}
