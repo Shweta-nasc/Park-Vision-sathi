@@ -708,3 +708,68 @@ def build_congestion_artifact(
         sum(len(buckets) for buckets in artifact.values()),
     )
     return artifact
+
+
+# ─── CLI entry point ─────────────────────────────────────────────────────────
+#
+# Reusable runner that builds the real CIS artifact from the anonymized Bengaluru
+# violation CSV. The CSV is loaded into an in-memory DataFrame and passed to
+# build_congestion_artifact as a DataFrame — read_violations intentionally does
+# NOT accept .csv (Requirement 11.1: columnar/JSON/DataFrame only), so the CSV is
+# materialized here and handed over in-memory. No SQLite, no database.
+#
+#   python -m ml.congestion.build_artifact
+#   python ml/congestion/build_artifact.py
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+_CSV_FILENAME = "jan to may police violation_anonymized791b166.csv"
+_CSV_CANDIDATES = (
+    _REPO_ROOT / "Dataset" / _CSV_FILENAME,
+    _REPO_ROOT / "data" / _CSV_FILENAME,
+    Path.home() / "Downloads" / _CSV_FILENAME,
+)
+
+
+def _resolve_real_csv() -> Path:
+    """Return the first existing real-dataset CSV from the candidate locations."""
+    for candidate in _CSV_CANDIDATES:
+        if candidate.exists():
+            return candidate
+    searched = "\n  ".join(str(c) for c in _CSV_CANDIDATES)
+    raise FileNotFoundError(
+        f"Could not find '{_CSV_FILENAME}'. Looked in:\n  {searched}"
+    )
+
+
+def build_from_real_csv(
+    csv_path: Optional[Union[str, Path]] = None,
+    traffic_context_path: Union[str, Path] = DEFAULT_TRAFFIC_CONTEXT_PATH,
+    out_path: Union[str, Path] = DEFAULT_ARTIFACT_PATH,
+) -> dict:
+    """Load the real violation CSV into a DataFrame and build the CIS artifact.
+
+    The raw CSV already carries the columns the builder expects (``latitude``,
+    ``longitude``, ``created_datetime``, ``violation_type`` as a list-like string,
+    ``vehicle_type``/``updated_vehicle_type``, ``junction_name``,
+    ``police_station``), so it is read as-is and passed through as a DataFrame.
+    """
+    resolved = Path(csv_path) if csv_path is not None else _resolve_real_csv()
+    print(f"[cis] Loading real violations CSV: {resolved}")
+    frame = pd.read_csv(resolved, low_memory=False)
+    print(f"[cis] Raw rows: {len(frame):,}")
+    artifact = build_congestion_artifact(
+        violations_path=frame,
+        traffic_context_path=traffic_context_path,
+        out_path=out_path,
+    )
+    n_entries = sum(len(buckets) for buckets in artifact.values())
+    print(
+        f"[cis] Wrote {out_path}: {len(artifact):,} H3 zone(s), "
+        f"{n_entries:,} (zone, bucket) entr(ies)."
+    )
+    return artifact
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
+    build_from_real_csv()

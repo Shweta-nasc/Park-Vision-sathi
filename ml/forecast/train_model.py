@@ -281,9 +281,54 @@ Falls back to 80/20 chronological if the date range does not support the fixed t
 - `models/feature_importance.txt` – top-20 feature importance
 - SQLite table `forecast_predictions` – test-set actuals vs predictions
 
+## Target-Leakage Audit & Fix (honest metrics)
+An earlier revision reported **R²≈0.9929 / MAE≈0.17**. Those numbers were **not
+honest** — they were inflated by target leakage in the feature matrix:
+
+- `rolling_mean_7d`, `rolling_mean_14d`, and `rolling_std_7d` were computed with
+  `.rolling(window, min_periods=1)` **without shifting**, so each row's rolling
+  window *included that same row's own `violation_count`* (the prediction target).
+- `violation_rate` was `violation_count / rolling_mean_7d` — dividing the target
+  by a window that already contained the target.
+
+The old feature-importance ranking confirmed the model leaned on these leaky
+columns (`violation_rate` #1, `rolling_mean_7d` #2). The fix (in
+`ml/forecast/feature_engineering.py`) shifts each cell's series by one row before
+rolling, so every rolling statistic uses **strictly-past** observations, and
+redefines `violation_rate` as `lag_1 / rolling_mean_7d` (both strictly-past).
+
+| Metric | Old (leaky) | New (honest) |
+|---|---|---|
+| R² | 0.9929 | {metrics['r2']:.4f} |
+| MAE | 0.1700 | {metrics['mae']:.4f} |
+| RMSE | 0.6657 | {metrics['rmse']:.4f} |
+| Precision@10 | 0.5875 | {metrics.get('precision_at_10', 0.0):.4f} |
+
+The large drop in R² is **expected and correct**: hourly per-cell violation
+counts are genuinely hard to predict from past counts alone. Precision@10 (the
+rank-based "did we flag the right hotspots" metric) is the more demo-relevant
+number and degrades gracefully.
+
 ## Limitations & Caveats
-- Data covers Nov 2023 – May 2024 (Bengaluru); model may not generalise to other cities or time periods without retraining.
-- Hours 16–23 contain <4% of data (temporal cliff). Metrics for those hours are not reliable.
+- Data covers Nov 2023 – Apr 2024 (Bengaluru); model may not generalise to other cities or time periods without retraining.
+- **Sparse temporal index (lag semantics):** the feature matrix has one row per
+  (grid_cell_id, date, hour) that recorded ≥1 violation; zero-violation slots are
+  not materialized. So `lag_1` / `lag_24` / `lag_168` mean "1 / 24 / 168 *recorded
+  observations* ago", not "1 / 24 / 168 *clock hours* ago", and the 168/336-row
+  rolling windows span the last 168/336 recorded observations rather than strictly
+  7/14 calendar days. A fully temporally-correct version would zero-fill the
+  complete (cell × date × hour) grid before computing lags/rolling. The sparse
+  representation is retained so these honest metrics stay directly comparable to
+  the previously reported (leaky) metrics, which were computed on the same
+  representation — isolating the leakage removal rather than confounding it with a
+  representation change.
+- `created_datetime` (and therefore `hour`) is stored in **UTC**, not IST; the
+  data-rich window (hours 0–15) is a UTC convention. Per-hour metrics for the
+  sparse UTC hours are not reliable.
+- Zone-metadata features (`mean_vehicle_severity`, `mean_validation_trust`,
+  `heavy_vehicle_ratio`, `junction_flag`) are aggregated over each cell's full
+  history; they are static zone descriptors and a mild source of look-ahead that
+  was left in scope-deliberately (they do not encode the per-row target).
 - Grid cells with ≤ 30 observations are excluded during feature engineering.
 - Lag features cause the first ~168 rows per cell to be dropped.
 """

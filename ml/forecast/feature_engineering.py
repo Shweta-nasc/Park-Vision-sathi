@@ -12,12 +12,40 @@ Output
 ADDITIONS vs v1
 ---------------
 - Corrected PROJECT_ROOT path (was .parent × 3, now .parent × 2).
-- Added ``violation_rate`` feature: violation_count / rolling_mean_7d (ratio
-  of current count to recent average — captures sudden spikes).
+- Added ``violation_rate`` feature: lag_1 / rolling_mean_7d (ratio of the most
+  recent PAST count to the recent past average — captures sudden spikes WITHOUT
+  referencing the current row's target).
 - Added ``is_data_rich_hour`` flag: 1 if hour in 0–15 (temporal cliff guard).
 - Added ``month_sin`` / ``month_cos`` cyclical month encoding.
 - apply() calls updated to suppress FutureWarning (include_groups=False already present).
 - All NaN rolling_std_7d (first window) filled with 0.0 before saving.
+
+TARGET-LEAKAGE FIX (critical, this revision)
+--------------------------------------------
+The v1 rolling features called ``.rolling(window, min_periods=1)`` on
+``violation_count`` with **no shift**, so every row's rolling_mean_7d /
+rolling_mean_14d / rolling_std_7d window *included that row's own
+violation_count* (the target), and ``violation_rate`` divided the target by a
+window containing the target. This leaked the target into its own features and
+produced a falsely high R²≈0.9929. ``add_rolling_features`` now shifts each
+cell's series by one row **before** rolling, so all rolling statistics use only
+strictly-past observations, and ``violation_rate`` is recomputed from ``lag_1``
+and the shifted rolling mean — it never touches the current target.
+
+KNOWN LIMITATION (sparse temporal index)
+----------------------------------------
+The feature matrix contains one row per (grid_cell_id, date, hour) that actually
+recorded ≥1 violation; (cell, date, hour) slots with zero violations are NOT
+materialized. Consequently ``lag_1`` / ``lag_24`` / ``lag_168`` mean "1 / 24 /
+168 *recorded observations* ago" rather than "1 / 24 / 168 *clock hours* ago",
+and the 168/336-row rolling windows span the last 168/336 recorded observations
+rather than strictly 7/14 calendar days. A fully temporally-correct version would
+zero-fill the complete (cell × date × hour) grid before computing lags/rolling.
+The sparse representation is retained here so the leakage-fixed metrics remain
+directly comparable to the previously reported (leaky) metrics, which were
+computed on this same sparse representation; the honest R²/MAE shift therefore
+isolates the leakage removal rather than a representation change. This caveat is
+restated in the model card.
 """
 
 import sqlite3
@@ -108,21 +136,53 @@ def add_lag_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
-    grp = df.groupby("grid_cell_id")["violation_count"]
-    df["rolling_mean_7d"]  = grp.transform(
-        lambda s: s.rolling(168,  min_periods=1).mean())
-    df["rolling_mean_14d"] = grp.transform(
-        lambda s: s.rolling(336,  min_periods=1).mean())
-    df["rolling_std_7d"]   = grp.transform(
-        lambda s: s.rolling(168,  min_periods=1).std())
+    """Rolling statistics computed on STRICTLY-PAST observations only.
+
+    LEAKAGE FIX (critical)
+    ----------------------
+    The previous implementation called ``.rolling(window, min_periods=1)``
+    directly on ``violation_count`` with **no shift**, so each row's
+    ``rolling_mean_7d`` / ``rolling_mean_14d`` / ``rolling_std_7d`` window
+    *included that same row's own ``violation_count``* — i.e. the target leaked
+    into its own features. ``violation_rate`` then divided the target by a window
+    containing the target. The model leaned on these leaky features
+    (``violation_rate`` / ``rolling_mean_7d`` ranked #1/#2), which is why the
+    reported R²≈0.9929 was not honest.
+
+    The fix shifts each cell's series by 1 *before* rolling, so every rolling
+    statistic for row ``t`` is computed from rows ``t-1 .. t-window`` only and can
+    never see ``violation_count[t]``. ``violation_rate`` is likewise redefined as
+    ``lag_1 / rolling_mean_7d`` (both strictly-past), so it never references the
+    current row's target. (``add_lag_features`` runs before this function, so
+    ``lag_1`` is already present.)
+    """
+    # Strictly-past counts: within each cell, shift the target down by one row so
+    # the value aligned to row t is violation_count[t-1]. Rolling over this series
+    # therefore aggregates only past observations and excludes the current target.
+    df["_past_count"] = df.groupby("grid_cell_id")["violation_count"].shift(1)
+    past = df.groupby("grid_cell_id")["_past_count"]
+
+    df["rolling_mean_7d"]  = past.transform(
+        lambda s: s.rolling(168, min_periods=1).mean())
+    df["rolling_mean_14d"] = past.transform(
+        lambda s: s.rolling(336, min_periods=1).mean())
+    df["rolling_std_7d"]   = past.transform(
+        lambda s: s.rolling(168, min_periods=1).std())
+
+    # First row(s) of each cell have no past data → NaN; treat as 0 history.
+    df["rolling_mean_7d"]  = df["rolling_mean_7d"].fillna(0.0)
+    df["rolling_mean_14d"] = df["rolling_mean_14d"].fillna(0.0)
     df["rolling_std_7d"]   = df["rolling_std_7d"].fillna(0.0)
 
-    # NEW: violation_rate = current / rolling_mean_7d (spike detector)
+    # violation_rate = PAST spike detector: previous count vs recent past average.
+    # Uses lag_1 and the shifted rolling mean ONLY — never the current target.
     df["violation_rate"] = np.where(
         df["rolling_mean_7d"] > 0,
-        df["violation_count"] / df["rolling_mean_7d"],
+        df["lag_1"] / df["rolling_mean_7d"],
         1.0,
     )
+
+    df = df.drop(columns=["_past_count"])
     return df
 
 
