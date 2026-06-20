@@ -1,22 +1,32 @@
 """
-ParkVisionSaathi – FastAPI Application Entry Point
+ParkVision-Saathi — FastAPI Application Entry Point
+
+Planner-aligned data layer: pre-computed JSON files loaded once into memory at
+startup (EXECUTION_PLANNER L233/L378, MASTER_PLAN L629). No database.
+
+Routes are mounted twice: bare paths (e.g. /heatmap) for the existing React
+frontend's wire contract, and under /api (e.g. /api/heatmap) for the planner's
+documented contract.
 """
 
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from backend.app.routers import risk, forecast, game, simulate, heatmap, stations, explain, traffic
+
+from backend.app.data_loader import store
+from backend.app.routers import (risk, forecast, game, simulate, heatmap,
+                                 stations, explain, traffic, agent)
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
 
 app = FastAPI(
-    title="ParkVisionSaathi API",
-    description="Traffic violation analytics, risk scoring, game-theory patrol optimization, and forecasting.",
-    version="1.0.0",
+    title="ParkVision-Saathi API",
+    description="Congestion-impact analytics, game-theory patrol optimization, "
+                "forecasting, and a self-validating agent — JSON + in-memory, no DB.",
+    version="2.0.0",
 )
 
-# ── CORS ─────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,41 +35,47 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Routers ──────────────────────────────────────────────────────────────────
-app.include_router(risk.router, tags=["Risk & Hotspots"])
-app.include_router(forecast.router, tags=["Forecasting"])
-app.include_router(game.router, tags=["Game Theory"])
-app.include_router(simulate.router, tags=["Simulation"])
-app.include_router(heatmap.router, tags=["Heatmap"])
-app.include_router(stations.router, tags=["Stations"])
-app.include_router(explain.router, tags=["Explanations"])
-app.include_router(traffic.router, tags=["Traffic Context"])
+# ── Routers: mount at bare paths AND under /api ──────────────────────────────
+ROUTERS = [risk, forecast, game, simulate, heatmap, stations, explain, traffic, agent]
+for r in ROUTERS:
+    app.include_router(r.router)                 # frontend wire contract
+    app.include_router(r.router, prefix="/api")  # planner contract
+
+
+@app.on_event("startup")
+def _load_data():
+    """Load all pre-computed JSON into memory once."""
+    store.load()
 
 
 @app.get("/", tags=["Health"])
 def root():
     return {
-        "service": "ParkVisionSaathi API",
-        "version": "1.0.0",
+        "service": "ParkVision-Saathi API",
+        "version": "2.0.0",
+        "data_layer": "JSON + in-memory (no database)",
         "endpoints": [
-            "/hotspots", "/risk", "/forecast/zones",
+            "/hotspots", "/risk/top_zones", "/risk/{zone_id}", "/heatmap",
+            "/stations", "/forecast/top_risk_zones",
             "/game/stackelberg_strategy", "/game/violator_adaptation",
-            "/game/spillover_forecast", "/simulate", "/heatmap",
-            "/explain", "/traffic/{zone_id}"
-        ]
+            "/game/spillover_arrows", "/simulate", "/explain",
+            "/traffic/{zone_id}", "/agent/validation-report",
+        ],
     }
-
 
 
 @app.get("/health", tags=["Health"])
 def health():
-    from backend.app.db import table_exists
-    tables = ["violations", "risk_scores", "game_stackelberg",
-              "game_violator_adaptation", "game_spillover"]
-    status = {t: table_exists(t) for t in tables}
-    return {"status": "ok", "tables": status}
+    store.ensure()
+    return {
+        "status": "ok",
+        "data_layer": "json-in-memory",
+        "zones_loaded": len(store.zones),
+        "sources": store.sources,
+        "agent": store.agent_summary,
+    }
 
 
-# ── Static Frontend ──────────────────────────────────────────────────────────
-# Mount AFTER all API routes so /dashboard serves the frontend
-app.mount("/dashboard", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
+# ── Static frontend (vanilla dashboard served at /dashboard) ─────────────────
+if FRONTEND_DIR.exists():
+    app.mount("/dashboard", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
