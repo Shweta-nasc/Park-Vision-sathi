@@ -1,0 +1,62 @@
+[
+  {
+    "grid_cell_id": "89283082bffffff",
+    "hour": 9,
+    "grid_lat": 12.9352,
+    "grid_lon": 77.6245,
+    "original_risk": 42.1,
+    "adjusted_risk": 54.7,
+    "spillover_type": "neighbor_1",
+    "risk_change_pct": 29.9
+  },
+  {
+    "grid_cell_id": "89283082cffffff",
+    "hour": 9,
+    "grid_lat": 12.9157,
+    "grid_lon": 77.6421,
+    "original_risk": 35.8,
+    "adjusted_risk": 44.2,
+    "spillover_type": "neighbor_1",
+    "risk_change_pct": 23.5
+  },
+  {
+    "grid_cell_id": "89283082effffff",
+    "hour": 9,
+    "grid_lat": 12.9498,
+    "grid_lon": 77.5847,
+    "original_risk": 28.3,
+    "adjusted_risk": 33.9,
+    "spillover_type": "neighbor_2",
+    "risk_change_pct": 19.8
+  },
+  {
+    "grid_cell_id": "8928308280fffff",
+    "hour": 9,
+    "grid_lat": 12.9346,
+    "grid_lon": 77.6124,
+    "original_risk": 82.4,
+    "adjusted_risk": 61.8,
+    "spillover_type": "patrolled",
+    "risk_change_pct": -25.0
+  },
+  {
+    "grid_cell_id": "892830828ffffff",
+    "hour": 9,
+    "grid_lat": 12.9716,
+    "grid_lon": 77.5946,
+    "original_risk": 74.1,
+    "adjusted_risk": 55.6,
+    "spillover_type": "patrolled",
+    "risk_change_pct": -25.0
+  },
+  {
+    "grid_cell_id": "892830832ffffff",
+    "hour": 9,
+    "grid_lat": 12.9783,
+    "grid_lon": 77.6491,
+    "original_risk": 18.3,
+    "adjusted_risk": 18.3,
+    "spillover_type": "unaffected",
+    "risk_change_pct": 0.0
+  }
+]

@@ -1,0 +1,72 @@
+[
+  {
+    "grid_cell_id": "8928308280fffff",
+    "hour": 9,
+    "grid_lat": 12.9346,
+    "grid_lon": 77.6124,
+    "risk_score": 82.4,
+    "baseline_weight": 0.142,
+    "adjusted_weight": 0.198,
+    "patrol_probability": 0.312
+  },
+  {
+    "grid_cell_id": "892830828ffffff",
+    "hour": 9,
+    "grid_lat": 12.9716,
+    "grid_lon": 77.5946,
+    "risk_score": 74.1,
+    "baseline_weight": 0.128,
+    "adjusted_weight": 0.171,
+    "patrol_probability": 0.256
+  },
+  {
+    "grid_cell_id": "892830829ffffff",
+    "hour": 9,
+    "grid_lat": 12.9767,
+    "grid_lon": 77.5713,
+    "risk_score": 71.6,
+    "baseline_weight": 0.119,
+    "adjusted_weight": 0.152,
+    "patrol_probability": 0.198
+  },
+  {
+    "grid_cell_id": "89283082affffff",
+    "hour": 9,
+    "grid_lat": 12.9950,
+    "grid_lon": 77.5898,
+    "risk_score": 66.3,
+    "baseline_weight": 0.104,
+    "adjusted_weight": 0.118,
+    "patrol_probability": 0.124
+  },
+  {
+    "grid_cell_id": "89283082bffffff",
+    "hour": 9,
+    "grid_lat": 12.9352,
+    "grid_lon": 77.6245,
+    "risk_score": 58.9,
+    "baseline_weight": 0.089,
+    "adjusted_weight": 0.085,
+    "patrol_probability": 0.065
+  },
+  {
+    "grid_cell_id": "89283082cffffff",
+    "hour": 9,
+    "grid_lat": 12.9157,
+    "grid_lon": 77.6421,
+    "risk_score": 52.7,
+    "baseline_weight": 0.072,
+    "adjusted_weight": 0.058,
+    "patrol_probability": 0.032
+  },
+  {
+    "grid_cell_id": "89283082dffffff",
+    "hour": 9,
+    "grid_lat": 12.9855,
+    "grid_lon": 77.6052,
+    "risk_score": 48.2,
+    "baseline_weight": 0.061,
+    "adjusted_weight": 0.042,
+    "patrol_probability": 0.013
+  }
+]
