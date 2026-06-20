@@ -13,7 +13,9 @@ from pathlib import Path
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CSV_PATH = Path.home() / "Downloads" / "jan to may police violation_anonymized791b166.csv"
+CSV_PATH_LOCAL = PROJECT_ROOT / "data" / "jan to may police violation_anonymized791b166.csv"
+CSV_PATH_DOWNLOADS = Path.home() / "Downloads" / "jan to may police violation_anonymized791b166.csv"
+CSV_PATH = CSV_PATH_LOCAL if CSV_PATH_LOCAL.exists() else CSV_PATH_DOWNLOADS
 DB_PATH = PROJECT_ROOT / "data" / "parkvision.db"
 
 # ── Column configuration ──────────────────────────────────────────────────────
