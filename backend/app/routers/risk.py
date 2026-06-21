@@ -1,26 +1,50 @@
 """
 Risk & Hotspot endpoints — served from the in-memory DataStore (real H3 zones).
 
-`risk_score` carries the Congestion Impact Score; the frontend adapter maps it
-to `congestion_impact`. No database.
+The two canonical Congestion Impact Score (CIS) endpoints are served straight
+from the CIS artifact via the DataStore accessors (NOT the legacy enforcement
+`risk_score`), returning the typed contract from `backend.app.models`:
+
+  GET /hotspots        -> list[HotspotItem]    (zones ranked by descending CIS)
+  GET /risk/{zone_id}  -> CongestionBreakdown  (full per-zone, per-bucket breakdown)
+
+Both accept a `time_bucket` query param (default `all_day`); an unknown bucket
+falls back to the zone's `all_day` rollup (handled in the DataStore), and an
+unknown `zone_id` yields a structured HTTP 404. Because the canonical CIS
+artifact is materialized offline, `/risk/{zone_id}` returns 404 and `/hotspots`
+returns `[]` until that artifact exists — the designed graceful, offline-safe
+behavior (no fabricated data). No database.
+
+The remaining legacy list/summary/overview endpoints below still serve the
+enforcement-priority `risk_score` from the hotspot-derived zone universe and are
+unchanged — a separate concern from CIS (Decision 2).
 """
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from backend.app.data_loader import store
+from backend.app.models import CongestionBreakdown, HotspotItem
 
 router = APIRouter()
 
 
-@router.get("/hotspots")
+@router.get("/hotspots", response_model=list[HotspotItem])
 def get_hotspots(
-    hour: int = Query(default=None, ge=0, le=23),
-    time_bucket: str = Query(default=None),
-    min_members: int = Query(default=0, description="Minimum violation count"),
+    time_bucket: str = Query(
+        default="all_day",
+        description="all_day | night | morning_peak | midday | afternoon",
+    ),
     limit: int = Query(default=15, ge=1, le=100),
+    hour: int = Query(default=None, ge=0, le=23, description="Hour of day (informational)"),
 ):
-    """Top hotspot zones ranked by congestion impact."""
-    zones = [z for z in store.top_zones(100) if z["violation_count"] >= min_members]
-    return zones[:limit]
+    """Top congestion hotspots ranked by descending CIS, from the CIS artifact.
+
+    Served via `store.congestion_hotspots` (the canonical CIS artifact), NOT the
+    legacy enforcement `risk_score`. An unknown `time_bucket` falls back to each
+    zone's `all_day` rollup; `limit` truncates the ranked list. With no
+    materialized artifact this returns `[]` (designed graceful behavior).
+    """
+    items = store.congestion_hotspots(time_bucket, limit)
+    return [HotspotItem.model_validate(item) for item in items]
 
 
 @router.get("/risk")
@@ -104,8 +128,11 @@ def get_overview(
 @router.get("/risk/{zone_id}")
 def get_zone_risk_detail(
     zone_id: str,
-    hour: int = Query(default=None, ge=0, le=23),
-    time_bucket: str = Query(default=None),
+    time_bucket: str = Query(
+        default="all_day",
+        description="all_day | night | morning_peak | midday | afternoon",
+    ),
+    hour: int = Query(default=None, ge=0, le=23, description="Hour of day (informational)"),
 ):
     """Full detail for a single zone.
 
@@ -115,6 +142,10 @@ def get_zone_risk_detail(
     calibrated zones, ``null`` otherwise). Falls back to the legacy in-memory zone
     shape (game-theory fields, real Mappls) for the mock hotspot zones the
     frontend already consumes, so existing behaviour is preserved.
+
+    Note: no strict ``response_model`` is declared on purpose — the legacy fallback
+    returns the in-memory zone shape (and a structured error dict for unknown
+    zones), which would not validate against ``CongestionBreakdown``.
     """
     breakdown = store.congestion_breakdown(zone_id, time_bucket or "all_day")
     if breakdown is not None:

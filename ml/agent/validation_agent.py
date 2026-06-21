@@ -7,7 +7,9 @@ Demo "wow moment" #4: *"Our AI validates itself against real traffic data."*
 This agent closes the loop between the model and reality. After Person 2's
 Congestion Impact Scores are produced, this agent:
 
-  1. READS the model's raw congestion scores per zone.
+  1. READS the model's Congestion Impact Scores (CIS) per zone — from the
+     canonical CIS artifact (``data/processed/zone_congestion_impact.json``),
+     using each zone's ``all_day`` rollup ``congestion_impact`` keyed by ``h3_id``.
   2. QUERIES the real MapMyIndia (Mappls) travel-time data already enriched
      into ``data/enriched/traffic_context.json`` (``travel_time_ratio`` =
      live-traffic ETA ÷ free-flow baseline).
@@ -91,6 +93,14 @@ logger = logging.getLogger(__name__)
 # ─── Paths ───────────────────────────────────────────────────────────────────
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+# PRIMARY input (design "Self-validating agent integration"; Requirement 8.8):
+# the canonical Congestion Impact Score (CIS) artifact, keyed
+# {h3_id: {time_bucket: breakdown}}. The agent calibrates each zone's `all_day`
+# rollup `congestion_impact` against the real Mappls travel_time_ratio.
+CIS_ARTIFACT_PATH = PROJECT_ROOT / "data" / "processed" / "zone_congestion_impact.json"
+# SECONDARY fallback input: the legacy hotspots ranking, used ONLY when the CIS
+# artifact is absent/empty (keeps the offline CLI producing a calibration run
+# before the artifact has been built).
 HOTSPOTS_PATH = PROJECT_ROOT / "data" / "mock" / "hotspots.json"
 TRAFFIC_PATH = PROJECT_ROOT / "data" / "enriched" / "traffic_context.json"
 CALIBRATED_OUT = PROJECT_ROOT / "data" / "processed" / "calibrated_scores.json"
@@ -102,9 +112,9 @@ AGENT_LOG_OUT = PROJECT_ROOT / "data" / "processed" / "agent_log.json"
 # raw ``congestion_impact`` (the CIS), the MapMyIndia ``mappls_travel_time_ratio``,
 # and the ``is_traffic_degradation_defaulted`` guard flag.
 ARTIFACT_PATH = PROJECT_ROOT / "data" / "processed" / "zone_congestion_impact.json"
-
-# ─── Tunable constants (kept verbatim from the planner) ──────────────────────
-
+# The day-level rollup the agent reads from the CIS artifact (the artifact keys
+# each zone by time bucket; the agent calibrates the all-day score).
+DEFAULT_CIS_TIME_BUCKET = "all_day"
 ALPHA = 0.3                 # trust weight placed on the Mappls measurement
 SCORE_TO_RATIO_GAIN = 2.0   # a 100/100 score implies a (1 + 2.0) = 3.0x slowdown
 ACCURATE_BAND = 0.05        # |adjustment| ≤ 5% → the model was already accurate
@@ -258,6 +268,56 @@ def validate_and_calibrate(congestion_scores: dict, mappls_data: dict) -> tuple[
 
 # ─── Input loaders ───────────────────────────────────────────────────────────
 
+def load_cis_scores(
+    path: Path = CIS_ARTIFACT_PATH,
+    time_bucket: str = DEFAULT_CIS_TIME_BUCKET,
+) -> dict:
+    """Build ``{h3_id: congestion_impact}`` from the canonical CIS artifact.
+
+    This is the agent's PRIMARY input (design "Self-validating agent integration";
+    Requirement 8.8). The artifact (``data/processed/zone_congestion_impact.json``)
+    is keyed ``{h3_id: {time_bucket: breakdown}}``; for each zone this reads the
+    requested ``time_bucket`` (default ``all_day``), falling back to the zone's
+    ``all_day`` rollup when that bucket is missing, and takes the breakdown's
+    ``congestion_impact`` as the raw CIS the agent calibrates.
+
+    Offline-safe / graceful (Requirement 7.x; design Error-Handling Scenario 3): a
+    missing or unreadable artifact yields ``{}`` (no zones to calibrate), so the
+    agent degrades to empty output rather than crashing. Non-dict payloads and
+    entries without a numeric ``congestion_impact`` are skipped.
+    """
+    path = Path(path)
+    if not path.exists():
+        logger.warning(
+            "CIS artifact %s not found — no zones to calibrate (empty output).", path
+        )
+        return {}
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        logger.error("Failed to read CIS artifact %s (%s) — empty output.", path, e)
+        return {}
+    if not isinstance(data, dict):
+        return {}
+
+    scores: dict = {}
+    for h3_id, buckets in data.items():
+        if not isinstance(buckets, dict):
+            continue
+        entry = buckets.get(time_bucket)
+        if not isinstance(entry, dict):
+            entry = buckets.get(DEFAULT_CIS_TIME_BUCKET)
+        if not isinstance(entry, dict):
+            continue
+        value = entry.get("congestion_impact")
+        # Reject bools (a bool is an int subclass) and non-numerics.
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        scores[str(h3_id)] = float(value)
+    return scores
+
+
 def load_congestion_scores(path: Path = HOTSPOTS_PATH) -> dict:
     """Build ``{zone_id: congestion_impact}`` from the hotspots ranking file.
 
@@ -287,25 +347,75 @@ def load_congestion_scores(path: Path = HOTSPOTS_PATH) -> dict:
 
 
 def load_mappls_data(path: Path = TRAFFIC_PATH) -> dict:
-    """Load the enriched MapMyIndia traffic context (``{zone_id: {...}}``)."""
-    with open(path) as f:
-        return json.load(f)
+    """Load the enriched MapMyIndia traffic context (``{zone_id: {...}}``).
+
+    Offline-safe: a missing or unreadable file yields ``{}`` so the run never
+    crashes on absent enrichment — every zone then has no ``travel_time_ratio``
+    and is recorded as ``no_data`` (unvalidated) rather than aborting the agent.
+    """
+    path = Path(path)
+    if not path.exists():
+        logger.warning("Traffic context %s not found — no Mappls ratios available.", path)
+        return {}
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        logger.error("Failed to read traffic context %s (%s).", path, e)
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 # ─── Runner ──────────────────────────────────────────────────────────────────
 
 def run(
-    hotspots_path: Path = HOTSPOTS_PATH,
+    cis_artifact_path: Path = CIS_ARTIFACT_PATH,
     traffic_path: Path = TRAFFIC_PATH,
     calibrated_out: Path = CALIBRATED_OUT,
     log_out: Path = AGENT_LOG_OUT,
+    hotspots_path: Optional[Path] = HOTSPOTS_PATH,
     verbose: bool = True,
 ) -> tuple[dict, dict]:
-    """Load inputs, run the agent, persist both JSON outputs, and report."""
-    congestion_scores = load_congestion_scores(hotspots_path)
+    """Load inputs, run the agent, persist both JSON outputs, and report.
+
+    The PRIMARY score source is the canonical CIS artifact (``cis_artifact_path``):
+    the agent calibrates each zone's ``all_day`` rollup ``congestion_impact`` keyed
+    by ``h3_id`` (design "Self-validating agent integration"; Requirement 8.8).
+
+    The legacy ``hotspots.json`` ranking is a SECONDARY fallback used ONLY when the
+    CIS artifact is absent/empty and a ``hotspots_path`` is supplied — so the
+    offline CLI still produces a calibration run before the artifact is built. Pass
+    ``hotspots_path=None`` to disable the fallback, in which case an absent CIS
+    artifact yields empty output (no zones to calibrate) instead of crashing.
+
+    The calibration math in :func:`validate_and_calibrate` is unchanged and
+    deterministic/offline; this function only changes where the raw scores come
+    from and persists the same two JSON outputs.
+    """
+    # PRIMARY: the canonical CIS artifact (all_day rollup congestion_impact / h3_id).
+    congestion_scores = load_cis_scores(cis_artifact_path)
+    source = "cis_artifact"
+
+    # SECONDARY fallback: the legacy hotspots ranking, only when the CIS artifact
+    # produced nothing AND a fallback path is provided and present on disk.
+    if not congestion_scores and hotspots_path is not None and Path(hotspots_path).exists():
+        logger.warning(
+            "CIS artifact %s absent/empty — falling back to hotspots source %s.",
+            cis_artifact_path, hotspots_path,
+        )
+        congestion_scores = load_congestion_scores(hotspots_path)
+        source = "hotspots_fallback"
+
+    if not congestion_scores:
+        logger.warning(
+            "No congestion scores available (CIS artifact absent/empty and no "
+            "usable fallback) — agent will produce empty output."
+        )
+
     mappls_data = load_mappls_data(traffic_path)
 
     calibrated, summary = validate_and_calibrate(congestion_scores, mappls_data)
+    summary["score_source"] = source
 
     calibrated_out.parent.mkdir(parents=True, exist_ok=True)
     with open(calibrated_out, "w") as f:
