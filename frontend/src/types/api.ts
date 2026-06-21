@@ -1,28 +1,46 @@
 /**
- * Planner-aligned frontend domain models.
+ * Frontend domain models, aligned to the REAL backend contract (see API_DOCS.md).
  *
- * The execution planner is the SOURCE OF TRUTH. It uses `h3_id` and
- * `congestion_impact`. The current backend uses `grid_cell_id` and
- * `risk_score`. The adapters in `api/adapters.ts` translate raw backend
- * payloads into these models so the rest of the app speaks the planner's
- * vocabulary regardless of backend naming.
+ * Two distinct scores are carried side by side — never aliased:
+ *   • `risk_score`         — enforcement priority ("where violations happen").
+ *   • `congestion_impact`  — Congestion Impact Score / CIS ("where traffic is choked").
+ * A zone can be CRITICAL on one and MINIMAL on the other; that contrast is the
+ * product's core thesis and powers the two-layer heatmap toggle.
+ *
+ * The backend uses `grid_cell_id`/`grid_lat`/`grid_lon`; adapters translate those
+ * into `h3_id`/`lat`/`lon` so components speak one vocabulary.
  */
 
 export type ImpactBand = 'MINIMAL' | 'MODERATE' | 'SEVERE' | 'CRITICAL';
 export type RiskLabel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type MapLayer = 'violation_density' | 'congestion_risk' | 'spillover';
 
-/** A single zone with its congestion-impact profile. */
+/** The five weighted CIS sub-components (each 0–1) + reported severity. */
+export interface CongestionComponents {
+  lane_blockage: number;
+  intersection_impact: number;
+  traffic_degradation: number;
+  access_blockage: number;
+  vehicle_size: number;
+  severity: number;
+}
+
+/** A single zone with both its enforcement-priority and congestion-impact profile. */
 export interface Zone {
-  h3_id: string; // planner name (maps from backend grid_cell_id)
+  h3_id: string;
   lat: number;
   lon: number;
   hour: number;
-  congestion_impact: number; // planner name (maps from backend risk_score)
-  impact_band: ImpactBand;
+  /** Enforcement priority 0–100 (backend risk_score). Drives markers & game theory. */
+  risk_score: number;
   risk_label: RiskLabel;
+  /** Congestion Impact Score 0–100 (CIS). Distinct from risk_score. */
+  congestion_impact: number;
+  impact_band: ImpactBand;
+  /** Agent-calibrated CIS (vs real travel time), when available. */
+  calibrated_score?: number;
   violation_count: number;
-  // Component breakdown
+  // Component breakdown (real where the CIS artifact provides it)
   density: number;
   road_importance: number;
   peak_weight: number;
@@ -30,7 +48,11 @@ export interface Zone {
   validation_trust: number;
   heavy_vehicle_ratio: number;
   estimated_lane_hours_blocked: number;
-  // Game-theory enrichment (optional, from joins)
+  /** Real CIS component breakdown (only present after a /risk/{id} fetch). */
+  components?: CongestionComponents;
+  top_violations?: string[];
+  mappls_ratio?: number | null;
+  // Game-theory enrichment (present on /risk list, /game/* responses)
   patrol_probability?: number;
   violator_risk_score?: number;
   expected_cost?: number;
@@ -38,6 +60,9 @@ export interface Zone {
   // Station context
   station?: string;
   junction?: string | null;
+  top_violation?: string | null;
+  agent_status?: string | null;
+  agent_reasoning?: string | null;
 }
 
 export interface HeatmapPoint {
@@ -78,13 +103,31 @@ export interface StationSummary {
   high_risk_zones: number;
 }
 
+/** Next-day forecast for one H3 zone (PREDICT pillar). */
 export interface ForecastPoint {
   h3_id: string;
-  hour: number;
+  lat: number;
+  lon: number;
   predicted_count: number;
-  max_predicted?: number;
+  predicted_risk: number;
+  predicted_band: ImpactBand;
   confidence_lower?: number;
   confidence_upper?: number;
+  is_proxy: boolean;
+}
+
+/** Real held-out accuracy of the forecast model. */
+export interface ForecastAccuracy {
+  model: string;
+  is_proxy: boolean;
+  precision_at_10?: number;
+  mae?: number;
+  rmse?: number;
+  n_test_days?: number;
+  generated_for?: string;
+  summary?: string;
+  spatial_unit?: string;
+  target?: string;
 }
 
 export interface PatrolAllocation {
@@ -94,6 +137,7 @@ export interface PatrolAllocation {
   lon: number;
   priority_rank: number;
   patrol_probability: number;
+  /** carries the zone's risk_score (enforcement priority). */
   congestion_impact: number;
 }
 
@@ -151,29 +195,38 @@ export interface ExplainResult {
   source: string;
 }
 
+/** Waterbed displacement arrow (from a patrolled zone to its spill neighbour). */
 export interface SpilloverArrow {
+  from_zone?: string;
+  to_zone?: string;
   from_lat: number;
   from_lon: number;
   to_lat: number;
   to_lon: number;
-  hour: number;
-  magnitude: number;
+  weight: number;
 }
 
-export interface AgentCalibrationEntry {
+export interface AgentZone {
   zone_id: string;
+  station?: string;
+  raw_score: number;
+  calibrated_score: number;
+  impact_band?: ImpactBand;
+  status: string; // validated_accurate | adjusted_up | adjusted_down
+  mappls_ratio?: number;
   reasoning: string;
 }
 
-export interface AgentCalibration {
+export interface AgentReport {
   available: boolean;
-  detail?: string;
   summary: {
     total_zones: number;
+    calibrated: number;
     validated: number;
     accurate: number;
     adjusted_up: number;
     adjusted_down: number;
+    mean_abs_adjustment_pct?: number;
   } | null;
-  log: AgentCalibrationEntry[];
+  zones: AgentZone[];
 }

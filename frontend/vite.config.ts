@@ -25,6 +25,8 @@ export default defineConfig({
       '/simulate': 'http://localhost:8000',
       '/explain': 'http://localhost:8000',
       '/traffic': 'http://localhost:8000',
+      '/agent': 'http://localhost:8000',
+      '/api': 'http://localhost:8000',
     },
   },
   // Build into dist/ — backend serves this at /dashboard when present.

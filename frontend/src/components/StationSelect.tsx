@@ -4,8 +4,8 @@ import { useAppState } from '@/state/AppState';
 import { SkeletonList } from './Skeleton';
 import { fmt } from '@/utils/format';
 
-/** Full-screen station picker — first thing the operator sees. */
-export function StationSelect() {
+/** Full-screen station picker — first screen, and re-openable as a switcher modal. */
+export function StationSelect({ onClose }: { onClose?: () => void } = {}) {
   const { data: stations, isLoading, isError } = useStations();
   const { setStation } = useAppState();
   const [query, setQuery] = useState('');
@@ -16,9 +16,22 @@ export function StationSelect() {
     return stations.filter((s) => s.name.toLowerCase().includes(q));
   }, [stations, query]);
 
+  const choose = (s: (typeof filtered)[number]) => {
+    setStation(s);
+    onClose?.();
+  };
+
   return (
     <div className="station-screen">
       <div className="station-screen-bg" />
+      {onClose && (
+        <button className="station-close" onClick={onClose} title="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      )}
       <div className="station-screen-content">
         <div className="brand-block">
           <div className="brand-icon">
@@ -64,7 +77,7 @@ export function StationSelect() {
               </div>
             )}
             {filtered.map((s) => (
-              <div key={s.name} className="station-item" onClick={() => setStation(s)}>
+              <div key={s.name} className="station-item" onClick={() => choose(s)}>
                 <div className="station-item-left">
                   <div className="station-item-icon">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
