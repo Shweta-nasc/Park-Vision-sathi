@@ -10,6 +10,7 @@ documented contract.
 """
 
 from pathlib import Path
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -29,11 +30,20 @@ from backend.app.routers import (risk, forecast, game, simulate, heatmap,
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Load all pre-computed JSON into memory once at startup (no DB, no network)."""
+    store.load()
+    yield
+
+
 app = FastAPI(
     title="ParkVision-Saathi API",
     description="Congestion-impact analytics, game-theory patrol optimization, "
                 "forecasting, and a self-validating agent — JSON + in-memory, no DB.",
     version="2.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -49,12 +59,6 @@ ROUTERS = [risk, forecast, game, simulate, heatmap, stations, explain, traffic, 
 for r in ROUTERS:
     app.include_router(r.router)                 # frontend wire contract
     app.include_router(r.router, prefix="/api")  # planner contract
-
-
-@app.on_event("startup")
-def _load_data():
-    """Load all pre-computed JSON into memory once."""
-    store.load()
 
 
 @app.get("/", tags=["Health"])

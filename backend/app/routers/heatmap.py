@@ -31,7 +31,7 @@ router = APIRouter()
 
 @router.get("/heatmap", response_model=CongestionHeatmapResponse)
 def get_heatmap(
-    type: str = Query(default="risk", description="risk | raw | spillover"),
+    type: str = Query(default="risk", description="risk | raw | spillover | violator"),
     time_bucket: str = Query(
         default="all_day",
         description="all_day | night | morning_peak | midday | afternoon",
@@ -42,17 +42,20 @@ def get_heatmap(
 
     `type=risk` serves CIS intensities, `type=raw` serves violation-count
     intensities (both from the CIS artifact, with an `all_day` fallback for an
-    unknown `time_bucket`), and `type=spillover` serves the agent-calibrated layer
-    from its existing source. An unknown `type` falls back to `risk`. `min_intensity`
-    / `max_intensity` are computed from the returned points and are 0.0 when empty.
+    unknown `time_bucket`). `type=spillover` serves the agent-calibrated layer and
+    `type=violator` serves the game-theory violator net-benefit layer (both from
+    the hotspot zone universe). An unknown `type` falls back to `risk`.
+    `min_intensity` / `max_intensity` are computed from the returned points and are
+    0.0 when empty.
     """
-    layer = type if type in {"risk", "raw", "spillover"} else "risk"
+    layer = type if type in {"risk", "raw", "spillover", "violator"} else "risk"
     if layer == "raw":
         raw_points = store.violation_density_points(time_bucket)
-    elif layer == "spillover":
-        # Preserved legacy source: agent-calibrated layer from the hotspot-derived
-        # zone universe (NOT the CIS artifact); adapted into the typed shape.
-        raw_points = store.heatmap_points("spillover")
+    elif layer in {"spillover", "violator"}:
+        # Hotspot-universe layers (NOT the CIS artifact): `spillover` = agent-
+        # calibrated impact, `violator` = game-theory net benefit. Adapted into
+        # the typed shape.
+        raw_points = store.heatmap_points(layer)
     else:  # risk → Congestion Impact Score
         raw_points = store.congestion_points(time_bucket)
 

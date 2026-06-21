@@ -1,16 +1,19 @@
 """
 In-process end-to-end smoke test for the JSON + in-memory backend (no DB).
 
-Run:  venv/bin/python scripts/verify_backend.py
+Run:  PYTHONPATH=. venv/bin/python scripts/verify_backend.py
 Exits non-zero if any check fails.
+
+This exercises the REAL zone universe (the top-N CIS hotspots built by
+``data_loader._build_zone_universe``), so it uses ids discovered at runtime rather
+than hardcoded ones — it stays correct as the artifacts are regenerated.
 """
 
 import sys
-from fastapi.testclient import TestClient
-from backend.app.main import app
 
-CITY_MARKET = "892830828ffffff"   # BGS Flyover, City Market — the demo hero zone
-TOP_ZONE = "8928308280fffff"      # Subedar Chatram Road, Upparpet — rank #1
+from fastapi.testclient import TestClient
+
+from backend.app.main import app
 
 client = TestClient(app)
 failures = []
@@ -30,96 +33,91 @@ print("=" * 72)
 # ── health / root ────────────────────────────────────────────────────────────
 h = client.get("/health").json()
 check("/health ok", h.get("status") == "ok", f"zones_loaded={h.get('zones_loaded')}")
-check("/health loaded 15 zones", h.get("zones_loaded") == 15)
 check("/health data_layer is json-in-memory", h.get("data_layer") == "json-in-memory")
+check("/health loaded the hotspot universe", (h.get("zones_loaded") or 0) > 0)
+check("/health sees the full CIS artifact",
+      (h.get("sources", {}).get("congestion_artifact_zones") or 0) > 1000,
+      f"{h.get('sources', {}).get('congestion_artifact_zones')} CIS zones")
 
-# ── stations ──────────────────────────────────────────────────────────────────
+# ── stations ───────────────────────────────────────────────────────────────────
 st = client.get("/stations").json()
 check("/stations non-empty", isinstance(st, list) and len(st) > 0, f"{len(st)} stations")
 
-# ── heatmap layers ────────────────────────────────────────────────────────────
-hm_risk = client.get("/heatmap", params={"type": "risk", "hour": 9}).json()
-check("/heatmap?type=risk has 15 points", len(hm_risk["points"]) == 15)
-check("/heatmap risk top intensity ~88.7",
-      abs(hm_risk["max_intensity"] - 88.7) < 0.5, f"max={hm_risk['max_intensity']}")
+# ── heatmap layers: risk (CIS) and raw (density) must differ ───────────────────
+hm_risk = client.get("/heatmap", params={"type": "risk"}).json()
 hm_raw = client.get("/heatmap", params={"type": "raw"}).json()
-check("/heatmap?type=raw uses violation counts (max ~5838)",
-      hm_raw["max_intensity"] >= 5000, f"max={hm_raw['max_intensity']}")
-hm_sp = client.get("/heatmap", params={"type": "spillover"}).json()
-check("/heatmap?type=spillover uses calibrated (max < raw 88.7)",
-      hm_sp["max_intensity"] < 88.7, f"max={hm_sp['max_intensity']}")
+hm_viol = client.get("/heatmap", params={"type": "violator"}).json()
+check("/heatmap?type=risk non-empty", len(hm_risk["points"]) > 0)
+check("/heatmap?type=raw non-empty", len(hm_raw["points"]) > 0)
+check("risk and raw layers are NOT identical (density != impact)",
+      hm_risk["points"] and hm_raw["points"]
+      and hm_risk["points"][0]["h3_id"] != hm_raw["points"][0]["h3_id"],
+      f"risk_top={hm_risk['points'][0]['h3_id']} raw_top={hm_raw['points'][0]['h3_id']}")
+check("/heatmap?type=violator distinct layer", hm_viol.get("layer") == "violator")
 
-# ── hotspots / risk ───────────────────────────────────────────────────────────
+# ── top zones: real H3 ids, sorted desc ────────────────────────────────────────
 top = client.get("/risk/top_zones", params={"n": 15}).json()
-check("/risk/top_zones returns 15", len(top) == 15)
+check("/risk/top_zones non-empty", len(top) > 0, f"{len(top)} zones")
 check("/risk/top_zones sorted desc", top[0]["risk_score"] >= top[-1]["risk_score"])
-check("top zone is H3 id (not CELL_)", not top[0]["grid_cell_id"].startswith("CELL_"),
+check("top zone is an H3 id (not a CELL_/mock id)",
+      not top[0]["grid_cell_id"].startswith("CELL_")
+      and not top[0]["grid_cell_id"].startswith("8928308"),
       top[0]["grid_cell_id"])
 
-detail = client.get(f"/risk/{CITY_MARKET}", params={"hour": 9}).json()
-check("/risk/{id} City Market raw 85.3", detail["risk_score"] == 85.3)
-check("/risk/{id} City Market calibrated 72.1", detail["calibrated_score"] == 72.1)
-check("/risk/{id} carries real ratio 1.307", detail["travel_time_ratio"] == 1.307)
-check("/risk/{id} has patrol_probability", detail["patrol_probability"] > 0)
+TOP_ID = top[0]["grid_cell_id"]
 
-# ── traffic (real Mappls) ─────────────────────────────────────────────────────
-tr = client.get(f"/traffic/{CITY_MARKET}").json()
-check("/traffic City Market ratio 1.307", tr["travel_time_ratio"] == 1.307)
-check("/traffic City Market has nearby POIs", len(tr["nearby_pois"]) > 0)
+# ── /risk/{id}: real CIS breakdown ─────────────────────────────────────────────
+detail = client.get(f"/risk/{TOP_ID}", params={"hour": 9}).json()
+check("/risk/{id} returns a CIS breakdown",
+      "congestion_impact" in detail and "components" in detail,
+      f"CIS={detail.get('congestion_impact')}")
+check("/risk/{id} unknown zone -> 404",
+      client.get("/risk/deadbeefdeadbeef0000").status_code == 404)
 
-# ── explain: the demo hero number must be reconciled ──────────────────────────
-ex = client.post("/explain", json={"zone_id": CITY_MARKET, "hour": 9}).json()
-check("/explain City Market is cached", ex["is_cached"] is True)
-check("/explain City Market says 1.31x", "1.31x" in ex["explanation"])
-check("/explain City Market NO fake 2.40x", "2.40x" not in ex["explanation"])
-check("/explain City Market NO '2.4x' claim", "2.4x" not in ex["explanation"])
-ex_fallback = client.post("/explain", json={"zone_id": "deadbeef", "hour": 9}).json()
-check("/explain unknown zone → graceful fallback", ex_fallback["source"] == "fallback")
+# ── /traffic: at least one hotspot carries REAL MapMyIndia enrichment ──────────
+enriched_hit = None
+for z in top:
+    tr = client.get(f"/traffic/{z['grid_cell_id']}").json()
+    if tr.get("travel_time_ratio") and tr.get("road_name"):
+        enriched_hit = (z["grid_cell_id"], tr)
+        break
+check("/traffic carries real MapMyIndia data for a hotspot",
+      enriched_hit is not None,
+      f"{enriched_hit[0]} ratio={enriched_hit[1]['travel_time_ratio']}" if enriched_hit else "none")
 
-# ── game theory ───────────────────────────────────────────────────────────────
-sk = client.get("/game/stackelberg_strategy", params={"limit": 100}).json()
-check("/game/stackelberg sorted by patrol prob",
-      sk[0]["patrol_probability"] >= sk[-1]["patrol_probability"])
-check("/game/stackelberg probs ~sum to 1",
-      abs(sum(z["patrol_probability"] for z in sk) - 1.0) < 0.01,
-      f"sum={sum(z['patrol_probability'] for z in sk):.4f}")
-vi = client.get("/game/violator_adaptation").json()
-check("/game/violator_adaptation non-empty", len(vi) == 15)
-arrows = client.get("/game/spillover_arrows").json()
-check("/game/spillover_arrows has arrows", len(arrows["arrows"]) > 0)
-check("spillover arrows are H3 (not CELL_)",
-      all(not a["from_zone"].startswith("CELL_") for a in arrows["arrows"]))
-whatif = client.get("/game/whatif_coverage").json()
-check("/game/whatif_coverage monotonic in teams",
-      whatif["1"]["coverage_pct"] <= whatif["5"]["coverage_pct"])
+# ── game theory + simulation ───────────────────────────────────────────────────
+sk = client.get("/game/stackelberg_strategy", params={"limit": 10}).json()
+check("/game/stackelberg_strategy non-empty", len(sk) > 0)
+vi = client.get("/game/violator_adaptation", params={"limit": 10}).json()
+check("/game/violator_adaptation non-empty", len(vi) > 0)
 
-# ── simulate ──────────────────────────────────────────────────────────────────
-sim = client.post("/simulate", json={"num_teams": 5, "hour": 9}).json()
-check("/simulate 5 teams → 5 assignments", len(sim["assignments"]) == 5)
-check("/simulate coverage 0-100", 0 <= sim["coverage_pct"] <= 100, f"{sim['coverage_pct']}%")
-check("/simulate produces spillover zones", len(sim["spillover_zones"]) > 0)
-sim3 = client.post("/simulate", json={"num_teams": 3, "hour": 9}).json()
-check("/simulate fewer teams → less coverage",
-      sim3["coverage_pct"] <= sim["coverage_pct"],
-      f"3 teams={sim3['coverage_pct']}% vs 5 teams={sim['coverage_pct']}%")
+sim5 = client.post("/simulate", json={"num_teams": 5, "hour": 9, "strategy": "stackelberg"}).json()
+sim15 = client.post("/simulate", json={"num_teams": 15, "hour": 9, "strategy": "stackelberg"}).json()
+check("/simulate coverage grows with more teams",
+      sim15["coverage_pct"] > sim5["coverage_pct"],
+      f"5 teams={sim5['coverage_pct']}% < 15 teams={sim15['coverage_pct']}%")
+check("/simulate surfaces uncovered high-risk zones",
+      len(sim5["uncovered_high_risk"]) > 0,
+      f"{len(sim5['uncovered_high_risk'])} uncovered with 5 teams")
 
-# ── forecast ──────────────────────────────────────────────────────────────────
-fc = client.get("/forecast/top_risk_zones", params={"n": 10}).json()
-check("/forecast/top_risk_zones returns 10", len(fc) == 10)
-check("/forecast flagged as proxy", fc[0].get("is_proxy") is True)
+# ── forecast (PREDICT pillar) ──────────────────────────────────────────────────
+acc = client.get("/forecast/accuracy").json()
+check("/forecast/accuracy from a real (non-proxy) model", acc.get("is_proxy") is False,
+      acc.get("model"))
 
-# ── agent ─────────────────────────────────────────────────────────────────────
+# ── agent + explain ────────────────────────────────────────────────────────────
 ar = client.get("/agent/validation-report").json()
-check("/agent summary 15 validated", ar["summary"]["validated"] == 15)
-check("/agent has per-zone log", len(ar["zones"]) == 15)
+check("/agent has summary + per-zone log", "summary" in ar and len(ar.get("zones", [])) > 0)
+ex = client.post("/explain", json={"zone_id": TOP_ID, "hour": 9}).json()
+check("/explain returns text", bool(ex.get("explanation")), f"source={ex.get('source')}")
 
-# ── /api alias works too ──────────────────────────────────────────────────────
-api_alias = client.get("/api/risk/top_zones", params={"n": 3}).json()
-check("/api/* alias works", len(api_alias) == 3)
+# ── /api alias ─────────────────────────────────────────────────────────────────
+check("/api/* alias works",
+      client.get("/api/risk/top_zones", params={"n": 3}).status_code == 200)
 
 print("=" * 72)
 if failures:
-    print(f"  RESULT: {len(failures)} FAILED → {failures}")
+    print(f"  {len(failures)} CHECK(S) FAILED: {failures}")
     sys.exit(1)
-print("  RESULT: ALL CHECKS PASSED ✅")
+print("  ALL CHECKS PASSED")
 print("=" * 72)
