@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSimulation } from '@/hooks/queries';
 import { useAppState } from '@/state/AppState';
 import { useMapOverlay } from '@/state/MapOverlay';
@@ -8,7 +8,8 @@ import { useToast } from '../Toast';
 /**
  * Patrol simulation. The team slider auto-runs the simulation (debounced) and
  * the result is pushed to the map overlay so allocations + spillover render
- * in real time — the core interactive demo beat.
+ * in real time — the core interactive demo beat. A "Run Simulation" button
+ * also triggers an immediate run (bypassing the debounce).
  */
 export function SimulationPanel() {
   const { hour, station } = useAppState();
@@ -18,15 +19,24 @@ export function SimulationPanel() {
   const [teams, setTeams] = useState(6);
   const debouncedTeams = useDebounce(teams, 350);
 
+  const runSim = useCallback(
+    (numTeams: number) => {
+      if (!station) return;
+      sim.mutate(
+        { num_teams: numTeams, hour, strategy: 'stackelberg' },
+        {
+          onSuccess: (r) => setSimResult(r),
+          onError: () => toast('Simulation failed', 'error'),
+        },
+      );
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hour, station],
+  );
+
+  // Live auto-run as the slider / hour changes (debounced).
   useEffect(() => {
-    if (!station) return;
-    sim.mutate(
-      { num_teams: debouncedTeams, hour, strategy: 'stackelberg' },
-      {
-        onSuccess: (r) => setSimResult(r),
-        onError: () => toast('Simulation failed', 'error'),
-      },
-    );
+    runSim(debouncedTeams);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedTeams, hour, station]);
 
@@ -50,6 +60,14 @@ export function SimulationPanel() {
           className="sim-slider"
         />
       </div>
+
+      <button
+        className="sim-run-btn"
+        onClick={() => runSim(teams)}
+        disabled={!station || sim.isPending}
+      >
+        {sim.isPending ? 'Running…' : `▶ Run Simulation (${teams} teams)`}
+      </button>
 
       {sim.isPending && <div className="panel-loading"><div className="loading-spinner" /> Computing…</div>}
 

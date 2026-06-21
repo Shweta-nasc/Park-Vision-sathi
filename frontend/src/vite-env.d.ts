@@ -9,5 +9,5 @@ interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
 
-// leaflet.heat has no bundled types
-declare module 'leaflet.heat';
+// Mappls SDK is loaded via <script> tag at runtime and attaches to `window`.
+// The MapView component uses a local `declare const mappls: any` where needed.

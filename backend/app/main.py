@@ -13,7 +13,6 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-
 from backend.app.data_loader import store
 from backend.app.routers import (risk, forecast, game, simulate, heatmap,
                                  stations, explain, traffic, agent)
@@ -36,10 +35,23 @@ app.add_middleware(
 )
 
 # ── Routers: mount at bare paths AND under /api ──────────────────────────────
-ROUTERS = [risk, forecast, game, simulate, heatmap, stations, explain, traffic, agent]
-for r in ROUTERS:
-    app.include_router(r.router)                 # frontend wire contract
-    app.include_router(r.router, prefix="/api")  # planner contract
+# (module, OpenAPI tag) — tags fold in abhijeet's doc grouping while preserving
+# the dual mount: bare paths for the React frontend's wire contract and /api for
+# the planner's documented contract.
+ROUTERS = [
+    (risk, "Risk & Hotspots"),
+    (forecast, "Forecasting"),
+    (game, "Game Theory"),
+    (simulate, "Simulation"),
+    (heatmap, "Heatmap"),
+    (stations, "Stations"),
+    (explain, "Explanations"),
+    (traffic, "Traffic Context"),
+    (agent, "Agent"),
+]
+for module, tag in ROUTERS:
+    app.include_router(module.router, tags=[tag])                 # frontend wire contract
+    app.include_router(module.router, prefix="/api", tags=[tag])  # planner contract
 
 
 @app.on_event("startup")

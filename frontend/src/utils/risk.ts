@@ -35,7 +35,7 @@ export function bandColor(band: ImpactBand): string {
   }
 }
 
-/** Leaflet.heat gradient per layer — makes the two-layer toggle visually distinct. */
+/** Heatmap gradient per layer — makes the two-layer toggle visually distinct. */
 export const HEAT_GRADIENTS: Record<MapLayer, Record<number, string>> = {
   violation_density: { 0.0: '#1E3A8A', 0.4: '#2563EB', 0.7: '#60A5FA', 1.0: '#BFDBFE' },
   congestion_risk: { 0.0: '#059669', 0.4: '#F59E0B', 0.7: '#F97316', 1.0: '#DC2626' },

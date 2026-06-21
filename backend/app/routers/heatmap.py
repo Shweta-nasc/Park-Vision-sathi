@@ -29,6 +29,50 @@ from backend.app.models import CongestionHeatmapPoint, CongestionHeatmapResponse
 router = APIRouter()
 
 
+def _aggregate_resolution(points: list[dict], resolution: int) -> list[dict]:
+    """Aggregate fine-grained heatmap points into coarser spatial bins (zoom-adaptive).
+
+    `resolution` is the number of lat/lon decimal places to snap to: higher = finer
+    detail (4 ≈ ~11 m, 3 ≈ ~110 m, 2 ≈ ~1.1 km). Member coordinates and intensities
+    are averaged; each bin keeps the ``h3_id`` (and ``impact_band``) of its
+    highest-intensity member as a representative, so an aggregated point still
+    satisfies the typed ``CongestionHeatmapPoint`` contract. Used to serve coarse
+    blobs when zoomed out and fine spots when zoomed in.
+    """
+    bins: dict[tuple, dict] = {}
+    for p in points:
+        key = (round(p["lat"], resolution), round(p["lon"], resolution))
+        b = bins.get(key)
+        if b is None:
+            b = {
+                "lat_sum": 0.0, "lon_sum": 0.0, "int_sum": 0.0, "n": 0,
+                "rep_h3": p.get("h3_id"), "rep_band": p.get("impact_band"),
+                "rep_int": p["intensity"],
+            }
+            bins[key] = b
+        b["lat_sum"] += p["lat"]
+        b["lon_sum"] += p["lon"]
+        b["int_sum"] += p["intensity"]
+        b["n"] += 1
+        # Representative metadata = the bin's highest-intensity member.
+        if p["intensity"] >= b["rep_int"]:
+            b["rep_int"] = p["intensity"]
+            b["rep_h3"] = p.get("h3_id")
+            b["rep_band"] = p.get("impact_band")
+    out = [
+        {
+            "lat": b["lat_sum"] / b["n"],
+            "lon": b["lon_sum"] / b["n"],
+            "intensity": b["int_sum"] / b["n"],
+            "h3_id": b["rep_h3"],
+            "impact_band": b["rep_band"],
+        }
+        for b in bins.values()
+    ]
+    out.sort(key=lambda d: d["intensity"], reverse=True)
+    return out
+
+
 @router.get("/heatmap", response_model=CongestionHeatmapResponse)
 def get_heatmap(
     type: str = Query(default="risk", description="risk | raw | spillover"),
@@ -37,6 +81,11 @@ def get_heatmap(
         description="all_day | night | morning_peak | midday | afternoon",
     ),
     hour: int = Query(default=None, ge=0, le=23, description="Hour of day (informational)"),
+    resolution: int = Query(
+        default=None, ge=2, le=5,
+        description="Optional spatial aggregation: lat/lon decimal places to snap to "
+                    "(2≈~1km blobs, 5≈full detail). Omit for full resolution.",
+    ),
 ):
     """Heatmap layer for the two-layer (Congestion Risk vs Violation Density) toggle.
 
@@ -55,6 +104,9 @@ def get_heatmap(
         raw_points = store.heatmap_points("spillover")
     else:  # risk → Congestion Impact Score
         raw_points = store.congestion_points(time_bucket)
+
+    if isinstance(resolution, int):
+        raw_points = _aggregate_resolution(raw_points, resolution)
 
     points = [CongestionHeatmapPoint.model_validate(p) for p in raw_points]
     intensities = [p.intensity for p in points]
