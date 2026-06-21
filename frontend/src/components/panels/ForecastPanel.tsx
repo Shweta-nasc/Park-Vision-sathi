@@ -1,13 +1,16 @@
-import { useForecastTopZones, useForecastAccuracy } from '@/hooks/queries';
+import { useForecastTopZones, useForecastAccuracy, useZoneNames } from '@/hooks/queries';
 import { useAppState } from '@/state/AppState';
 import { Skeleton } from '../Skeleton';
 import { bandColor } from '@/utils/risk';
+import { shortId } from '@/utils/format';
 
 /** Forecast view — tomorrow's predicted hotspots + honest held-out accuracy. */
 export function ForecastPanel() {
   const { station } = useAppState();
   const top = useForecastTopZones(0, !!station);
   const acc = useForecastAccuracy();
+  const names = useZoneNames();
+  const nameFor = (id: string) => names.data?.get(id) ?? shortId(id);
   const a = acc.data;
 
   const maxPred = top.data?.reduce((m, p) => Math.max(m, p.predicted_count), 0) || 1;
@@ -51,7 +54,7 @@ export function ForecastPanel() {
         {top.data?.map((p, i) => (
           <div key={p.h3_id} className="forecast-row">
             <span className="forecast-rank">#{i + 1}</span>
-            <span className="forecast-id" title={p.h3_id}>{p.h3_id}</span>
+            <span className="forecast-id" title={p.h3_id}>{nameFor(p.h3_id)}</span>
             <div className="forecast-bar-track">
               <div
                 className="forecast-bar-fill"

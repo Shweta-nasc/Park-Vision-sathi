@@ -1,11 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/endpoints';
 import { useAppState } from '@/state/AppState';
+import { useZoneNames } from '@/hooks/queries';
+import { shortId } from '@/utils/format';
 import { Skeleton } from '../Skeleton';
 
 /** Game-theory view: Stackelberg patrol allocations + violator utility. */
 export function GameTheoryPanel() {
   const { hour, station } = useAppState();
+  const names = useZoneNames();
+  const nameFor = (id: string) => names.data?.get(id) ?? shortId(id);
 
   const stack = useQuery({
     queryKey: ['stackelberg', hour],
@@ -31,7 +35,7 @@ export function GameTheoryPanel() {
         {stack.data?.map((a, i) => (
           <div key={a.h3_id} className="game-row">
             <span className="forecast-rank">#{i + 1}</span>
-            <span className="forecast-id">{a.h3_id}</span>
+            <span className="forecast-id" title={a.h3_id}>{nameFor(a.h3_id)}</span>
             <div className="forecast-bar-track">
               <div
                 className="forecast-bar-fill"
@@ -48,7 +52,7 @@ export function GameTheoryPanel() {
       <div className="game-list">
         {violators.data?.map((v) => (
           <div key={v.h3_id} className="game-row">
-            <span className="forecast-id">{v.h3_id}</span>
+            <span className="forecast-id" title={v.h3_id}>{nameFor(v.h3_id)}</span>
             <span className="violator-pill">risk {v.violator_risk_score.toFixed(0)}</span>
             <span className="violator-cost">cost {v.expected_cost.toFixed(1)}</span>
           </div>

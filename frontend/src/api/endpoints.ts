@@ -71,6 +71,11 @@ export const api = {
   topZones: (hour: number, n = 15): Promise<Zone[]> =>
     http.get<any[]>('/risk/top_zones', { hour, n }).then((rows) => rows.map((r) => adaptZone(r, hour))),
 
+  /** Whole hotspot universe (zone objects carry station/junction) — used to
+   *  resolve H3 ids to readable place names across panels. */
+  zoneIndex: (): Promise<Zone[]> =>
+    http.get<any[]>('/risk', { limit: 200 }).then((rows) => rows.map((r) => adaptZone(r))),
+
   /** /risk/{id} → CIS breakdown (partial Zone enrichment). */
   zoneDetail: (h3_id: string, hour: number): Promise<Partial<Zone> | null> =>
     http.get<any>(`/risk/${encodeURIComponent(h3_id)}`, { hour }).then((r) => {

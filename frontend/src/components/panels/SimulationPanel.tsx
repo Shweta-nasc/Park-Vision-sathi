@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useSimulation } from '@/hooks/queries';
+import { useSimulation, useZoneNames } from '@/hooks/queries';
 import { useAppState } from '@/state/AppState';
 import { useMapOverlay } from '@/state/MapOverlay';
 import { useDebounce } from '@/hooks/useDebounce';
+import { shortId } from '@/utils/format';
 import { useToast } from '../Toast';
 
 /**
@@ -16,6 +17,8 @@ export function SimulationPanel() {
   const { simResult, setSimResult } = useMapOverlay();
   const sim = useSimulation();
   const toast = useToast();
+  const names = useZoneNames();
+  const nameFor = (id: string) => names.data?.get(id) ?? shortId(id);
   const [teams, setTeams] = useState(6);
   const debouncedTeams = useDebounce(teams, 350);
 
@@ -98,7 +101,7 @@ export function SimulationPanel() {
               <div className="detail-section-title">Waterbed Effect (top shifts)</div>
               {simResult.spillover_zones.slice(0, 5).map((s) => (
                 <div key={s.h3_id} className="spillover-row">
-                  <span className="spillover-id">{s.h3_id}</span>
+                  <span className="spillover-id" title={s.h3_id}>{nameFor(s.h3_id)}</span>
                   <span className="spillover-change" style={{ color: s.change_pct > 0 ? '#EF4444' : '#10B981' }}>
                     {s.original_impact.toFixed(0)} → {s.adjusted_impact.toFixed(0)} ({s.change_pct > 0 ? '+' : ''}
                     {s.change_pct.toFixed(0)}%)
