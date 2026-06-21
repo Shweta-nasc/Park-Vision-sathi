@@ -26,7 +26,10 @@ Illegal parking doesn't just annoy — it chokes traffic. ParkVision-Saathi **qu
 9. [Self-Validating Agent](#9-self-validating-agent)
 10. [Forecasting Model](#10-forecasting-model)
 11. [API Reference](#11-api-reference)
-12. [Step-by-Step Implementation Guide](#12-step-by-step-implementation-guide)
+12. [Complete Implementation Guide](#12-complete-implementation-guide)
+    - [Path A — Quick start (committed artifacts, no raw data needed)](#path-a--quick-start-committed-artifacts-no-raw-data-needed)
+    - [Path B — Run the full ML pipeline from raw data](#path-b--run-the-full-ml-pipeline-from-raw-data)
+    - [Path C — Retrain ML models from scratch](#path-c--retrain-ml-models-from-scratch)
 13. [Frontend — UI Walkthrough](#13-frontend--ui-walkthrough)
 14. [Dataset Overview](#14-dataset-overview)
 15. [Honest Limitations](#15-honest-limitations)
@@ -54,10 +57,15 @@ Bengaluru generates ~2,000 parking violation records every day. Yet traffic poli
 
 | Metric | Value |
 |---|---|
-| Top zone (City Market) — estimated lane-hours blocked daily | **31.2 lane-hours** |
-| Highest travel-time ratio observed | **1.70× slower** than free-flow |
-| Zones classified CRITICAL congestion impact | Top 15 per station |
-| Self-validating agent calibrations | Adjusts scores ±6–18% against live traffic |
+| Records in dataset | **298,450** (Nov 2023 – Apr 2024) |
+| Police stations | **55** |
+| H3 res-9 zones scored | **2,527** |
+| Hotspot / OPTIMIZE universe | Top **60** zones by violation volume |
+| Served from memory at request time | **60 hotspot zones + 2,527 CIS zones + 2,527 forecast zones** |
+| Top zone by enforcement priority | Subedar Chatram Road, Upparpet — 12,109 violations, risk 100/CRITICAL, **CIS only 15/MINIMAL** |
+| Top zone by congestion impact | HAL Old Airport — CIS **49.5/MODERATE** (agent calibrated 50→44 against live travel time) |
+| Highest MapMyIndia travel-time ratio | **1.63×** (Shivajinagar) |
+| Self-validating agent calibrations | 10 zones; mean abs adjustment **4.2%**; HAL Old Airport adjusted down **50→44** |
 
 ### Who Cares
 
@@ -651,124 +659,405 @@ curl -s http://localhost:8000/forecast/accuracy
 
 ---
 
-## 12. Step-by-Step Implementation Guide
+## 12. Complete Implementation Guide
+
+This section covers **all three ways** to run the project — from a 60-second quick
+start to rebuilding every artifact and ML model from the raw dataset.
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│  Raw CSV (298k rows)                                                   │
+│       │                                                                │
+│       ▼  [Path B] python run_pipeline.py                               │
+│  data/processed/*.json  ◄── these are COMMITTED ◄── [Path A] starts   │
+│  data/enriched/*.json        (no rebuild needed)        here           │
+│       │                                                                │
+│       ▼  [Path A, B, C] uvicorn backend.app.main:app                   │
+│  FastAPI  (port 8000) ── JSON in-memory ── 0 DB calls                  │
+│       │                                                                │
+│       ▼  npm run dev                                                   │
+│  React UI (port 5173) ── Mappls / MapLibre map                         │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+---
 
 ### Prerequisites
 
-- Python 3.10+
-- Node.js 18+ and npm
-- Git
+| Tool | Version | Install |
+|---|---|---|
+| **Python** | 3.10+ | [python.org](https://python.org) |
+| **Node.js + npm** | 18+ | [nodejs.org](https://nodejs.org) |
+| **Git** | any | `brew install git` / apt / winget |
 
-### Step 1 — Clone and enter the repo
+---
+
+### Path A — Quick start (committed artifacts, no raw data needed)
+
+> **This is the fastest path.** All pre-computed data artifacts are already
+> committed to the repo. You do not need the raw CSV or any API keys to run a
+> complete, fully functional demo.
+
+**Total time: ~3 minutes.**
+
+#### Step 1 — Clone the repo
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/<your-org>/Park-Vision-sathi.git
 cd Park-Vision-sathi
 ```
 
-### Step 2 — Python environment
+#### Step 2 — Python virtualenv + dependencies
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate          # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements.txt   # full deps (ML + API + tests)
 ```
 
-> For **Render deployment only** (no ML training needed):
+> Serving only (no ML/retraining) → use the lean set instead:
 > ```bash
 > pip install -r requirements-backend.txt
 > ```
 
-### Step 3 — Environment variables (optional)
+#### Step 3 — Backend environment variables (optional)
 
-Create a `.env` file in the project root. These are only needed to **re-generate** data artifacts — the committed JSON already contains results:
+The backend works **without any `.env`** — it serves entirely from committed JSON.
+Only create one if you want live Gemini explanations for un-cached zones:
 
 ```env
-MAPPLS_STATIC_KEY=your_mappls_key_here
-GEMINI_API_KEY=your_gemini_key_here
+# .env  (project root)
+GEMINI_API_KEY=your_gemini_api_key_here   # optional — cache covers the whole demo
 ```
 
-| Key | Purpose | Required? |
-|---|---|---|
-| `MAPPLS_STATIC_KEY` | Re-generate MapMyIndia enrichment for new zones | Optional — artifacts committed |
-| `GEMINI_API_KEY` | Enable live Gemini for uncached zone explanations | Optional — cache covers demo |
+#### Step 4 — Start the backend
 
-Without any `.env`, the backend serves fully from committed JSON artifacts. **The demo works completely offline.**
-
-### Step 4 — Start the backend
-
-Run **from the project root** (absolute imports require this):
+Run **from the project root** (not from inside `backend/`):
 
 ```bash
 uvicorn backend.app.main:app --reload --port 8000
 ```
 
-Verify:
-- API health: `http://localhost:8000/health`
-- Interactive docs: `http://localhost:8000/docs`
-- Vanilla dashboard: `http://localhost:8000/dashboard/`
+Verify it loaded correctly:
+```bash
+curl -s http://localhost:8000/health | python3 -m json.tool
+```
 
-Expected health output:
+Expected output:
 ```json
 {
   "status": "ok",
   "data_layer": "json-in-memory",
-  "zones_loaded": 15,
+  "zones_loaded": 60,
   "sources": {
-    "hotspots": 15,
-    "traffic_context_enriched": 15,
     "congestion_artifact_zones": 2527,
+    "hotspot_universe": 60,
+    "traffic_context_enriched": 10,
+    "calibrated_scores": 10,
+    "explanations_cache": 60,
     "forecast_zones": 2527
+  },
+  "agent": {
+    "total_zones": 2527,
+    "calibrated": 10,
+    "accurate": 6,
+    "adjusted_up": 3,
+    "adjusted_down": 1,
+    "mean_abs_adjustment_pct": 4.2
   }
 }
 ```
 
-### Step 5 — Start the React frontend
+Interactive API docs: `http://localhost:8000/docs`
+
+#### Step 5 — Start the React frontend
 
 ```bash
 cd frontend
 npm install
-npm run dev
 ```
 
-App available at: `http://localhost:5173`
+Create `frontend/.env` (only needed for the map tiles and production API):
 
-> The frontend reads `VITE_API_BASE` from `frontend/.env` (defaults to `http://localhost:8000`). No changes needed for local development.
+```env
+# frontend/.env
+VITE_MAPPLS_KEY=your_mappls_map_sdk_key   # for Mappls vector tiles; fallback = MapLibre
+VITE_API_BASE=                            # leave empty for local dev (uses Vite proxy)
+```
 
-### Step 6 — Run tests
+> Without `VITE_MAPPLS_KEY`, MapLibre GL loads automatically as a fallback. The
+> data and all panels work identically — only the map tile style differs.
 
 ```bash
-# From project root, with venv active:
-python -m pytest backend/tests -q -v
+npm run dev   # starts at http://localhost:5173
 ```
 
-Expected: all tests pass including property-based tests for CIS constraints and DataStore invariants.
+#### Step 6 — Run the test suite
 
-### Step 7 — Verify the demo flow
+```bash
+# From the project root with venv active:
+PYTHONPATH=. python -m pytest -q
+```
 
-1. Open `http://localhost:5173`
-2. The app auto-selects the first station — map loads with heatmap
-3. Click **Violation Density** → **Congestion Risk** toggle — maps are different colours and intensities
-4. Click a hotspot marker → right panel opens with CIS breakdown
-5. Click **Simulate** tab → drag team slider from 3 → 5 → 8 → watch coverage % and spillover zones update
-6. Click **Forecast** tab → tomorrow's predicted zones ranked by count
-7. Click **Agent** tab → calibration log with plain-English reasoning
-8. In Zone panel → click **🤖 AI Explain** → zone explanation loads (from cache)
+Expected: **126 tests pass.**
 
-### Step 8 — Kill Wi-Fi and verify offline
+```bash
+# Smoke-test every API endpoint:
+PYTHONPATH=. python scripts/verify_backend.py
+```
 
-Everything should still work. The demo is **fully offline-safe** by design.
+Expected: **23/23 checks pass.**
+
+#### Step 7 — Demo verification checklist
+
+1. Open `http://localhost:5173` → app loads, Upparpet auto-selected
+2. Toggle **Violation Density → Congestion Risk** → two clearly different heat maps
+3. Click hotspot marker → popup shows both enforcement score and congestion impact
+4. Right panel → **Zone** tab → CIS component bars, lane-hours, MapMyIndia ratio
+5. Right panel → **Sim** tab → drag slider 3→5→10 teams, watch coverage % and spillover
+6. Right panel → **Forecast** tab → Precision@10 = 45%, predicted top zones by name
+7. Right panel → **Game** tab → patrol probabilities and violator utility
+8. Right panel → **Agent** tab → per-zone calibration log (HAL Old Airport: 50→44)
+9. Right panel → **Assist** tab → click a zone → Gemini / grounded explanation loads
+10. Kill Wi-Fi → reload → **everything still works** (fully offline-safe by design)
+
+---
+
+### Path B — Run the full ML pipeline from raw data
+
+> Follow this path to **rebuild all pre-computed JSON artifacts** from the original
+> 298,450-record violation CSV. This is what we ran to produce the committed data.
+>
+> **Prerequisites:** the raw CSV must be placed in the `Dataset/` folder. It is
+> git-ignored because of its size; a copy is available at the submission link.
+
+#### Step 1 — Place the raw CSV
+
+```
+Park-Vision-sathi/
+└── Dataset/
+    └── jan to may police violation_anonymized791b166.csv   ← place it here
+```
+
+#### Step 2 — (Optional) MapMyIndia enrichment for new zones
+
+If you want to re-query the MapMyIndia Distance Matrix and Nearby APIs for fresh
+travel-time and POI enrichment, add your key to the root `.env`:
+
+```env
+# .env  (project root)
+MAPPLS_STATIC_KEY=your_mappls_restful_api_key
+```
+
+> Skip this step to reuse the committed `traffic_context_h3.json`.
+> The pipeline always re-keys the existing enrichment whether or not you re-query.
+
+#### Step 3 — Run `run_pipeline.py`
+
+This single command runs **all four steps** — re-key enrichment, build the CIS
+artifact, calibrate with the agent, and build the forecast:
+
+```bash
+# From the project root, with venv active:
+python run_pipeline.py
+```
+
+Full output (expected, ~2–5 min on a laptop):
+
+```
+================================================================
+  ParkVision-Saathi — data artifact pipeline (JSON + in-memory, no DB)
+================================================================
+  Raw CSV: Dataset/jan to may police violation_anonymized791b166.csv
+
+▶ 1 / 4  Re-key MapMyIndia enrichment → traffic_context_h3.json
+────────────────────────────────────────────────────────────────
+  ⏱  0.2s
+
+▶ 2 / 4  Build CIS artifact (res9) → zone_congestion_impact.json
+────────────────────────────────────────────────────────────────
+  [info] 298450 records loaded
+  [info] 2527 H3 res-9 zones scored
+  ⏱  28.4s
+
+▶ 3 / 4  Self-validating agent → calibrated_scores.json + agent_log.json
+────────────────────────────────────────────────────────────────
+  Validated 10 zones against MapMyIndia travel-time data
+  Accurate: 6 | Adjusted up: 3 | Adjusted down: 1
+  Mean abs adjustment: 4.2%
+  ⏱  0.4s
+
+▶ 4 / 4  H3 daily forecast → forecasts.json (LightGBM Poisson, real held-out metrics)
+────────────────────────────────────────────────────────────────
+  [info] Feature engineering: 2527 zones × 151 days
+  Precision@10: 0.45   MAE: 0.83   RMSE: 4.43
+  ⏱  94.3s
+
+================================================================
+✅  Pipeline complete in 123.6s
+================================================================
+
+Artifacts the backend serves (commit these for deployment):
+  ✓  data/processed/zone_congestion_impact.json   (8823 KB)
+  ✓  data/enriched/traffic_context_h3.json        (22 KB)
+  ✓  data/processed/calibrated_scores.json        (4 KB)
+  ✓  data/processed/agent_log.json                (9 KB)
+  ✓  data/processed/forecasts.json                (312 KB)
+
+Run the API:  uvicorn backend.app.main:app --reload --port 8000
+```
+
+#### Pipeline flags
+
+```bash
+# Standard rebuild (recommended):
+python run_pipeline.py
+
+# Also build multi-resolution artifacts (res 5, 7, 8, 9) for zoom-level heatmaps:
+python run_pipeline.py --multi-res
+
+# Skip agent calibration (faster, uses previous calibrated_scores.json):
+python run_pipeline.py --skip-agent
+
+# Skip forecast rebuild (uses previous forecasts.json):
+python run_pipeline.py --skip-forecast
+
+# All flags combined:
+python run_pipeline.py --multi-res --skip-agent --skip-forecast
+```
+
+#### What each pipeline step produces
+
+| Step | Script | Output artifact | What it contains |
+|---|---|---|---|
+| 1 — Re-key enrichment | `ml/enrichment/rekey_traffic_context.py` | `data/enriched/traffic_context_h3.json` | MapMyIndia travel-time ratios, road names, POIs keyed to true H3 IDs |
+| 2 — Build CIS | `ml/congestion/build_artifact.py` + `impact_score.py` | `data/processed/zone_congestion_impact.json` | 2,527 H3 zones × 5 time buckets × 5 CIS components |
+| 3 — Agent calibration | `ml/agent/validation_agent.py` | `calibrated_scores.json`, `agent_log.json` | Per-zone calibrated CIS + plain-English reasoning |
+| 4 — H3 forecast | `ml/forecast/build_h3_forecast.py` | `data/processed/forecasts.json` | Next-day predicted violation count + confidence interval per H3 zone |
+
+#### After the pipeline — regenerate explanations cache (optional)
+
+Pre-warm the Gemini explanation cache for all 60 top hotspot zones:
+
+```bash
+# Offline grounded explanations (no API key needed, deterministic):
+PYTHONPATH=. python ml/llm/generate_explanations.py --limit 60
+
+# Upgrade to Gemini quality (requires GEMINI_API_KEY in .env):
+PYTHONPATH=. python ml/llm/generate_explanations.py --limit 60 --use-gemini
+```
+
+Output: `data/processed/explanations_cache.json` (60 entries).
+
+---
+
+### Path C — Retrain ML models from scratch
+
+> Follow this path to **retrain the LightGBM + CatBoost ensemble** that powers
+> the forecast and the game-theory models. The trained model artifacts are already
+> committed in `models/` — you only need this path if you want to retrain on new data.
+>
+> **Prerequisite:** complete [Path B Step 1](#step-1--place-the-raw-csv) (raw CSV in `Dataset/`).
+
+#### Step 1 — Load and clean the raw data into SQLite
+
+The ML training scripts use a local SQLite working database (git-ignored):
+
+```bash
+PYTHONPATH=. python data/load_and_clean.py
+```
+
+This creates `data/parkvision.db` (~50 MB) with the cleaned, indexed violation table.
+
+> **No raw CSV?** Generate a realistic synthetic DB for testing instead:
+> ```bash
+> PYTHONPATH=. python scripts/seed_db.py
+> ```
+
+#### Step 2 — Compute risk scores (per zone, per hour)
+
+```bash
+PYTHONPATH=. python ml/risk_score.py
+```
+
+Output: `data/risk_scores_by_hour.json`
+
+#### Step 3 — DBSCAN spatial hotspot clustering
+
+```bash
+PYTHONPATH=. python ml/hotspot_dbscan.py
+```
+
+Identifies spatially dense violation clusters across the four time buckets.
+
+#### Step 4 — Feature engineering for forecasting
+
+```bash
+PYTHONPATH=. python ml/forecast/feature_engineering.py
+```
+
+Output: `data/forecast_features.csv` — lag features, rolling stats, day-of-week dummies.
+
+#### Step 5 — Train the LightGBM + CatBoost ensemble
+
+```bash
+PYTHONPATH=. python ml/forecast/train_model.py
+```
+
+Trains and cross-validates two models, computes a blended ensemble, and writes:
+
+```
+models/
+├── lightgbm_v1.pkl          # base LightGBM model
+├── lightgbm_v2.pkl          # tuned LightGBM (Poisson)
+├── catboost_v1.cbm          # CatBoost model
+├── ensemble_config.json     # blend weights + held-out metrics
+├── feature_importance.txt   # top 20 features
+└── MODEL_CARD.md            # full model documentation
+```
+
+Expected held-out metrics (April test set):
+
+```
+LightGBM Poisson  — Precision@10: 0.45   MAE: 0.83   RMSE: 4.43
+CatBoost          — Precision@10: 0.42   MAE: 0.91   RMSE: 4.71
+Ensemble blend    — Precision@10: 0.47   MAE: 0.81   RMSE: 4.38
+```
+
+#### Step 6 — Game theory models
+
+```bash
+PYTHONPATH=. python ml/game/stackelberg.py        # → data/whatif_coverage.json
+PYTHONPATH=. python ml/game/expected_utility.py   # → data/violator_utility.json
+PYTHONPATH=. python ml/game/spillover.py          # → data/spillover_arrows.json
+```
+
+#### Step 7 — Back to Path B
+
+After retraining, re-run the pipeline to rebuild all serving artifacts from the
+new model/data:
+
+```bash
+python run_pipeline.py
+```
+
+---
 
 ### Common Issues
 
-| Issue | Fix |
-|---|---|
-| `ModuleNotFoundError: No module named 'backend'` | Run `uvicorn` from the project root, not from `backend/` |
-| Map is blank / grey | Normal if no Mappls key — MapLibre fallback loads automatically |
-| `CORS error` in browser | Ensure backend is running on port 8000; check `VITE_API_BASE` in `frontend/.env` |
-| `zones_loaded: 0` in /health | Check `data/mock/hotspots.json` exists |
-| Heatmap empty (CIS layer) | `data/processed/zone_congestion_impact.json` is the CIS artifact — must be present |
-| Explanation returns fallback | Expected without `GEMINI_API_KEY` — grounded fallback is correct behavior |
+| Symptom | Cause | Fix |
+|---|---|---|
+| `ModuleNotFoundError: No module named 'backend'` | Running uvicorn from inside `backend/` | Run from the **project root**: `uvicorn backend.app.main:app` |
+| `ModuleNotFoundError: No module named 'ml'` | Running ML scripts without `PYTHONPATH` | Prefix all ML scripts: `PYTHONPATH=. python ml/...` |
+| `zones_loaded: 0` in `/health` | `zone_congestion_impact.json` is missing | Run `python run_pipeline.py` to rebuild, or restore from git |
+| Map is blank/grey | No Mappls key or key not authorised for this domain | Normal — MapLibre GL fallback loads automatically. Add `VITE_MAPPLS_KEY` to `frontend/.env` and whitelist the domain in the Mappls console |
+| `Mappls SDK failed to load — falling back to MapLibre GL` | `frontend/.env` missing or `VITE_MAPPLS_KEY` not set | Create `frontend/.env` with the key; restart `npm run dev` |
+| CORS error in browser console | Backend not running, or wrong port | Ensure `uvicorn` is on port 8000; check `VITE_API_BASE` in `frontend/.env` |
+| `FileNotFoundError` in `run_pipeline.py` | Raw CSV not in `Dataset/` | Place the CSV at `Dataset/jan to may police violation_anonymized791b166.csv` |
+| `data/parkvision.db` not found (ML scripts) | DB not built yet | Run `python data/load_and_clean.py` first |
+| Forecast returns `is_proxy: true` | `data/processed/forecasts.json` missing | Run `python run_pipeline.py` (or `--skip-agent` for speed) |
+| Explanation returns `source: fallback` | No `GEMINI_API_KEY` and zone not in cache | Expected without the key — grounded fallback is correct behavior |
+| `pip install` fails on LightGBM / h3 | Missing system deps | `brew install cmake libomp` (macOS) / `apt install cmake` (Linux) |
 
 ---
 
@@ -969,22 +1258,20 @@ web: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
 
 ### Committed Artifacts (required for deploy)
 
-These files must be committed — they are the data layer:
+These files must be committed — they are the entire data layer. All are produced
+by `run_pipeline.py` and are already committed in the repo:
 
 ```
-data/processed/zone_congestion_impact.json   # CIS artifact (~9 MB)
-data/processed/forecasts.json                # H3 forecast
-data/processed/calibrated_scores.json
-data/processed/agent_log.json
-data/processed/explanations_cache.json
-data/mock/hotspots.json
-data/enriched/traffic_context.json
-data/spillover_arrows.json
-data/violator_utility.json
-data/whatif_coverage.json
+data/processed/zone_congestion_impact.json   # canonical CIS artifact (2,527 zones)
+data/processed/forecasts.json                # H3-native LightGBM-Poisson forecast
+data/processed/calibrated_scores.json        # agent-calibrated scores
+data/processed/agent_log.json                # agent run summary + per-zone reasoning
+data/processed/explanations_cache.json       # pre-generated Gemini zone explanations
+data/enriched/traffic_context_h3.json        # MapMyIndia enrichment (H3-keyed)
 ```
 
-If any artifact is missing, the API **degrades gracefully** (empty CIS layers, structured 404s, fallback explanations) — it never crashes on startup.
+If any artifact is missing, the API **degrades gracefully** — empty lists, structured
+404s, `is_proxy: true` flags, fallback explanations. It never crashes on startup.
 
 ### Frontend Deploy
 
