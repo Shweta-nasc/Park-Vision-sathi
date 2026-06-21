@@ -31,10 +31,10 @@ export function usePriorityAreas(station: string | null, hour: number) {
   });
 }
 
-export function useHeatmap(hour: number, layer: MapLayer, enabled: boolean) {
+export function useHeatmap(hour: number, layer: MapLayer, enabled: boolean, resolution?: number) {
   return useQuery({
-    queryKey: ['heatmap', hour, layer],
-    queryFn: () => api.heatmap(hour, layer),
+    queryKey: ['heatmap', hour, layer, resolution ?? 'full'],
+    queryFn: () => api.heatmap(hour, layer, resolution),
     enabled,
     staleTime: 60_000,
   });
@@ -73,6 +73,15 @@ export function useSpilloverArrows(enabled: boolean) {
   return useQuery({
     queryKey: ['spilloverArrows'],
     queryFn: api.spilloverArrows,
+    enabled,
+    staleTime: Infinity,
+  });
+}
+
+export function useAgentCalibration(enabled: boolean) {
+  return useQuery({
+    queryKey: ['agentCalibration'],
+    queryFn: () => api.agentCalibration(60),
     enabled,
     staleTime: Infinity,
   });
