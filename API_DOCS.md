@@ -190,10 +190,23 @@ Zones predicted to have the highest violations (default `n=10`).
 Per-zone predicted violation counts. Query: `hour`, `time_bucket`, `zone_id`, `limit`.
 
 ### `GET /forecast/accuracy`
-Held-out accuracy metrics (MAE / RMSE / R²).
+**Real** held-out accuracy of the trained LightGBM + CatBoost ensemble, read from
+`models/ensemble_config.json` (chronological split: train < Mar, validate = Mar,
+test ≥ Apr). Headline is **Precision@10** — how many of tomorrow's top-10 daily
+hotspots the model gets right — plus MAE / RMSE / R² and the baseline. Returns a
+proxy note only if the trained-model config is absent.
 
-> The forecast is a transparent proxy derived from historical volume; see the
-> README "Honest limitations".
+```json
+{ "model": "LightGBM + CatBoost ensemble (Poisson)", "is_proxy": false,
+  "precision_at_10": 0.675, "mae": 0.187, "rmse": 1.166, "r2": 0.257,
+  "summary": "Correctly identifies ~7 of tomorrow's top-10 daily hotspots (Precision@10 = 0.68 on the held-out April test set)." }
+```
+
+> The per-zone `/forecast/top_risk_zones` and `/forecast/zones` rows are a
+> transparent proxy from historical volume (`is_proxy: true`) — the trained
+> ensemble is keyed to a different grid than the live H3 zones, so its per-zone
+> predictions aren't mapped onto the map yet. `/forecast/accuracy` reports the
+> model's *real* aggregate skill. See the README "Honest limitations".
 
 ---
 
@@ -250,14 +263,17 @@ Risk-label breakdown for a station.
 ## Explanations
 
 ### `POST /explain`
-Cache-first, grounded natural-language explanation of a zone's congestion risk
-(`ExplainResponse`). Offline-safe: returns a deterministic grounded fallback when
-no cached LLM explanation exists.
+Natural-language explanation of a zone's congestion risk (`ExplainResponse`).
+Resolves **both** the legacy hotspot zones and the 2,527 real CIS zones. Tiered
+and offline-safe: **cache** (pre-generated) → **live Gemini** (only when
+`GEMINI_API_KEY` is set; lazy, any failure falls through) → **grounded fallback**
+(built only from the zone's real fields — no hallucination, no network). The
+`source` field reports which tier answered (`cache` | `gemini` | `fallback`).
 
 ```bash
 curl -s -X POST http://localhost:8000/explain \
   -H "Content-Type: application/json" \
-  -d '{"zone_id":"8928308280fffff","hour":9}'
+  -d '{"zone_id":"89618920923ffff","hour":9}'
 ```
 
 ---

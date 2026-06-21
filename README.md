@@ -92,6 +92,10 @@ MAPPLS_STATIC_KEY=your_key_here
 GEMINI_API_KEY=your_key_here
 ```
 
+Setting `GEMINI_API_KEY` (locally, or in the Render dashboard) also enables the
+**optional live-Gemini tier** in `/explain` for uncached zones. Without it,
+`/explain` serves cached + grounded-fallback explanations — fully offline-safe.
+
 ---
 
 ## Deploy on Render (backend only)
@@ -107,6 +111,9 @@ Blueprint → pick this repo**. It configures:
 - Build: `pip install -r requirements-backend.txt`
 - Start: `uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT`
 - Health check: `/health` · Python `3.11.9`
+- Optional env: set `GEMINI_API_KEY` in the Render dashboard to enable live LLM
+  explanations (the blueprint already declares it as a secret). Omit it and the
+  API stays fully offline-safe.
 
 **Manual (Web Service):** New → Web Service → connect the repo, then set the same
 Build and Start commands above. A `Procfile` with the start command is included
@@ -144,11 +151,12 @@ Every route is served at the bare path (React wire contract) **and** under `/api
 | GET | `/risk/{zone_id}` | Full zone detail (scores, components, game theory, real Mappls) |
 | GET | `/stations` · `/stations/{name}/priority_areas` | Station list + ranked priority zones |
 | GET | `/traffic/{zone_id}` | Real MapMyIndia travel-time ratio, road, POIs |
-| POST | `/explain` | Cached Gemini zone explanation (grounded fallback if uncached) |
+| POST | `/explain` | Zone explanation — cache → live Gemini (if `GEMINI_API_KEY` set) → grounded fallback; works for CIS zones |
 | GET | `/game/stackelberg_strategy` · `/game/violator_adaptation` · `/game/spillover_arrows` | Game-theory outputs |
 | POST | `/simulate` | Team allocation → coverage % + waterbed spillover |
 | GET | `/agent/validation-report` | 🤖 Self-validating agent: calibration summary + per-zone reasoning |
-| GET | `/forecast/top_risk_zones` | Predicted top zones (proxy — see limitations) |
+| GET | `/forecast/top_risk_zones` | Predicted top zones (per-zone proxy — see limitations) |
+| GET | `/forecast/accuracy` | **Real** ensemble Precision@10 / MAE / R² (held-out April) |
 
 ---
 
@@ -208,7 +216,7 @@ STOP (Trejo et al., 2017).
 
 - The analysis is built on the Bengaluru Traffic Police violation dataset (~298k records, Nov 2023 – Apr 2024). The live API serves the **top hotspot zones, fully enriched** with real MapMyIndia data.
 - **Temporal patterns reflect enforcement-shift recording**, not raw parking behaviour — so the forecast is best read as *predicted detection hotspots*, useful for patrol scheduling.
-- **The forecast endpoint is a transparent proxy** derived from historical volume (`is_proxy: true`). The LightGBM artefact in `models/` was trained on synthetic seed data keyed by a different grid; a real per-H3 ensemble is the next integration step.
+- **The forecast is honestly split:** `/forecast/accuracy` reports the trained LightGBM + CatBoost ensemble's **real held-out skill** — Precision@10 ≈ 0.68 on the April test set (≈ 7 of tomorrow's top-10 daily hotspots), MAE ≈ 0.19. The per-zone `/forecast/*` rows are a transparent proxy from historical volume (`is_proxy: true`) because the ensemble is keyed to a different grid than the live H3 zones; mapping per-zone predictions onto H3 is the next ML step.
 - **Congestion Impact is a proxy score**, not a measured value — the MapMyIndia ratio is the one externally measured signal, which is exactly why the self-validating agent exists.
 
 ---

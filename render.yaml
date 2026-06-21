@@ -28,3 +28,9 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.9"
+      # Optional: set this in the Render dashboard to enable the live-Gemini tier
+      # of /explain for uncached zones. Without it, /explain serves cached +
+      # grounded-fallback explanations (fully offline-safe). sync:false = secret,
+      # entered in the dashboard, never committed.
+      - key: GEMINI_API_KEY
+        sync: false

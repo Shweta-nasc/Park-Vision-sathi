@@ -1,11 +1,17 @@
 # ── Backend RUNTIME dependencies (deploy / serve only) ───────────────────────
 # The FastAPI request path is ML-free: it reads pre-computed JSON artifacts into
-# memory (no database, no pandas/lightgbm/catboost at runtime). These three are
-# all that's needed to SERVE the API — keep this list minimal so cloud builds
-# (e.g. Render) are fast and reliable.
+# memory (no database, no pandas/lightgbm/catboost at runtime). Keep this list
+# minimal so cloud builds (e.g. Render) are fast and reliable.
 #
 # For local data regeneration / ML / tests, install the full `requirements.txt`.
 
 fastapi>=0.100
 uvicorn>=0.23
 pydantic>=2.0
+
+# Optional live-LLM tier for /explain. Only used when GEMINI_API_KEY is set;
+# lazy-imported, so without the key the API ignores these entirely and serves the
+# cached + grounded-fallback explanations (fully offline-safe). Both are
+# lightweight pure-Python wheels — they don't slow the build meaningfully.
+google-genai>=0.3
+python-dotenv>=1.0
