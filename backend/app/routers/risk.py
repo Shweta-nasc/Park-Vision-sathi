@@ -155,4 +155,10 @@ def get_zone_risk_detail(
     z = store.zone(zone_id)
     if z:
         return z
-    return {"error": f"No data for zone {zone_id}"}
+    # Genuinely unknown zone (not a real CIS zone and not a legacy zone) -> a
+    # structured 404 (Req 14.4). The legacy fallback above is preserved for zones
+    # that actually exist; only the terminal not-found case is a 404.
+    raise HTTPException(
+        status_code=404,
+        detail={"error": f"No data for zone {zone_id}", "zone_id": zone_id},
+    )
