@@ -26,6 +26,9 @@ Thumbs.db
 data/parkvision.db
 data/*.db
 data/*.csv
+data/mock/
+data/violator_utility.json
+
 
 # ── ML artifacts ─────────────────────────
 models/*.pkl

@@ -67,6 +67,25 @@ Pick **one** strategy below. **Strategy A is recommended.**
 
 > Release assets allow up to 2 GB, so 153 MB is fine, and this needs no Git LFS.
 
+### Strategy A2 — Google Drive + `gdown` (works, with a caveat)
+
+Google Drive **does** work, but a plain `curl` of the share link will NOT —
+Drive shows a virus-scan confirmation page for files over ~100 MB, so curl
+downloads an HTML page instead of the database. Use **`gdown`**, which handles
+the confirmation token.
+
+1. Upload `parkvision.db` to Drive → **Share** → **Anyone with the link** → **Viewer**.
+2. From the link `https://drive.google.com/file/d/FILE_ID/view?usp=sharing`, copy the **`FILE_ID`**.
+3. Use this as the backend **build command**:
+   ```bash
+   pip install -r requirements-deploy.txt && pip install gdown && mkdir -p data && gdown "FILE_ID" -O data/parkvision.db
+   ```
+   (or `gdown --fuzzy "<full share link>" -O data/parkvision.db`)
+
+> Caveat: Drive enforces a **daily download quota** per file. Frequent redeploys
+> can hit *"quota exceeded — try again later"* and fail the build. For a few
+> demo deploys it's fine; for reliability prefer Strategy A (GitHub Release).
+
 ### Strategy B — Git LFS (alternative)
 
 ```bash
@@ -277,6 +296,8 @@ cd frontend && npm install && npm run build      # must finish with "built in ..
 |---|---|---|
 | Backend logs: `Directory 'frontend' does not exist` at startup | The `/dashboard` static mount needs the `frontend/` folder | It exists via git clone — no action. If you deploy backend code only, keep `frontend/` in the repo. |
 | `/health` works but `/stations` is empty / errors | DB didn't download | Check `DB_DOWNLOAD_URL` is correct & public; re-run deploy; confirm build log shows the `curl` downloading ~153 MB |
+| `/stations` errors with "file is not a database" after a Google Drive download | Plain `curl`/`wget` saved Drive's HTML virus-scan page, not the DB | Use `gdown` instead (Strategy A2), or switch to a GitHub Release asset (Strategy A) |
+| Google Drive build fails: "quota exceeded" | Drive per-file daily download limit hit by frequent redeploys | Wait, or switch to GitHub Release (Strategy A — no quota) |
 | Build fails compiling `lightgbm`/`scipy` | You used the root `requirements.txt` | Use **`requirements-deploy.txt`** in the build command |
 | Frontend: "Could not load stations" / CORS error in console | `VITE_API_BASE` wrong, or backend asleep | Verify the env var (no trailing slash, no `/api`); hit `/health` to wake Render free tier; redeploy frontend after changing the var |
 | Map doesn't render | `VITE_MAPPLS_KEY` missing | The app falls back to MapLibre automatically, but set the key for Mappls tiles |
