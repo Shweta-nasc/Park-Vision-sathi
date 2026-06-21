@@ -1,0 +1,30 @@
+# ==============================================================================
+# Render Blueprint — deploys the ParkVision-Saathi BACKEND only.
+#
+# How to use:
+#   1. Commit this file plus the pre-computed JSON artifacts the API serves
+#      (data/processed/zone_congestion_impact.json, data/mock/hotspots.json,
+#       data/enriched/traffic_context.json, data/processed/calibrated_scores.json,
+#       data/processed/agent_log.json, data/processed/explanations_cache.json).
+#   2. Render Dashboard → New → Blueprint → pick this repo. Render reads this file.
+#
+# Why this is "smooth":
+#   - The request path is ML-free, so the build installs only fastapi/uvicorn/
+#     pydantic (requirements-backend.txt) — fast, no heavy wheels.
+#   - No database. The API loads the committed JSON into memory at startup.
+#   - $PORT is provided by Render; uvicorn binds to it.
+#   - /health is a real, cheap health check.
+# ==============================================================================
+services:
+  - type: web
+    name: parkvision-saathi-api
+    runtime: python
+    plan: free                       # bump to "starter" to avoid free-tier idle spin-down
+    region: singapore                # closest Render region to India; optional
+    buildCommand: "pip install -r requirements-backend.txt"
+    startCommand: "uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"

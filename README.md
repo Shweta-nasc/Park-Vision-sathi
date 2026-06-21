@@ -15,7 +15,7 @@ Illegal parking doesn't just annoy — it chokes traffic. ParkVision-Saathi quan
 
 | Pillar | Problem | Our Answer |
 |---|---|---|
-| **QUANTIFY** | Which violations actually choke traffic? | 6-factor **Congestion Impact Score** (0–100) per zone |
+| **QUANTIFY** | Which violations actually choke traffic? | 5-component weighted **Congestion Impact Score** (0–100) per zone |
 | **PREDICT** | Where will tomorrow's hotspots be? | Forecast of top zones (see *Honest limitations* below) |
 | **OPTIMIZE** | Where should patrol teams go? | **Stackelberg** game theory + **waterbed** spillover simulation |
 
@@ -24,7 +24,7 @@ Illegal parking doesn't just annoy — it chokes traffic. ParkVision-Saathi quan
 ## Key Features
 
 - **Two-Layer Map Toggle** — *Violation Density* vs *Congestion Risk Impact*. They are not the same map, and that difference is the whole point.
-- **Congestion Impact Score** — 6 weighted components, including a **real MapMyIndia travel-time ratio**.
+- **Congestion Impact Score** — 5 weighted components (+ a reported severity diagnostic), including a **real MapMyIndia travel-time ratio**.
 - **Self-Validating Agent** 🤖 — after scoring, the agent checks every top zone against live MapMyIndia traffic data and **calibrates its own scores** with plain-English reasoning. Deterministic and offline-safe.
 - **LLM Zone Explanations** — Gemini-generated, cache-first, grounded in real facts (no hallucinated numbers).
 - **Team Allocation Simulator** — drag a team slider, watch coverage % and predicted spillover update live.
@@ -39,15 +39,16 @@ Frontend
   ├── React + Vite + TypeScript  (frontend/src, port 5173)
   └── Vanilla dashboard          (served by the API at /dashboard)
         ↕ REST
-Backend — FastAPI (port 8000)
+Backend — FastAPI (port 8000 local, $PORT on Render)
   └── In-memory DataStore (backend/app/data_loader.py)
         loads pre-computed JSON once at startup — NO SQLite, NO Postgres
-Data (single real H3 source of truth)
-  ├── data/mock/hotspots.json              top hotspot zones (congestion impact)
-  ├── data/enriched/traffic_context.json   REAL MapMyIndia travel-time + POIs
-  ├── data/processed/calibrated_scores.json self-validating agent output
-  ├── data/processed/agent_log.json         agent run summary + reasoning log
-  └── data/processed/explanations_cache.json cached Gemini explanations
+Data (JSON artifacts loaded into memory at startup)
+  ├── data/processed/zone_congestion_impact.json  canonical CIS artifact — H3 res-9 zones
+  ├── data/mock/hotspots.json                      legacy hotspot zones + enforcement score
+  ├── data/enriched/traffic_context.json           REAL MapMyIndia travel-time + POIs
+  ├── data/processed/calibrated_scores.json         self-validating agent output
+  ├── data/processed/agent_log.json                 agent run summary + reasoning log
+  └── data/processed/explanations_cache.json        cached Gemini explanations
 Maps: MapMyIndia / Mappls SDK (vector tiles, traffic layer, heatmap)
 ```
 
@@ -66,16 +67,18 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-# 2. (Re)generate the self-validating agent outputs (optional — already committed)
-python -m ml.agent.validation_agent
+# 2. (Optional) regenerate the data artifacts from the raw CSV (already committed)
+#    Needs dataset/*.csv (git-ignored, local only); exits cleanly if absent.
+python run_pipeline.py
 
 # 3. Run the backend from the PROJECT ROOT (absolute imports require this)
 uvicorn backend.app.main:app --reload --port 8000
 #   API docs:  http://localhost:8000/docs
 #   Dashboard: http://localhost:8000/dashboard/
 
-# 4. Verify everything end-to-end (in-process, no server needed)
-PYTHONPATH=. python scripts/verify_backend.py
+# 4. Verify everything (in-process smoke + full test suite)
+python scripts/test_in_process.py
+python -m pytest ml/tests backend/tests -q
 
 # 5. (Optional) React frontend
 cd frontend && npm install && npm run dev   # http://localhost:5173
@@ -88,6 +91,43 @@ committed JSON already contains the results):
 MAPPLS_STATIC_KEY=your_key_here
 GEMINI_API_KEY=your_key_here
 ```
+
+---
+
+## Deploy on Render (backend only)
+
+The API is **ML-free at request time** — it loads pre-computed JSON into memory,
+so a deploy needs only `fastapi`, `uvicorn`, `pydantic` (see
+`requirements-backend.txt`) plus the committed data artifacts. No database, no
+model files, no raw CSV.
+
+**One-click (Blueprint):** the repo ships a `render.yaml`. In Render: **New →
+Blueprint → pick this repo**. It configures:
+
+- Build: `pip install -r requirements-backend.txt`
+- Start: `uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT`
+- Health check: `/health` · Python `3.11.9`
+
+**Manual (Web Service):** New → Web Service → connect the repo, then set the same
+Build and Start commands above. A `Procfile` with the start command is included
+for other PaaS too.
+
+**Commit these artifacts** so the deployed API serves real data (they are *not*
+git-ignored):
+
+```
+data/processed/zone_congestion_impact.json   # canonical CIS (H3 res-9 zones, ~9 MB)
+data/mock/hotspots.json
+data/enriched/traffic_context.json
+data/processed/calibrated_scores.json
+data/processed/agent_log.json
+data/processed/explanations_cache.json
+```
+
+If the CIS artifact is missing the API still boots and degrades gracefully (empty
+CIS layers, legacy zones, structured 404s) — by design. Regenerate the artifacts
+locally with `python run_pipeline.py` (needs the raw CSV under `dataset/`), then
+commit them.
 
 ---
 
@@ -114,7 +154,8 @@ Every route is served at the bare path (React wire contract) **and** under `/api
 
 ## The Congestion Impact Score
 
-A 6-component weighted score (0–100):
+A 5-component weighted score (0–100); the weights sum to 1.0. A 6th `severity`
+value is reported for transparency but is **not** part of the weighted sum:
 
 ```
 score = 0.30·lane_blockage      +  # main-road & double parking → lanes lost
@@ -138,10 +179,11 @@ score = 0.30·lane_blockage      +  # main-road & double parking → lanes lost
 `ml/agent/validation_agent.py` — wow-moment of the demo. After the model scores
 each zone, the agent:
 
-1. Reads the model's raw Congestion Impact Score.
+1. Reads each zone's Congestion Impact Score from the canonical CIS artifact.
 2. Compares the slowdown the score *implies* against the **real MapMyIndia travel-time ratio**.
-3. Calibrates the score with a bounded, trust-weighted update (α = 0.3, capped ±30%).
-4. Logs a plain-English reason for every zone.
+3. Calibrates the score with a bounded, trust-weighted update (α = 0.3).
+4. Logs a plain-English reason for every calibrated zone (zones without a real
+   ratio are left uncalibrated rather than guessed).
 
 It is **deterministic and offline** — no LLM, no quota, no network. Example
 (real output): *Subedar Chatram Road — adjusted 89 → 72 because MapMyIndia shows

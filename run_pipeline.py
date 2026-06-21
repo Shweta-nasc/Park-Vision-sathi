@@ -1,134 +1,125 @@
 """
-run_pipeline.py – Master runner for the full ParkVisionSaathi ML pipeline.
+run_pipeline.py — regenerate the backend's data artifacts (NO database).
 
-Run this ONCE to go from raw DB → all SQLite tables + JSON exports.
+This rebuilds the pre-computed JSON the FastAPI backend serves from memory. It is
+a LOCAL developer tool: it reads the raw anonymized violation CSV (which is large
+and git-ignored under ``dataset/``), so it only runs where that CSV is present.
 
-Steps
------
-0. (Optional) Seed DB with synthetic data if parkvision.db does not exist.
-1. Hotspot DBSCAN clustering
-2. Risk score computation + JSON export
-3. Feature engineering
-4. LightGBM training
-5. Stackelberg + Blotto + What-If
-6. Violator expected utility
-7. Spillover simulation
+It is NOT needed to deploy or run the API — the backend serves the committed JSON
+artifacts and never runs this pipeline. (See the README "Deploy on Render" section.)
+
+Steps (all database-free, deterministic, offline):
+  1. Re-key the MapMyIndia enrichment to true H3 ids  → data/enriched/traffic_context_h3.json
+  2. Build the Congestion Impact Score (CIS) artifact  → data/processed/zone_congestion_impact.json
+     (optionally also multi-resolution res5/7/8/9 with --multi-res)
+  3. Run the self-validating agent over the artifact   → data/processed/calibrated_scores.json
+                                                          data/processed/agent_log.json
 
 Usage
 -----
-    # First time (no real DB):
-    python scripts/seed_db.py
-    python run_pipeline.py
-
-    # With your real DB already in data/parkvision.db:
-    python run_pipeline.py
+    python run_pipeline.py                # rekey + build res9 + calibrate
+    python run_pipeline.py --multi-res    # also build zone_impact_res{5,7,8,9}.json
+    python run_pipeline.py --skip-agent   # skip the calibration step
 """
 
+from __future__ import annotations
+
+import argparse
 import sys
 import time
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(PROJECT_ROOT))  # make the `ml` package importable
 
-# ── Add sub-directories to sys.path so imports work ──────────────────────
-sys.path.insert(0, str(PROJECT_ROOT / "ml"))
-sys.path.insert(0, str(PROJECT_ROOT / "ml" / "forecast"))
-sys.path.insert(0, str(PROJECT_ROOT / "ml" / "game"))
-
-DB_PATH = PROJECT_ROOT / "data" / "parkvision.db"
+ARTIFACT_PATH = PROJECT_ROOT / "data" / "processed" / "zone_congestion_impact.json"
+REKEYED_TRAFFIC_PATH = PROJECT_ROOT / "data" / "enriched" / "traffic_context_h3.json"
 
 
-def step(name: str):
-    print("\n" + "▶ " + name)
-    print("─" * 60)
+def _step(name: str) -> float:
+    print("\n▶ " + name)
+    print("─" * 64)
     return time.time()
 
 
-def done(t0: float):
+def _done(t0: float) -> None:
     print(f"  ⏱  {time.time() - t0:.1f}s")
 
 
-def main():
-    if not DB_PATH.exists():
-        print("⚠  parkvision.db not found.")
-        print("   Run:  python scripts/seed_db.py   to generate synthetic data.")
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Regenerate the backend's CIS data artifacts (no DB).")
+    parser.add_argument("--multi-res", action="store_true",
+                        help="Also build zone_impact_res{5,7,8,9}.json")
+    parser.add_argument("--skip-agent", action="store_true",
+                        help="Skip the self-validating agent calibration step")
+    args = parser.parse_args()
+
+    # Imports are local so a missing optional dep surfaces a clear message here
+    # rather than at module load.
+    from ml.congestion.build_artifact import (
+        _resolve_real_csv, build_from_real_csv, build_multi_resolution,
+    )
+    from ml.enrichment.rekey_traffic_context import rekey
+    from ml.agent.validation_agent import run_from_artifact
+
+    # The raw CSV is git-ignored (dataset/) and only exists locally.
+    try:
+        csv_path = _resolve_real_csv()
+    except FileNotFoundError as e:
+        print("⚠  Raw violations CSV not found — cannot regenerate artifacts.\n")
+        print(str(e))
+        print("\nThe committed artifacts in data/ are what the backend serves; you only")
+        print("need this pipeline to REBUILD them from the raw dataset. Place the CSV in")
+        print("one of the locations above and re-run.")
         sys.exit(1)
 
+    print("=" * 64)
+    print("  ParkVision-Saathi — data artifact pipeline (JSON + in-memory, no DB)")
+    print("=" * 64)
+    print(f"  Raw CSV: {csv_path}")
     total_t0 = time.time()
 
-    # ── 1. Hotspot DBSCAN ─────────────────────────────────────────────────
-    t0 = step("1 / 7  Hotspot DBSCAN Clustering")
-    from hotspot_dbscan import run_hotspot_clustering
-    run_hotspot_clustering(DB_PATH)
-    done(t0)
+    # ── 1. Re-key the MapMyIndia enrichment to true H3 ids ───────────────────
+    t0 = _step("1 / 3  Re-key MapMyIndia enrichment → traffic_context_h3.json")
+    rekey()
+    _done(t0)
 
-    # ── 2. Risk scores ────────────────────────────────────────────────────
-    t0 = step("2 / 7  Risk Score Computation")
-    from risk_score import run_risk_scoring
-    run_risk_scoring(DB_PATH)
-    done(t0)
+    # ── 2. Build the Congestion Impact Score artifact(s) ─────────────────────
+    if args.multi_res:
+        t0 = _step("2 / 3  Build CIS artifacts (multi-resolution 5/7/8/9 + canonical res9)")
+        build_multi_resolution(csv_path=csv_path, traffic_context_path=str(REKEYED_TRAFFIC_PATH))
+        # The canonical res9 artifact the backend loads:
+        build_from_real_csv(csv_path=csv_path, traffic_context_path=str(REKEYED_TRAFFIC_PATH),
+                            out_path=str(ARTIFACT_PATH), resolution=9)
+        _done(t0)
+    else:
+        t0 = _step("2 / 3  Build CIS artifact (res9) → zone_congestion_impact.json")
+        build_from_real_csv(csv_path=csv_path, traffic_context_path=str(REKEYED_TRAFFIC_PATH),
+                            out_path=str(ARTIFACT_PATH), resolution=9)
+        _done(t0)
 
-    # ── 3. Feature engineering ────────────────────────────────────────────
-    t0 = step("3 / 7  Feature Engineering")
-    from feature_engineering import build_feature_matrix, save_features
-    features = build_feature_matrix(DB_PATH)
-    save_features(features, DB_PATH)
-    done(t0)
+    # ── 3. Self-validating agent calibration ─────────────────────────────────
+    if args.skip_agent:
+        print("\n⏭  Skipping the self-validating agent (--skip-agent).")
+    else:
+        t0 = _step("3 / 3  Self-validating agent → calibrated_scores.json + agent_log.json")
+        run_from_artifact(artifact_path=ARTIFACT_PATH, verbose=True)
+        _done(t0)
 
-    # ── 4. LightGBM + CatBoost ensemble training ──────────────────────────
-    t0 = step("4 / 7  LightGBM + CatBoost Ensemble Training")
-    from train_model import main as run_training
-    run_training()
-    done(t0)
-
-    # ── 5. Stackelberg + Blotto + What-If ─────────────────────────────────
-    t0 = step("5 / 7  Stackelberg / Blotto / What-If")
-    from stackelberg import run
-    run()
-    done(t0)
-
-    # ── 6. Violator expected utility ──────────────────────────────────────
-    t0 = step("6 / 7  Violator Expected Utility")
-    from expected_utility import run as run_eu
-    run_eu()
-    done(t0)
-
-    # ── 7. Spillover simulation ───────────────────────────────────────────
-    t0 = step("7 / 7  Spillover Simulation")
-    from spillover import run as run_spill
-    run_spill()
-    done(t0)
-
-    total = time.time() - total_t0
-    print(f"\n{'='*60}")
-    print(f"✅  Full pipeline complete in {total:.1f}s")
-    print(f"{'='*60}")
-    print("\nSQLite tables created:")
-    tables = [
-        "violations", "hotspot_clusters", "hotspot_summary_by_bucket",
-        "risk_scores", "forecast_features", "forecast_predictions",
-        "patrol_history", "game_stackelberg", "game_blotto",
-        "game_whatif", "game_violator_adaptation", "game_spillover",
-    ]
-    for t in tables:
-        print(f"  ✓  {t}")
-
-    print("\nJSON files for frontend:")
-    json_files = [
-        "data/risk_scores_by_hour.json",
-        "data/whatif_coverage.json",
-        "data/violator_utility.json",
-        "data/spillover_arrows.json",
-    ]
-    for j in json_files:
-        p = PROJECT_ROOT / j
-        size = f"{p.stat().st_size // 1024} KB" if p.exists() else "NOT FOUND"
-        print(f"  ✓  {j}  ({size})")
-
-    print("\nModel artefacts:")
-    print(f"  ✓  models/lightgbm_v1.pkl")
-    print(f"  ✓  models/feature_importance.txt")
-    print(f"  ✓  models/MODEL_CARD.md")
+    print(f"\n{'=' * 64}")
+    print(f"✅  Pipeline complete in {time.time() - total_t0:.1f}s")
+    print(f"{'=' * 64}")
+    print("\nArtifacts the backend serves (commit these for deployment):")
+    for p in [
+        "data/processed/zone_congestion_impact.json",
+        "data/enriched/traffic_context_h3.json",
+        "data/processed/calibrated_scores.json",
+        "data/processed/agent_log.json",
+    ]:
+        fp = PROJECT_ROOT / p
+        size = f"{fp.stat().st_size // 1024} KB" if fp.exists() else "NOT FOUND"
+        print(f"  ✓  {p}  ({size})")
+    print("\nRun the API:  uvicorn backend.app.main:app --reload --port 8000")
 
 
 if __name__ == "__main__":
