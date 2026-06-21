@@ -1,0 +1,26 @@
+# Render Blueprint — deploy the ParkVisionSaathi API.
+# In Render: New + → Blueprint → pick this repo. Render reads this file.
+#
+# IMPORTANT: data/parkvision.db (153 MB) is gitignored and NOT in the repo.
+# The build command downloads it from a GitHub Release asset. Replace
+# DB_DOWNLOAD_URL below with your actual release-asset URL (see DEPLOYMENT.md).
+
+services:
+  - type: web
+    name: parkvision-api
+    runtime: python
+    region: singapore            # closest to Bengaluru; change if you prefer
+    plan: free
+    buildCommand: |
+      pip install -r requirements-deploy.txt
+      mkdir -p data
+      curl -L -o data/parkvision.db "$DB_DOWNLOAD_URL"
+    startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: DB_DOWNLOAD_URL
+        sync: false            # set this in the Render dashboard (your release URL)
+      - key: GEMINI_API_KEY
+        sync: false            # optional; /explain works without it

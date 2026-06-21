@@ -1,0 +1,10 @@
+# Runtime-only dependencies for the deployed API server.
+# The backend serves precomputed data from data/parkvision.db (SQLite) and does
+# NOT train models at runtime, so the heavy ML libs (lightgbm, scikit-learn,
+# scipy, catboost) in the root requirements.txt are intentionally excluded here.
+# Use this file for Render / Railway to get fast, reliable builds.
+
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.6
+python-dotenv>=1.0
