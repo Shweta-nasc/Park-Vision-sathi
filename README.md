@@ -44,6 +44,7 @@ Backend — FastAPI (port 8000 local, $PORT on Render)
         loads pre-computed JSON once at startup — NO SQLite, NO Postgres
 Data (JSON artifacts loaded into memory at startup)
   ├── data/processed/zone_congestion_impact.json  canonical CIS artifact — H3 res-9 zones
+  ├── data/processed/forecasts.json                H3-native next-day forecast (map-aligned)
   ├── data/mock/hotspots.json                      legacy hotspot zones + enforcement score
   ├── data/enriched/traffic_context.json           REAL MapMyIndia travel-time + POIs
   ├── data/processed/calibrated_scores.json         self-validating agent output
@@ -124,11 +125,13 @@ git-ignored):
 
 ```
 data/processed/zone_congestion_impact.json   # canonical CIS (H3 res-9 zones, ~9 MB)
+data/processed/forecasts.json                 # H3-native next-day forecast (map-aligned)
 data/mock/hotspots.json
 data/enriched/traffic_context.json
 data/processed/calibrated_scores.json
 data/processed/agent_log.json
 data/processed/explanations_cache.json
+models/ensemble_config.json                   # grid-ensemble metrics (forecast accuracy fallback)
 ```
 
 If the CIS artifact is missing the API still boots and degrades gracefully (empty
@@ -155,8 +158,8 @@ Every route is served at the bare path (React wire contract) **and** under `/api
 | GET | `/game/stackelberg_strategy` · `/game/violator_adaptation` · `/game/spillover_arrows` | Game-theory outputs |
 | POST | `/simulate` | Team allocation → coverage % + waterbed spillover |
 | GET | `/agent/validation-report` | 🤖 Self-validating agent: calibration summary + per-zone reasoning |
-| GET | `/forecast/top_risk_zones` | Predicted top zones (per-zone proxy — see limitations) |
-| GET | `/forecast/accuracy` | **Real** ensemble Precision@10 / MAE / R² (held-out April) |
+| GET | `/forecast/top_risk_zones` | Tomorrow's predicted top H3 hotspots (map-aligned LightGBM-Poisson) |
+| GET | `/forecast/accuracy` | **Real** held-out Precision@10 / MAE (H3 model; grid ensemble as fallback) |
 
 ---
 
@@ -216,7 +219,7 @@ STOP (Trejo et al., 2017).
 
 - The analysis is built on the Bengaluru Traffic Police violation dataset (~298k records, Nov 2023 – Apr 2024). The live API serves the **top hotspot zones, fully enriched** with real MapMyIndia data.
 - **Temporal patterns reflect enforcement-shift recording**, not raw parking behaviour — so the forecast is best read as *predicted detection hotspots*, useful for patrol scheduling.
-- **The forecast is honestly split:** `/forecast/accuracy` reports the trained LightGBM + CatBoost ensemble's **real held-out skill** — Precision@10 ≈ 0.68 on the April test set (≈ 7 of tomorrow's top-10 daily hotspots), MAE ≈ 0.19. The per-zone `/forecast/*` rows are a transparent proxy from historical volume (`is_proxy: true`) because the ensemble is keyed to a different grid than the live H3 zones; mapping per-zone predictions onto H3 is the next ML step.
+- **The forecast is map-aligned and honest:** `/forecast/*` serves a LightGBM-Poisson daily model trained on the **same H3 res-9 zones as the map** (`ml/forecast/build_h3_forecast.py` → `data/processed/forecasts.json`), so tomorrow's predicted hotspots line up exactly with the Congestion Impact layer. Held-out **Precision@10 ≈ 0.45** on the sparse April test window (8 days, fine-grained H3) with MAE ≈ 0.83, evaluated with a leakage-free chronological split. (A coarser ~500 m-grid LightGBM+CatBoost ensemble scores Precision@10 ≈ 0.68 but isn't keyed to the H3 map; `/forecast/accuracy` reports it only as a fallback.)
 - **Congestion Impact is a proxy score**, not a measured value — the MapMyIndia ratio is the one externally measured signal, which is exactly why the self-validating agent exists.
 
 ---

@@ -181,32 +181,39 @@ Dashboard overview: risk distribution, top zone, total zones.
 
 ---
 
-## Forecasting (LightGBM + CatBoost ensemble)
+## Forecasting (PREDICT pillar — H3-native, map-aligned)
+
+A LightGBM-Poisson daily model trained on the **same H3 res-9 zones as the map**
+(`ml/forecast/build_h3_forecast.py` → `data/processed/forecasts.json`), so the
+predicted hotspots line up exactly with the Congestion Impact layer. Served
+statically from the artifact; falls back to a historical-volume proxy if absent.
 
 ### `GET /forecast/top_risk_zones`
-Zones predicted to have the highest violations (default `n=10`).
+Tomorrow's top H3 zones by predicted violation count (default `n=10`). Each row
+carries `zone_id`/`h3_id`, `lat`/`lon`, `predicted_count`, `predicted_risk`
+(0–100 percentile rank), `predicted_band`, and a Poisson `confidence_lower/upper`.
 
 ### `GET /forecast/zones`
-Per-zone predicted violation counts. Query: `hour`, `time_bucket`, `zone_id`, `limit`.
+Per-H3-zone next-day forecast. Query: `zone_id` (returns just that zone), `limit`.
 
 ### `GET /forecast/accuracy`
-**Real** held-out accuracy of the trained LightGBM + CatBoost ensemble, read from
-`models/ensemble_config.json` (chronological split: train < Mar, validate = Mar,
-test ≥ Apr). Headline is **Precision@10** — how many of tomorrow's top-10 daily
-hotspots the model gets right — plus MAE / RMSE / R² and the baseline. Returns a
-proxy note only if the trained-model config is absent.
+**Real** held-out accuracy of the H3 model (leakage-free chronological split:
+train < Mar, validate = Mar, test ≥ Apr). Headline is **Precision@10** — the
+share of each test day's true top-10 hotspot H3 zones the model ranks in its own
+top-10 — plus MAE / RMSE. Falls back to the coarser ~500 m-grid LightGBM+CatBoost
+ensemble's metrics (`models/ensemble_config.json`), then a proxy note.
 
 ```json
-{ "model": "LightGBM + CatBoost ensemble (Poisson)", "is_proxy": false,
-  "precision_at_10": 0.675, "mae": 0.187, "rmse": 1.166, "r2": 0.257,
-  "summary": "Correctly identifies ~7 of tomorrow's top-10 daily hotspots (Precision@10 = 0.68 on the held-out April test set)." }
+{ "model": "LightGBM Poisson (H3 res-9, daily)", "is_proxy": false,
+  "spatial_unit": "H3 resolution 9 (same as the Congestion Impact map)",
+  "precision_at_10": 0.45, "mae": 0.83, "rmse": 4.43, "n_test_days": 8,
+  "generated_for": "2024-04-09",
+  "summary": "Correctly identifies ~4 of tomorrow's top-10 H3 hotspots (Precision@10 = 0.45 on the held-out April test set)." }
 ```
 
-> The per-zone `/forecast/top_risk_zones` and `/forecast/zones` rows are a
-> transparent proxy from historical volume (`is_proxy: true`) — the trained
-> ensemble is keyed to a different grid than the live H3 zones, so its per-zone
-> predictions aren't mapped onto the map yet. `/forecast/accuracy` reports the
-> model's *real* aggregate skill. See the README "Honest limitations".
+> Honest note: Precision@10 is lower on fine-grained H3 (2,527 zones, sparse
+> 8-day April test window) than on the coarse ~500 m grid (≈ 0.68) — but the H3
+> forecast is the one that actually aligns with the map. See the README.
 
 ---
 

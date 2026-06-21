@@ -149,6 +149,12 @@ class DataStore:
         # absent (graceful empty zone universe — Requirement 14.3). The rich
         # serving accessors over this structure are added in task 6.2.
         self.congestion: dict[str, dict[str, dict]] = {}
+        # H3-native daily forecast (PREDICT pillar), keyed by the SAME h3_id as the
+        # CIS map. `forecasts` = {h3_id: {predicted_count, predicted_band, ...}};
+        # `forecast_meta` = model name + held-out metrics + target date. Empty when
+        # the artifact is absent (graceful — endpoints fall back to a proxy).
+        self.forecasts: dict[str, dict] = {}
+        self.forecast_meta: dict = {}
         self.traffic_raw: dict = {}
         self.explanations: dict = {}
         self.calibrated: dict = {}
@@ -171,6 +177,16 @@ class DataStore:
         congestion = _load(self.data_dir / "processed" / "zone_congestion_impact.json", {})
         self.congestion = congestion if isinstance(congestion, dict) else {}
 
+        # H3-native forecast artifact (map-aligned). Split into the per-zone map
+        # (`zones`) and the model metadata/metrics (everything else).
+        forecasts_raw = _load(self.data_dir / "processed" / "forecasts.json", {})
+        if isinstance(forecasts_raw, dict):
+            zones = forecasts_raw.get("zones")
+            self.forecasts = zones if isinstance(zones, dict) else {}
+            self.forecast_meta = {k: v for k, v in forecasts_raw.items() if k != "zones"}
+        else:
+            self.forecasts, self.forecast_meta = {}, {}
+
         self.traffic_raw = traffic
         self.calibrated = calibrated
         self.agent_summary = {k: v for k, v in agent_log.items() if k != "log"}
@@ -181,6 +197,7 @@ class DataStore:
             "calibrated_scores": len(calibrated),
             "explanations_cache": len(explanations),
             "congestion_artifact_zones": len(self.congestion),
+            "forecast_zones": len(self.forecasts),
         }
 
         max_viol = max((h.get("violation_count", 0) for h in hotspots), default=1) or 1
@@ -507,6 +524,24 @@ class DataStore:
             row["patrol_probability"] = (weight / wsum) if wsum > 0 else 0.0
         rows.sort(key=lambda r: (-r["patrol_probability"], r["h3_id"]))
         return rows
+
+    # ── forecast (PREDICT pillar, H3-native, map-aligned) ───────────────
+    def forecast_metrics(self) -> dict:
+        """Model metadata + held-out metrics for the H3 forecast (no per-zone data)."""
+        return self.ensure().forecast_meta
+
+    def forecast_for_zone(self, zone_id: str) -> Optional[dict]:
+        """Next-day forecast for one H3 zone (same id space as the CIS map)."""
+        self.ensure()
+        rec = self.forecasts.get(zone_id)
+        return {**rec, "zone_id": zone_id, "h3_id": zone_id} if isinstance(rec, dict) else None
+
+    def forecast_top_zones(self, n: int = 10) -> list[dict]:
+        """Zones ranked by predicted next-day violation count (descending)."""
+        self.ensure()
+        rows = [{**rec, "zone_id": z, "h3_id": z} for z, rec in self.forecasts.items()]
+        rows.sort(key=lambda r: (-(r.get("predicted_count") or 0.0), r["h3_id"]))
+        return rows[:n] if n else rows
 
     def stations(self) -> list[dict]:
         """Aggregate zones by police station."""

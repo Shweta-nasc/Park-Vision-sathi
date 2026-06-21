@@ -28,7 +28,6 @@ data/*.db
 data/*.csv
 
 # ── ML artifacts ─────────────────────────
-models/*.pkl
 models/*.joblib
 
 # ── Agents / Config ──────────────────────

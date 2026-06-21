@@ -14,12 +14,14 @@ Steps (all database-free, deterministic, offline):
      (optionally also multi-resolution res5/7/8/9 with --multi-res)
   3. Run the self-validating agent over the artifact   → data/processed/calibrated_scores.json
                                                           data/processed/agent_log.json
+  4. Build the H3-native daily forecast (map-aligned)  → data/processed/forecasts.json
 
 Usage
 -----
-    python run_pipeline.py                # rekey + build res9 + calibrate
+    python run_pipeline.py                # rekey + build res9 + calibrate + forecast
     python run_pipeline.py --multi-res    # also build zone_impact_res{5,7,8,9}.json
     python run_pipeline.py --skip-agent   # skip the calibration step
+    python run_pipeline.py --skip-forecast  # skip the H3 forecast build
 """
 
 from __future__ import annotations
@@ -52,6 +54,8 @@ def main() -> None:
                         help="Also build zone_impact_res{5,7,8,9}.json")
     parser.add_argument("--skip-agent", action="store_true",
                         help="Skip the self-validating agent calibration step")
+    parser.add_argument("--skip-forecast", action="store_true",
+                        help="Skip building the H3 forecast artifact")
     args = parser.parse_args()
 
     # Imports are local so a missing optional dep surfaces a clear message here
@@ -61,6 +65,7 @@ def main() -> None:
     )
     from ml.enrichment.rekey_traffic_context import rekey
     from ml.agent.validation_agent import run_from_artifact
+    from ml.forecast.build_h3_forecast import build_h3_forecast
 
     # The raw CSV is git-ignored (dataset/) and only exists locally.
     try:
@@ -80,20 +85,20 @@ def main() -> None:
     total_t0 = time.time()
 
     # ── 1. Re-key the MapMyIndia enrichment to true H3 ids ───────────────────
-    t0 = _step("1 / 3  Re-key MapMyIndia enrichment → traffic_context_h3.json")
+    t0 = _step("1 / 4  Re-key MapMyIndia enrichment → traffic_context_h3.json")
     rekey()
     _done(t0)
 
     # ── 2. Build the Congestion Impact Score artifact(s) ─────────────────────
     if args.multi_res:
-        t0 = _step("2 / 3  Build CIS artifacts (multi-resolution 5/7/8/9 + canonical res9)")
+        t0 = _step("2 / 4  Build CIS artifacts (multi-resolution 5/7/8/9 + canonical res9)")
         build_multi_resolution(csv_path=csv_path, traffic_context_path=str(REKEYED_TRAFFIC_PATH))
         # The canonical res9 artifact the backend loads:
         build_from_real_csv(csv_path=csv_path, traffic_context_path=str(REKEYED_TRAFFIC_PATH),
                             out_path=str(ARTIFACT_PATH), resolution=9)
         _done(t0)
     else:
-        t0 = _step("2 / 3  Build CIS artifact (res9) → zone_congestion_impact.json")
+        t0 = _step("2 / 4  Build CIS artifact (res9) → zone_congestion_impact.json")
         build_from_real_csv(csv_path=csv_path, traffic_context_path=str(REKEYED_TRAFFIC_PATH),
                             out_path=str(ARTIFACT_PATH), resolution=9)
         _done(t0)
@@ -102,8 +107,16 @@ def main() -> None:
     if args.skip_agent:
         print("\n⏭  Skipping the self-validating agent (--skip-agent).")
     else:
-        t0 = _step("3 / 3  Self-validating agent → calibrated_scores.json + agent_log.json")
+        t0 = _step("3 / 4  Self-validating agent → calibrated_scores.json + agent_log.json")
         run_from_artifact(artifact_path=ARTIFACT_PATH, verbose=True)
+        _done(t0)
+
+    # ── 4. H3-native daily forecast (map-aligned) ────────────────────────────
+    if args.skip_forecast:
+        print("\n⏭  Skipping the H3 forecast build (--skip-forecast).")
+    else:
+        t0 = _step("4 / 4  H3 daily forecast → forecasts.json (LightGBM Poisson, real held-out metrics)")
+        build_h3_forecast(csv_path=csv_path)
         _done(t0)
 
     print(f"\n{'=' * 64}")
@@ -115,6 +128,7 @@ def main() -> None:
         "data/enriched/traffic_context_h3.json",
         "data/processed/calibrated_scores.json",
         "data/processed/agent_log.json",
+        "data/processed/forecasts.json",
     ]:
         fp = PROJECT_ROOT / p
         size = f"{fp.stat().st_size // 1024} KB" if fp.exists() else "NOT FOUND"
