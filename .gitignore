@@ -41,4 +41,4 @@ models/*.joblib
 
 node_modules/
 dataset/
-.kiro
+.kirodata/forecast_features.csv
