@@ -2,10 +2,9 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAppState } from '@/state/AppState';
 import { useMapOverlay } from '@/state/MapOverlay';
 import { useHeatmap, useTopZones, useSpilloverArrows } from '@/hooks/queries';
-import { HEAT_GRADIENTS, riskColor } from '@/utils/risk';
+import { HEAT_GRADIENTS, riskColor, bandColor } from '@/utils/risk';
 import { MapplsHeatLayer } from '@/utils/MapplsHeatLayer';
 import { getMapEngine } from '@/utils/loadMapplsSDK';
-import { LayerToggle } from './LayerToggle';
 
 const TEAM_COLORS = [
   '#2A9D8F', '#E76F51', '#457B9D', '#F4A261', '#9B5DE5',
@@ -291,7 +290,7 @@ export function MapView() {
   // zoomed in = fine detail. (undefined = full per-cell resolution.)
   const resolution = zoom <= 12 ? 2 : zoom <= 14 ? 3 : undefined;
 
-  const heatmap = useHeatmap(hour, layer, !!station, resolution);
+  const heatmap = useHeatmap(hour, layer, !!station);
   const topZones = useTopZones(hour, !!station);
   const arrows = useSpilloverArrows(layer === 'spillover' && !!station);
 
@@ -388,6 +387,7 @@ export function MapView() {
 
     topZones.data.forEach((z) => {
       const color = riskColor(z.risk_label);
+      const ciColor = bandColor(z.impact_band);
       const size = z.risk_label === 'HIGH' || z.risk_label === 'CRITICAL' ? 16 : 12;
 
       const marker = E.addMarker(
@@ -395,7 +395,16 @@ export function MapView() {
         { lat: z.lat, lng: z.lon },
         dotSvg(size, color),
         size,
-        `<div style="min-width:150px"><strong>${z.h3_id}</strong><br><span style="color:#9ca3af">Impact: <strong style="color:${color}">${z.congestion_impact.toFixed(0)}</strong> (${z.impact_band})</span></div>`,
+        `<div style="min-width:178px;font-family:Inter,sans-serif">
+          <div style="font-weight:700;font-size:13px;margin-bottom:2px">${z.station ?? 'Hotspot'}</div>
+          <div style="font-size:10px;color:#94a3b8;font-family:monospace;margin-bottom:8px">${z.h3_id}</div>
+          <div style="display:flex;gap:14px">
+            <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8">Enforcement</div>
+              <div style="font-weight:800;color:${color}">${z.risk_score.toFixed(0)} <span style="font-size:10px;font-weight:600">${z.risk_label}</span></div></div>
+            <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8">Congestion</div>
+              <div style="font-weight:800;color:${ciColor}">${z.congestion_impact.toFixed(0)} <span style="font-size:10px;font-weight:600">${z.impact_band}</span></div></div>
+          </div>
+        </div>`,
       );
 
       E.addMarkerClickListener(marker, () => {
@@ -419,9 +428,7 @@ export function MapView() {
 
     if (layer !== 'spillover' || !arrows.data) return;
 
-    arrows.data
-      .filter((a) => a.hour === hour)
-      .forEach((a) => {
+    arrows.data.forEach((a) => {
         const line = E.addPolyline(map, [
           { lat: a.from_lat, lng: a.from_lon },
           { lat: a.to_lat, lng: a.to_lon },
@@ -518,7 +525,6 @@ export function MapView() {
   return (
     <div className="map-container">
       <div id="map" ref={containerRef} />
-      <LayerToggle />
 
       {/* Custom zoom controls — bottom-right, never overlaps layer toggle or right panel */}
       <div className="map-zoom-ctrl">

@@ -13,8 +13,10 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <!-- Mappls Vector Map SDK -->
-    <script src="https://apis.mappls.com/advancedmaps/api/5ce9c86c5b8c3a5cda1c9055fdde17f8/map_sdk?v=3.0&layer=vector"></script>
+    <!-- Mappls Vector Map SDK — key injected from VITE_MAPPLS_KEY at build time.
+         Loaded as a static tag (reliable referer handling); loadMapplsSDK.ts
+         detects window.mappls and otherwise falls back to MapLibre GL. -->
+    <script src="https://apis.mappls.com/advancedmaps/api/%VITE_MAPPLS_KEY%/map_sdk?v=3.0&layer=vector"></script>
   </head>
   <body>
     <div id="root"></div>

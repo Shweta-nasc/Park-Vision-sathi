@@ -1,28 +1,29 @@
 /**
  * Backend → Frontend compatibility layer.
  *
- * The backend speaks `grid_cell_id` / `risk_score`. The planner (and the rest
- * of this app) speaks `h3_id` / `congestion_impact`. Every raw payload from the
- * backend passes through an adapter here, so naming differences never leak into
- * components.
+ * The backend speaks `grid_cell_id`/`grid_lat`/`grid_lon` and returns BOTH a
+ * `risk_score` (enforcement priority) and a `congestion_impact` (CIS). Adapters
+ * translate field names and keep the two scores distinct so components never
+ * conflate them.
  */
 import type {
+  CongestionComponents,
   ForecastPoint,
   ImpactBand,
-  PatrolAllocation,
   PriorityArea,
   RiskLabel,
   SimulationResult,
   SpilloverZone,
   StationSummary,
-  StationSummaryItem,
   TrafficContext,
   ViolatorRecord,
   Zone,
+  PatrolAllocation,
 } from '@/types/api';
 
 /* ── helpers ─────────────────────────────────────────────────────────── */
 
+/** CIS band thresholds (match the backend's _band). */
 export function impactBand(score: number): ImpactBand {
   if (score <= 25) return 'MINIMAL';
   if (score <= 50) return 'MODERATE';
@@ -30,7 +31,8 @@ export function impactBand(score: number): ImpactBand {
   return 'CRITICAL';
 }
 
-function normalizeRiskLabel(label: string | undefined, score: number): RiskLabel {
+/** Enforcement risk label (match the backend's _risk_label). */
+export function riskLabel(label: string | undefined, score: number): RiskLabel {
   const up = (label ?? '').toUpperCase();
   if (up === 'CRITICAL' || up === 'HIGH' || up === 'MEDIUM' || up === 'LOW') return up as RiskLabel;
   if (score >= 80) return 'CRITICAL';
@@ -41,23 +43,24 @@ function normalizeRiskLabel(label: string | undefined, score: number): RiskLabel
 
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && !Number.isNaN(v) ? v : d);
 
-/**
- * Proxy estimate for lane-hours blocked when the backend doesn't provide it.
- * Derived from congestion impact (0-100) scaled to a plausible 0-8 lane-hours/day.
- */
+/** Fallback lane-hours estimate when the backend omits it. */
 export function estimateLaneHours(score: number, heavyRatio = 0): number {
-  return +(((score / 100) * 7 + heavyRatio * 1) ).toFixed(1);
+  return +(((score / 100) * 7 + heavyRatio).toFixed(1));
 }
 
 /* ── raw backend shapes (loose) ──────────────────────────────────────── */
 
 interface RawZone {
   grid_cell_id: string;
+  h3_id?: string;
   hour?: number;
   grid_lat?: number;
   grid_lon?: number;
   risk_score?: number;
   risk_label?: string;
+  congestion_impact?: number;
+  impact_band?: string;
+  calibrated_score?: number;
   violation_count?: number;
   density?: number;
   road_importance?: number;
@@ -65,27 +68,37 @@ interface RawZone {
   repeat_offender?: number;
   validation_trust?: number;
   heavy_vehicle_ratio?: number;
+  estimated_lane_hours_blocked?: number;
   patrol_probability?: number;
   violator_risk_score?: number;
   expected_cost?: number;
   net_benefit?: number;
   top_junction?: string | null;
+  top_violation?: string | null;
   police_station?: string;
+  station?: string;
+  travel_time_ratio?: number | null;
+  agent_status?: string | null;
+  agent_reasoning?: string | null;
 }
 
 /* ── adapters ────────────────────────────────────────────────────────── */
 
+/** Operational zone object (from /risk, /risk/top_zones, /game/*). */
 export function adaptZone(r: RawZone, hourFallback = 0): Zone {
-  const score = num(r.risk_score);
+  const risk = num(r.risk_score);
+  const cis = num(r.congestion_impact);
   const heavy = num(r.heavy_vehicle_ratio);
   return {
-    h3_id: r.grid_cell_id,
+    h3_id: r.grid_cell_id ?? r.h3_id ?? '',
     lat: num(r.grid_lat),
     lon: num(r.grid_lon),
     hour: num(r.hour, hourFallback),
-    congestion_impact: score,
-    impact_band: impactBand(score),
-    risk_label: normalizeRiskLabel(r.risk_label, score),
+    risk_score: risk,
+    risk_label: riskLabel(r.risk_label, risk),
+    congestion_impact: cis,
+    impact_band: (r.impact_band as ImpactBand) ?? impactBand(cis),
+    calibrated_score: r.calibrated_score,
     violation_count: num(r.violation_count),
     density: num(r.density),
     road_importance: num(r.road_importance),
@@ -93,18 +106,59 @@ export function adaptZone(r: RawZone, hourFallback = 0): Zone {
     repeat_offender: num(r.repeat_offender),
     validation_trust: num(r.validation_trust),
     heavy_vehicle_ratio: heavy,
-    estimated_lane_hours_blocked: estimateLaneHours(score, heavy),
+    estimated_lane_hours_blocked: num(r.estimated_lane_hours_blocked, estimateLaneHours(cis, heavy)),
+    mappls_ratio: r.travel_time_ratio ?? null,
     patrol_probability: r.patrol_probability,
     violator_risk_score: r.violator_risk_score,
     expected_cost: r.expected_cost,
     net_benefit: r.net_benefit,
-    station: r.police_station,
+    station: r.police_station ?? r.station,
     junction: r.top_junction ?? null,
+    top_violation: r.top_violation ?? null,
+    agent_status: r.agent_status ?? null,
+    agent_reasoning: r.agent_reasoning ?? null,
   };
 }
 
-export function adaptStations(rows: StationSummaryItem[]): StationSummaryItem[] {
-  return rows ?? [];
+/**
+ * /risk/{zone_id} returns a CongestionBreakdown (a different shape from the
+ * operational zone). This maps it into a Zone enrichment so the detail panel
+ * can render the REAL CIS components, lane-hours, and calibration.
+ */
+interface RawBreakdown {
+  zone_id?: string;
+  h3_id?: string;
+  lat?: number;
+  lon?: number;
+  congestion_impact?: number;
+  impact_band?: string;
+  components?: CongestionComponents;
+  estimated_lane_hours_blocked?: number;
+  total_records?: number;
+  top_violations?: string[];
+  station?: string;
+  junction?: string | null;
+  mappls_travel_time_ratio?: number | null;
+  calibrated_impact?: number | null;
+}
+
+export function adaptBreakdown(r: RawBreakdown): Partial<Zone> {
+  const cis = num(r.congestion_impact);
+  return {
+    h3_id: r.h3_id ?? r.zone_id,
+    lat: r.lat,
+    lon: r.lon,
+    congestion_impact: cis,
+    impact_band: (r.impact_band as ImpactBand) ?? impactBand(cis),
+    components: r.components,
+    estimated_lane_hours_blocked: num(r.estimated_lane_hours_blocked),
+    violation_count: num(r.total_records),
+    top_violations: r.top_violations ?? [],
+    station: r.station,
+    junction: r.junction ?? null,
+    mappls_ratio: r.mappls_travel_time_ratio ?? null,
+    calibrated_score: r.calibrated_impact ?? undefined,
+  };
 }
 
 export function adaptStationSummary(r: any): StationSummary {
@@ -117,12 +171,10 @@ export function adaptStationSummary(r: any): StationSummary {
   };
 }
 
-export function adaptPriorityArea(r: RawZone & {
-  force_needed?: number;
-  priority?: string;
-  distance_km?: number;
-  eta_minutes?: number;
-}, hourFallback = 0): PriorityArea {
+export function adaptPriorityArea(
+  r: RawZone & { force_needed?: number; priority?: string; distance_km?: number; eta_minutes?: number },
+  hourFallback = 0,
+): PriorityArea {
   const base = adaptZone(r, hourFallback);
   const pr = (r.priority as PriorityArea['priority']) ?? 'Low';
   return {
@@ -135,20 +187,26 @@ export function adaptPriorityArea(r: RawZone & {
   };
 }
 
+/** /forecast/top_risk_zones | /forecast/zones */
 export function adaptForecast(r: any): ForecastPoint {
+  const cnt = num(r.predicted_count);
   return {
-    h3_id: r.grid_cell_id,
-    hour: num(r.hour),
-    predicted_count: num(r.predicted ?? r.avg_predicted),
-    max_predicted: r.max_predicted,
+    h3_id: r.h3_id ?? r.zone_id ?? '',
+    lat: num(r.lat),
+    lon: num(r.lon),
+    predicted_count: cnt,
+    predicted_risk: num(r.predicted_risk),
+    predicted_band: (r.predicted_band as ImpactBand) ?? impactBand(num(r.predicted_risk)),
     confidence_lower: r.confidence_lower,
     confidence_upper: r.confidence_upper,
+    is_proxy: !!r.is_proxy,
   };
 }
 
+/** /game/violator_adaptation returns full zone objects. */
 export function adaptViolator(r: any): ViolatorRecord {
   return {
-    h3_id: r.grid_cell_id,
+    h3_id: r.grid_cell_id ?? r.h3_id,
     hour: num(r.hour),
     lat: num(r.grid_lat),
     lon: num(r.grid_lon),
