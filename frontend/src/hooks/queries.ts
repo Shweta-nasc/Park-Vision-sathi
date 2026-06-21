@@ -5,6 +5,7 @@
  */
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/api/endpoints';
+import { zoneLabel } from '@/utils/format';
 import type { MapLayer, SimulationRequest } from '@/types/api';
 
 export function useHealth() {
@@ -13,6 +14,20 @@ export function useHealth() {
 
 export function useStations() {
   return useQuery({ queryKey: ['stations'], queryFn: api.stations, staleTime: Infinity });
+}
+
+/** H3 id → readable place name, built from the hotspot zone universe. */
+export function useZoneNames() {
+  return useQuery({
+    queryKey: ['zoneIndex'],
+    queryFn: () => api.zoneIndex(),
+    staleTime: Infinity,
+    select: (zones) => {
+      const m = new Map<string, string>();
+      for (const z of zones) m.set(z.h3_id, zoneLabel(z));
+      return m;
+    },
+  });
 }
 
 export function useStationSummary(station: string | null, hour: number) {
