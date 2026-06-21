@@ -1,25 +1,29 @@
-ParkVisionSaathi – LightGBM Feature Importance
+ParkVisionSaathi – LightGBM v2 Feature Importance
 =======================================================
-Rank Feature                         Importance
+Rank Feature                       Importance
 -------------------------------------------------------
-1    violation_rate                        3777
-2    rolling_mean_7d                       3686
-3    lag_1                                 1415
-4    rolling_std_7d                        1395
-5    rolling_mean_14d                      1181
-6    hour                                   501
-7    cos_hour                               455
-8    sin_hour                               436
-9    mean_validation_trust                  359
-10   lag_24                                 296
-11   lag_168                                272
-12   mean_vehicle_severity                  260
-13   heavy_vehicle_ratio                    217
-14   day_of_week                            161
-15   sin_dow                                114
-16   month                                  107
-17   sin_month                               91
-18   cos_dow                                 63
-19   cos_month                               23
-20   is_peak                                 22
--------------------------------------------------------
+1    rolling_mean_168h                   6339
+2    rolling_std_168h                    5355
+3    mean_validation_trust               5342
+4    hour                                4764
+5    rolling_mean_24h                    4653
+6    mean_vehicle_severity               4417
+7    grid_lat                            4358
+8    grid_lon                            4112
+9    rolling_std_24h                     4039
+10   spatial_lag_1                       3971
+11   heavy_vehicle_ratio                 3778
+12   violation_rate                      3099
+13   sin_hour                            2570
+14   lag_24                              2517
+15   lag_168                             2497
+16   day_of_week                         2408
+17   lag_1                               2178
+18   cos_hour                            2105
+19   sin_dow                             1674
+20   month                               1277
+21   cos_dow                             1070
+22   sin_month                           1031
+23   is_peak                              488
+24   cos_month                            282
+25   is_weekend                           106

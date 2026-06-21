@@ -370,8 +370,9 @@ class DataStore:
         ``ml.congestion.impact_score.score_zone`` and serialized into the artifact)
         for ``zone_id`` at ``time_bucket``, falling back to that zone's ``all_day``
         rollup when the requested bucket is unknown/missing (Req 12.3). Returns
-        ``None`` for an unknown ``zone_id`` so the router can turn it into a
-        structured 404 (Req 14.4). Reads only from the artifact (Req 8.6, 10.2).
+        ``None`` for an unknown ``zone_id`` so the caller (the ``/risk`` router) can
+        fall back to its legacy zone shape and, failing that, a structured 404
+        (Req 14.4). Reads only from the artifact (Req 8.6, 10.2).
 
         The artifact carries ``calibrated_impact = None`` by default; WHERE the
         self-validating agent produced a calibration for this zone, that value is

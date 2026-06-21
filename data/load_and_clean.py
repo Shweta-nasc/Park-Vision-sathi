@@ -13,9 +13,32 @@ from pathlib import Path
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CSV_PATH_LOCAL = PROJECT_ROOT / "data" / "jan to may police violation_anonymized791b166.csv"
-CSV_PATH_DOWNLOADS = Path.home() / "Downloads" / "jan to may police violation_anonymized791b166.csv"
-CSV_PATH = CSV_PATH_LOCAL if CSV_PATH_LOCAL.exists() else CSV_PATH_DOWNLOADS
+CSV_FILENAME = "jan to may police violation_anonymized791b166.csv"
+
+# Candidate locations, in order of preference. The real anonymized dataset
+# (298,450 rows, Bengaluru Nov-2023 to Apr-2024) lives in the repo's Dataset/
+# folder, so that is tried first. A repo-local data/ copy and the user's
+# ~/Downloads are kept as fallbacks for older setups.
+CSV_CANDIDATES = [
+    PROJECT_ROOT / "Dataset" / CSV_FILENAME,
+    PROJECT_ROOT / "data" / CSV_FILENAME,
+    Path.home() / "Downloads" / CSV_FILENAME,
+]
+
+
+def _resolve_csv_path() -> Path:
+    """Return the first existing dataset CSV from the candidate locations."""
+    for candidate in CSV_CANDIDATES:
+        if candidate.exists():
+            return candidate
+    # Nothing found: surface a clear error listing every place we looked.
+    searched = "\n  ".join(str(c) for c in CSV_CANDIDATES)
+    raise FileNotFoundError(
+        f"Could not find '{CSV_FILENAME}'. Looked in:\n  {searched}"
+    )
+
+
+CSV_PATH = _resolve_csv_path()
 DB_PATH = PROJECT_ROOT / "data" / "parkvision.db"
 
 # ── Column configuration ──────────────────────────────────────────────────────

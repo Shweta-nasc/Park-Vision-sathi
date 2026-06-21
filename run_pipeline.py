@@ -75,19 +75,10 @@ def main():
     save_features(features, DB_PATH)
     done(t0)
 
-    # ── 4. LightGBM training ──────────────────────────────────────────────
-    t0 = step("4 / 7  LightGBM Training")
-    from train_model import (load_features, preprocess, train_model,
-                              evaluate, save_model, save_feature_importance,
-                              save_predictions, write_model_card)
-    df = load_features(DB_PATH)
-    X_train, X_test, y_train, y_test, id_test, feat_names = preprocess(df)
-    model = train_model(X_train, y_train)
-    preds, metrics = evaluate(model, X_test, y_test, id_test)
-    save_model(model)
-    save_feature_importance(model, feat_names)
-    save_predictions(id_test, y_test, preds)
-    write_model_card(metrics, len(X_train), len(X_test), feat_names)
+    # ── 4. LightGBM + CatBoost ensemble training ──────────────────────────
+    t0 = step("4 / 7  LightGBM + CatBoost Ensemble Training")
+    from train_model import main as run_training
+    run_training()
     done(t0)
 
     # ── 5. Stackelberg + Blotto + What-If ─────────────────────────────────

@@ -6,14 +6,16 @@ from the CIS artifact via the DataStore accessors (NOT the legacy enforcement
 `risk_score`), returning the typed contract from `backend.app.models`:
 
   GET /hotspots        -> list[HotspotItem]    (zones ranked by descending CIS)
-  GET /risk/{zone_id}  -> CongestionBreakdown  (full per-zone, per-bucket breakdown)
+  GET /risk/{zone_id}  -> CongestionBreakdown  (validated; per-zone CIS breakdown)
 
 Both accept a `time_bucket` query param (default `all_day`); an unknown bucket
-falls back to the zone's `all_day` rollup (handled in the DataStore), and an
-unknown `zone_id` yields a structured HTTP 404. Because the canonical CIS
-artifact is materialized offline, `/risk/{zone_id}` returns 404 and `/hotspots`
-returns `[]` until that artifact exists — the designed graceful, offline-safe
-behavior (no fabricated data). No database.
+falls back to the zone's `all_day` rollup (handled in the DataStore). For a real
+CIS zone, `/risk/{zone_id}` returns a `CongestionBreakdown` validated through the
+contract; for a legacy mock-hotspot zone it falls back to the in-memory zone
+shape; a genuinely unknown zone yields a structured HTTP 404. With no materialized
+CIS artifact, `/hotspots` returns `[]` and `/risk/{zone_id}` falls back to legacy
+zones (or 404) — the designed graceful, offline-safe behavior (no fabricated
+data). No database.
 
 The remaining legacy list/summary/overview endpoints below still serve the
 enforcement-priority `risk_score` from the hotspot-derived zone universe and are
@@ -125,7 +127,7 @@ def get_overview(
     }
 
 
-@router.get("/risk/{zone_id}", response_model=CongestionBreakdown)
+@router.get("/risk/{zone_id}", response_model=None)
 def get_zone_risk_detail(
     zone_id: str,
     time_bucket: str = Query(
@@ -134,17 +136,38 @@ def get_zone_risk_detail(
     ),
     hour: int = Query(default=None, ge=0, le=23, description="Hour of day (informational)"),
 ):
-    """Full Congestion Impact breakdown for one zone, from the CIS artifact.
+    """Full detail for a single zone.
 
-    Served via `store.congestion_breakdown` (the canonical CIS artifact, H3-keyed),
-    NOT the legacy enforcement `risk_score`. An unknown `time_bucket` falls back to
-    the zone's `all_day` rollup; an unknown `zone_id` yields a structured HTTP 404.
-    With no materialized artifact every zone 404s (designed graceful behavior).
+    For a REAL CIS zone (one of the H3 zones in the canonical artifact) this
+    returns the per-zone Congestion Impact breakdown — validated through the
+    ``CongestionBreakdown`` contract so the response is always well-formed —
+    including ``calibrated_impact`` (a number for the agent-calibrated zones,
+    ``null`` otherwise). Falls back to the legacy in-memory zone shape
+    (game-theory fields, real Mappls) for the mock hotspot zones the frontend
+    already consumes, so existing behaviour is preserved.
+
+    ``response_model=None`` is set deliberately: this endpoint intentionally
+    returns one of two shapes — a validated ``CongestionBreakdown`` for real CIS
+    zones, or the legacy in-memory zone dict for mock hotspot zones — so a single
+    strict ``response_model`` cannot describe both. The CIS path is still
+    type-checked via ``model_validate`` below (a malformed artifact entry surfaces
+    as a 500 rather than silently shipping a bad shape); an unknown zone is a
+    structured HTTP 404.
     """
-    breakdown = store.congestion_breakdown(zone_id, time_bucket)
-    if breakdown is None:
-        raise HTTPException(
-            status_code=404,
-            detail={"error": f"No data for zone {zone_id}", "zone_id": zone_id},
-        )
-    return CongestionBreakdown.model_validate(breakdown)
+    breakdown = store.congestion_breakdown(zone_id, time_bucket or "all_day")
+    if breakdown is not None:
+        # Real CIS zone: validate through the contract so the served payload is a
+        # guaranteed-valid CongestionBreakdown (Req 8.6) rather than a raw dict.
+        return CongestionBreakdown.model_validate(breakdown)
+
+    # Legacy mock-hotspot zones (not in the CIS artifact): keep the prior shape.
+    z = store.zone(zone_id)
+    if z:
+        return z
+    # Genuinely unknown zone (not a real CIS zone and not a legacy zone) -> a
+    # structured 404 (Req 14.4). The legacy fallback above is preserved for zones
+    # that actually exist; only the terminal not-found case is a 404.
+    raise HTTPException(
+        status_code=404,
+        detail={"error": f"No data for zone {zone_id}", "zone_id": zone_id},
+    )

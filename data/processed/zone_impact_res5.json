@@ -1,0 +1,1981 @@
+{
+  "8560144bfffffff": {
+    "afternoon": {
+      "zone_id": "8560144bfffffff",
+      "h3_id": "8560144bfffffff",
+      "time_bucket": "afternoon",
+      "lat": 13.098641586765678,
+      "lon": 77.39877565972603,
+      "congestion_impact": 17.824074074074073,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.0,
+        "intersection_impact": 0.0,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.0,
+        "vehicle_size": 0.5324074074074073,
+        "severity": 0.375
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 1.5,
+      "total_records": 6,
+      "top_violations": [
+        "WRONG PARKING"
+      ],
+      "station": "No Police Station",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "all_day": {
+      "zone_id": "8560144bfffffff",
+      "h3_id": "8560144bfffffff",
+      "time_bucket": "all_day",
+      "lat": 13.098641586765678,
+      "lon": 77.39877565972603,
+      "congestion_impact": 20.09964239059324,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.0011606912561258704,
+        "intersection_impact": 0.0,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.001100715465052284,
+        "vehicle_size": 0.7553814498258941,
+        "severity": 0.532051282051282
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 32.0,
+      "total_records": 117,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DEFECTIVE NUMBER PLATE",
+        "DOUBLE PARKING"
+      ],
+      "station": "No Police Station",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "midday": {
+      "zone_id": "8560144bfffffff",
+      "h3_id": "8560144bfffffff",
+      "time_bucket": "midday",
+      "lat": 13.098641586765678,
+      "lon": 77.39877565972603,
+      "congestion_impact": 19.4916856488602,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.0010317255610007739,
+        "intersection_impact": 0.0,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.0,
+        "vehicle_size": 0.6960733882030177,
+        "severity": 0.49027777777777776
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 11.5,
+      "total_records": 36,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DOUBLE PARKING",
+        "DEFECTIVE NUMBER PLATE"
+      ],
+      "station": "No Police Station",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "morning_peak": {
+      "zone_id": "8560144bfffffff",
+      "h3_id": "8560144bfffffff",
+      "time_bucket": "morning_peak",
+      "lat": 13.098641586765678,
+      "lon": 77.39877565972603,
+      "congestion_impact": 22.514876125504276,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.00012896569512509673,
+        "intersection_impact": 0.0,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.001100715465052284,
+        "vehicle_size": 1.0,
+        "severity": 0.7043478260869567
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 6.0,
+      "total_records": 23,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING NEAR BUSTOP/SCHOOL/HOSPITAL ETC",
+        "PARKING IN A MAIN ROAD"
+      ],
+      "station": "No Police Station",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "night": {
+      "zone_id": "8560144bfffffff",
+      "h3_id": "8560144bfffffff",
+      "time_bucket": "night",
+      "lat": 13.098641586765678,
+      "lon": 77.39877565972603,
+      "congestion_impact": 19.63971984805318,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.0,
+        "intersection_impact": 0.0,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.0,
+        "vehicle_size": 0.713971984805318,
+        "severity": 0.5028846153846154
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 13.0,
+      "total_records": 52,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "H T V PROHIBITED",
+        "DEFECTIVE NUMBER PLATE"
+      ],
+      "station": "No Police Station",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    }
+  },
+  "85601453fffffff": {
+    "afternoon": {
+      "zone_id": "85601453fffffff",
+      "h3_id": "85601453fffffff",
+      "time_bucket": "afternoon",
+      "lat": 12.83675116571278,
+      "lon": 77.48281521896939,
+      "congestion_impact": 19.48432164575087,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.00012896569512509673,
+        "intersection_impact": 0.0,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.0,
+        "vehicle_size": 0.6980452674897117,
+        "severity": 0.49166666666666664
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 3.25,
+      "total_records": 12,
+      "top_violations": [
+        "NO PARKING",
+        "WRONG PARKING",
+        "PARKING IN A MAIN ROAD"
+      ],
+      "station": "Thalagattapura",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "all_day": {
+      "zone_id": "85601453fffffff",
+      "h3_id": "85601453fffffff",
+      "time_bucket": "all_day",
+      "lat": 12.83675116571278,
+      "lon": 77.48281521896939,
+      "congestion_impact": 19.661206140494826,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.02205313386639154,
+        "intersection_impact": 0.0027144408251900108,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.0049532195927352776,
+        "vehicle_size": 0.6382218907945976,
+        "severity": 0.44953020134228183
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 233.0,
+      "total_records": 745,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DEFECTIVE NUMBER PLATE",
+        "DOUBLE PARKING"
+      ],
+      "station": "Thalagattapura",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "midday": {
+      "zone_id": "85601453fffffff",
+      "h3_id": "85601453fffffff",
+      "time_bucket": "midday",
+      "lat": 12.83675116571278,
+      "lon": 77.48281521896939,
+      "congestion_impact": 19.371370613402274,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.009156564353881867,
+        "intersection_impact": 0.002171552660152009,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.00275178866263071,
+        "vehicle_size": 0.6514866979655711,
+        "severity": 0.45887323943661973
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 110.0,
+      "total_records": 355,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DOUBLE PARKING",
+        "DEFECTIVE NUMBER PLATE"
+      ],
+      "station": "Thalagattapura",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "morning_peak": {
+      "zone_id": "85601453fffffff",
+      "h3_id": "85601453fffffff",
+      "time_bucket": "morning_peak",
+      "lat": 12.83675116571278,
+      "lon": 77.48281521896939,
+      "congestion_impact": 18.79560997652721,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.004255867939128192,
+        "intersection_impact": 0.0,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.0,
+        "vehicle_size": 0.6167933938353363,
+        "severity": 0.4344370860927152
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 46.0,
+      "total_records": 151,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DEFECTIVE NUMBER PLATE",
+        "PARKING OPPOSITE TO ANOTHER PARKED VEHICLE"
+      ],
+      "station": "Thalagattapura",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "night": {
+      "zone_id": "85601453fffffff",
+      "h3_id": "85601453fffffff",
+      "time_bucket": "night",
+      "lat": 12.83675116571278,
+      "lon": 77.48281521896939,
+      "congestion_impact": 19.076629567095623,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.008511735878256384,
+        "intersection_impact": 0.0005428881650380022,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.002201430930104568,
+        "vehicle_size": 0.6285690977320932,
+        "severity": 0.44273127753303965
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 73.75,
+      "total_records": 227,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DEFECTIVE NUMBER PLATE",
+        "PARKING NEAR BUSTOP/SCHOOL/HOSPITAL ETC"
+      ],
+      "station": "Thalagattapura",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    }
+  },
+  "8560145bfffffff": {
+    "afternoon": {
+      "zone_id": "8560145bfffffff",
+      "h3_id": "8560145bfffffff",
+      "time_bucket": "afternoon",
+      "lat": 12.993698409678524,
+      "lon": 77.5148557067912,
+      "congestion_impact": 9.630013492805393,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.023342790817642508,
+        "intersection_impact": 0.016286644951140065,
+        "traffic_degradation": 0.09777777777777774,
+        "access_blockage": 0.01375894331315355,
+        "vehicle_size": 0.5940529766921636,
+        "severity": 0.418419922713611
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 634.0,
+      "total_records": 2329,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DEFECTIVE NUMBER PLATE",
+        "PARKING NEAR BUSTOP/SCHOOL/HOSPITAL ETC"
+      ],
+      "station": "Upparpet",
+      "junction": null,
+      "mappls_travel_time_ratio": 1.1955555555555555,
+      "is_traffic_degradation_defaulted": false,
+      "calibrated_impact": null
+    },
+    "all_day": {
+      "zone_id": "8560145bfffffff",
+      "h3_id": "8560145bfffffff",
+      "time_bucket": "all_day",
+      "lat": 12.993698409678524,
+      "lon": 77.5148557067912,
+      "congestion_impact": 54.9446327909886,
+      "impact_band": "SEVERE",
+      "components": {
+        "lane_blockage": 0.9422233685839567,
+        "intersection_impact": 0.4413680781758958,
+        "traffic_degradation": 0.09777777777777774,
+        "access_blockage": 0.7534397358282884,
+        "vehicle_size": 0.566488797634518,
+        "severity": 0.39900515311648665
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 40161.75,
+      "total_records": 152335,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DEFECTIVE NUMBER PLATE",
+        "PARKING ON FOOTPATH"
+      ],
+      "station": "Upparpet",
+      "junction": null,
+      "mappls_travel_time_ratio": 1.1955555555555555,
+      "is_traffic_degradation_defaulted": false,
+      "calibrated_impact": null
+    },
+    "midday": {
+      "zone_id": "8560145bfffffff",
+      "h3_id": "8560145bfffffff",
+      "time_bucket": "midday",
+      "lat": 12.993698409678524,
+      "lon": 77.5148557067912,
+      "congestion_impact": 24.211383954849293,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.33298942481299976,
+        "intersection_impact": 0.1465798045602606,
+        "traffic_degradation": 0.09777777777777774,
+        "access_blockage": 0.25591634562465604,
+        "vehicle_size": 0.555359819576178,
+        "severity": 0.39116648161452544
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 12222.75,
+      "total_records": 45933,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DEFECTIVE NUMBER PLATE",
+        "PARKING ON FOOTPATH"
+      ],
+      "station": "Upparpet",
+      "junction": null,
+      "mappls_travel_time_ratio": 1.1955555555555555,
+      "is_traffic_degradation_defaulted": false,
+      "calibrated_impact": null
+    },
+    "morning_peak": {
+      "zone_id": "8560145bfffffff",
+      "h3_id": "8560145bfffffff",
+      "time_bucket": "morning_peak",
+      "lat": 12.993698409678524,
+      "lon": 77.5148557067912,
+      "congestion_impact": 22.35891207030312,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.2802424555068352,
+        "intersection_impact": 0.1498371335504886,
+        "traffic_degradation": 0.09777777777777774,
+        "access_blockage": 0.22179416620803521,
+        "vehicle_size": 0.5543323959811052,
+        "severity": 0.39044281803886544
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 13505.25,
+      "total_records": 51511,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DEFECTIVE NUMBER PLATE",
+        "PARKING ON FOOTPATH"
+      ],
+      "station": "Upparpet",
+      "junction": null,
+      "mappls_travel_time_ratio": 1.1955555555555555,
+      "is_traffic_degradation_defaulted": false,
+      "calibrated_impact": null
+    },
+    "night": {
+      "zone_id": "8560145bfffffff",
+      "h3_id": "8560145bfffffff",
+      "time_bucket": "night",
+      "lat": 12.993698409678524,
+      "lon": 77.5148557067912,
+      "congestion_impact": 23.31928241525893,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.3056486974464792,
+        "intersection_impact": 0.12866449511400652,
+        "traffic_degradation": 0.09777777777777774,
+        "access_blockage": 0.2619702806824436,
+        "vehicle_size": 0.5869061862745512,
+        "severity": 0.41338609641946655
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 13799.75,
+      "total_records": 52562,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DEFECTIVE NUMBER PLATE",
+        "PARKING ON FOOTPATH"
+      ],
+      "station": "Upparpet",
+      "junction": null,
+      "mappls_travel_time_ratio": 1.1955555555555555,
+      "is_traffic_degradation_defaulted": false,
+      "calibrated_impact": null
+    }
+  },
+  "85601683fffffff": {
+    "all_day": {
+      "zone_id": "85601683fffffff",
+      "h3_id": "85601683fffffff",
+      "time_bucket": "all_day",
+      "lat": 13.30763372850649,
+      "lon": 77.57906961950228,
+      "congestion_impact": 16.049382716049383,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.0,
+        "intersection_impact": 0.0,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.0,
+        "vehicle_size": 0.3549382716049382,
+        "severity": 0.25
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 0.25,
+      "total_records": 1,
+      "top_violations": [
+        "NO PARKING"
+      ],
+      "station": "No Police Station",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "midday": {
+      "zone_id": "85601683fffffff",
+      "h3_id": "85601683fffffff",
+      "time_bucket": "midday",
+      "lat": 13.30763372850649,
+      "lon": 77.57906961950228,
+      "congestion_impact": 16.049382716049383,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.0,
+        "intersection_impact": 0.0,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.0,
+        "vehicle_size": 0.3549382716049382,
+        "severity": 0.25
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 0.25,
+      "total_records": 1,
+      "top_violations": [
+        "NO PARKING"
+      ],
+      "station": "No Police Station",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    }
+  },
+  "85601693fffffff": {
+    "afternoon": {
+      "zone_id": "85601693fffffff",
+      "h3_id": "85601693fffffff",
+      "time_bucket": "afternoon",
+      "lat": 13.20267597812334,
+      "lon": 77.69540323902126,
+      "congestion_impact": 20.340371363005623,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.009414495744132062,
+        "intersection_impact": 0.0027144408251900108,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.0,
+        "vehicle_size": 0.7490075470051911,
+        "severity": 0.5275618374558304
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 92.0,
+      "total_records": 283,
+      "top_violations": [
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "WRONG PARKING",
+        "DEFECTIVE NUMBER PLATE",
+        "USING BLACK FILM/OTHER MATERIALS"
+      ],
+      "station": "Chikkajala",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "all_day": {
+      "zone_id": "85601693fffffff",
+      "h3_id": "85601693fffffff",
+      "time_bucket": "all_day",
+      "lat": 13.20267597812334,
+      "lon": 77.69540323902126,
+      "congestion_impact": 26.53461022924083,
+      "impact_band": "MODERATE",
+      "components": {
+        "lane_blockage": 0.17681196801650761,
+        "intersection_impact": 0.05428881650380022,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.010456796917996699,
+        "vehicle_size": 0.7268462806970627,
+        "severity": 0.511952597708366
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 1996.0,
+      "total_records": 6371,
+      "top_violations": [
+        "NO PARKING",
+        "WRONG PARKING",
+        "PARKING IN A MAIN ROAD",
+        "USING BLACK FILM/OTHER MATERIALS",
+        "PARKING NEAR ROAD CROSSING"
+      ],
+      "station": "Chikkajala",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "midday": {
+      "zone_id": "85601693fffffff",
+      "h3_id": "85601693fffffff",
+      "time_bucket": "midday",
+      "lat": 13.20267597812334,
+      "lon": 77.69540323902126,
+      "congestion_impact": 22.43686623456182,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.07428424039205571,
+        "intersection_impact": 0.01520086862106406,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.001651073197578426,
+        "vehicle_size": 0.7311806575297763,
+        "severity": 0.5150055066079295
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 618.0,
+      "total_records": 1816,
+      "top_violations": [
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "WRONG PARKING",
+        "USING BLACK FILM/OTHER MATERIALS",
+        "DOUBLE PARKING"
+      ],
+      "station": "Chikkajala",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "morning_peak": {
+      "zone_id": "85601693fffffff",
+      "h3_id": "85601693fffffff",
+      "time_bucket": "morning_peak",
+      "lat": 13.20267597812334,
+      "lon": 77.69540323902126,
+      "congestion_impact": 20.645499357079945,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.021924168171266443,
+        "intersection_impact": 0.008686210640608035,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.0049532195927352776,
+        "vehicle_size": 0.7221086849999399,
+        "severity": 0.5086156824782186
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 309.75,
+      "total_records": 1033,
+      "top_violations": [
+        "NO PARKING",
+        "WRONG PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DEFECTIVE NUMBER PLATE",
+        "PARKING NEAR ROAD CROSSING"
+      ],
+      "station": "Chikkajala",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "night": {
+      "zone_id": "85601693fffffff",
+      "h3_id": "85601693fffffff",
+      "time_bucket": "night",
+      "lat": 13.20267597812334,
+      "lon": 77.69540323902126,
+      "congestion_impact": 22.606287275412466,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.0711890637090534,
+        "intersection_impact": 0.02768729641693811,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.003852504127682994,
+        "vehicle_size": 0.7239907912440584,
+        "severity": 0.5099413399197282
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 976.25,
+      "total_records": 3239,
+      "top_violations": [
+        "NO PARKING",
+        "WRONG PARKING",
+        "PARKING IN A MAIN ROAD",
+        "PARKING NEAR ROAD CROSSING",
+        "PARKING NEAR TRAFFIC LIGHT OR ZEBRA CROSS"
+      ],
+      "station": "Chikkajala",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    }
+  },
+  "85601697fffffff": {
+    "afternoon": {
+      "zone_id": "85601697fffffff",
+      "h3_id": "85601697fffffff",
+      "time_bucket": "afternoon",
+      "lat": 13.150660097966956,
+      "lon": 77.54694048305988,
+      "congestion_impact": 18.453606253709054,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.0010317255610007739,
+        "intersection_impact": 0.0010857763300760044,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.001100715465052284,
+        "vehicle_size": 0.5884502923976607,
+        "severity": 0.4144736842105263
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 13.25,
+      "total_records": 38,
+      "top_violations": [
+        "NO PARKING",
+        "WRONG PARKING",
+        "DOUBLE PARKING",
+        "PARKING IN A MAIN ROAD",
+        "PARKING NEAR ROAD CROSSING"
+      ],
+      "station": "Yelahanka",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "all_day": {
+      "zone_id": "85601697fffffff",
+      "h3_id": "85601697fffffff",
+      "time_bucket": "all_day",
+      "lat": 13.150660097966956,
+      "lon": 77.54694048305988,
+      "congestion_impact": 18.74008810730482,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.009930358524632447,
+        "intersection_impact": 0.007057546145494028,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.014309301045679693,
+        "vehicle_size": 0.5622645687471697,
+        "severity": 0.3960298266827892
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 647.5,
+      "total_records": 2481,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "DEFECTIVE NUMBER PLATE",
+        "PARKING IN A MAIN ROAD",
+        "PARKING ON FOOTPATH"
+      ],
+      "station": "Yelahanka",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "midday": {
+      "zone_id": "85601697fffffff",
+      "h3_id": "85601697fffffff",
+      "time_bucket": "midday",
+      "lat": 13.150660097966956,
+      "lon": 77.54694048305988,
+      "congestion_impact": 17.89073410582595,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.003868970853752902,
+        "intersection_impact": 0.003257328990228013,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.002201430930104568,
+        "vehicle_size": 0.5171217446156617,
+        "severity": 0.36423357664233574
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 148.0,
+      "total_records": 548,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DEFECTIVE NUMBER PLATE",
+        "PARKING NEAR ROAD CROSSING"
+      ],
+      "station": "Yelahanka",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "morning_peak": {
+      "zone_id": "85601697fffffff",
+      "h3_id": "85601697fffffff",
+      "time_bucket": "morning_peak",
+      "lat": 13.150660097966956,
+      "lon": 77.54694048305988,
+      "congestion_impact": 17.97546844756188,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.002321382512251741,
+        "intersection_impact": 0.0005428881650380022,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.008805723720418272,
+        "vehicle_size": 0.5304197530864196,
+        "severity": 0.3736
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 98.75,
+      "total_records": 375,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "PARKING ON FOOTPATH",
+        "DEFECTIVE NUMBER PLATE"
+      ],
+      "station": "Yelahanka",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "night": {
+      "zone_id": "85601697fffffff",
+      "h3_id": "85601697fffffff",
+      "time_bucket": "night",
+      "lat": 13.150660097966956,
+      "lon": 77.54694048305988,
+      "congestion_impact": 18.51496704329831,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.0027082795976270313,
+        "intersection_impact": 0.002171552660152009,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.002201430930104568,
+        "vehicle_size": 0.585741552956465,
+        "severity": 0.41256578947368416
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 387.5,
+      "total_records": 1520,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "DEFECTIVE NUMBER PLATE",
+        "PARKING IN A MAIN ROAD",
+        "PARKING NEAR ROAD CROSSING"
+      ],
+      "station": "Yelahanka",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    }
+  },
+  "85618923fffffff": {
+    "afternoon": {
+      "zone_id": "85618923fffffff",
+      "h3_id": "85618923fffffff",
+      "time_bucket": "afternoon",
+      "lat": 12.940344951349799,
+      "lon": 77.779499114437,
+      "congestion_impact": 20.533033379747657,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.010704152695383029,
+        "intersection_impact": 0.0010857763300760044,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.00275178866263071,
+        "vehicle_size": 0.7657246504007956,
+        "severity": 0.5393364928909953
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 76.0,
+      "total_records": 211,
+      "top_violations": [
+        "NO PARKING",
+        "WRONG PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DOUBLE PARKING",
+        "PARKING ON FOOTPATH"
+      ],
+      "station": "HAL Old Airport",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "all_day": {
+      "zone_id": "85618923fffffff",
+      "h3_id": "85618923fffffff",
+      "time_bucket": "all_day",
+      "lat": 12.940344951349799,
+      "lon": 77.779499114437,
+      "congestion_impact": 37.275782476406754,
+      "impact_band": "MODERATE",
+      "components": {
+        "lane_blockage": 0.38470466855816354,
+        "intersection_impact": 0.05808903365906623,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.5266923500275179,
+        "vehicle_size": 0.6515493077910016,
+        "severity": 0.4589173385310534
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 3680.0,
+      "total_records": 11287,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "PARKING ON FOOTPATH",
+        "DEFECTIVE NUMBER PLATE"
+      ],
+      "station": "HAL Old Airport",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "midday": {
+      "zone_id": "85618923fffffff",
+      "h3_id": "85618923fffffff",
+      "time_bucket": "midday",
+      "lat": 12.940344951349799,
+      "lon": 77.779499114437,
+      "congestion_impact": 22.57277133354661,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.06448284756254836,
+        "intersection_impact": 0.016829533116178068,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.1810676940011007,
+        "vehicle_size": 0.5906870638754697,
+        "severity": 0.41604914933837434
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 816.25,
+      "total_records": 2645,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "PARKING ON FOOTPATH",
+        "DEFECTIVE NUMBER PLATE"
+      ],
+      "station": "HAL Old Airport",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "morning_peak": {
+      "zone_id": "85618923fffffff",
+      "h3_id": "85618923fffffff",
+      "time_bucket": "morning_peak",
+      "lat": 12.940344951349799,
+      "lon": 77.779499114437,
+      "congestion_impact": 22.591185862385274,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.1022697962342017,
+        "intersection_impact": 0.009229098805646038,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.08200330214639516,
+        "vehicle_size": 0.597233148375412,
+        "severity": 0.42065986972529024
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 1093.5,
+      "total_records": 3531,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DEFECTIVE NUMBER PLATE",
+        "PARKING ON FOOTPATH"
+      ],
+      "station": "HAL Old Airport",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "night": {
+      "zone_id": "85618923fffffff",
+      "h3_id": "85618923fffffff",
+      "time_bucket": "night",
+      "lat": 12.940344951349799,
+      "lon": 77.779499114437,
+      "congestion_impact": 29.286016030840656,
+      "impact_band": "MODERATE",
+      "components": {
+        "lane_blockage": 0.20724787206603043,
+        "intersection_impact": 0.030944625407166124,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.2608695652173913,
+        "vehicle_size": 0.7186268581506675,
+        "severity": 0.5061632653061224
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 1694.25,
+      "total_records": 4900,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "PARKING ON FOOTPATH",
+        "PARKING OTHER THAN BUS STOP"
+      ],
+      "station": "HAL Old Airport",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    }
+  },
+  "85618927fffffff": {
+    "afternoon": {
+      "zone_id": "85618927fffffff",
+      "h3_id": "85618927fffffff",
+      "time_bucket": "afternoon",
+      "lat": 12.888548719615365,
+      "lon": 77.63100879181823,
+      "congestion_impact": 9.655295053056477,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.020247614134640185,
+        "intersection_impact": 0.013029315960912053,
+        "traffic_degradation": 0.12949999999999995,
+        "access_blockage": 0.0341221794166208,
+        "vehicle_size": 0.5143411935828264,
+        "severity": 0.3622751015670343
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 475.25,
+      "total_records": 1723,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "PARKING ON FOOTPATH",
+        "DEFECTIVE NUMBER PLATE"
+      ],
+      "station": "HSR Layout",
+      "junction": null,
+      "mappls_travel_time_ratio": 1.259,
+      "is_traffic_degradation_defaulted": false,
+      "calibrated_impact": null
+    },
+    "all_day": {
+      "zone_id": "85618927fffffff",
+      "h3_id": "85618927fffffff",
+      "time_bucket": "all_day",
+      "lat": 12.888548719615365,
+      "lon": 77.63100879181823,
+      "congestion_impact": 65.93017225022099,
+      "impact_band": "SEVERE",
+      "components": {
+        "lane_blockage": 0.974593758060356,
+        "intersection_impact": 0.7345276872964169,
+        "traffic_degradation": 0.12949999999999995,
+        "access_blockage": 0.9383599339570721,
+        "vehicle_size": 0.5708067986429182,
+        "severity": 0.40204652773979466
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 15937.5,
+      "total_records": 54849,
+      "top_violations": [
+        "NO PARKING",
+        "WRONG PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DEFECTIVE NUMBER PLATE",
+        "PARKING NEAR BUSTOP/SCHOOL/HOSPITAL ETC"
+      ],
+      "station": "HAL Old Airport",
+      "junction": null,
+      "mappls_travel_time_ratio": 1.259,
+      "is_traffic_degradation_defaulted": false,
+      "calibrated_impact": null
+    },
+    "midday": {
+      "zone_id": "85618927fffffff",
+      "h3_id": "85618927fffffff",
+      "time_bucket": "midday",
+      "lat": 12.888548719615365,
+      "lon": 77.63100879181823,
+      "congestion_impact": 20.465477192384192,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.21820995615166366,
+        "intersection_impact": 0.15146579804560262,
+        "traffic_degradation": 0.12949999999999995,
+        "access_blockage": 0.1441937259218492,
+        "vehicle_size": 0.5453096297475725,
+        "severity": 0.3840876522569859
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 4673.5,
+      "total_records": 16748,
+      "top_violations": [
+        "NO PARKING",
+        "WRONG PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DEFECTIVE NUMBER PLATE",
+        "PARKING ON FOOTPATH"
+      ],
+      "station": "HSR Layout",
+      "junction": null,
+      "mappls_travel_time_ratio": 1.259,
+      "is_traffic_degradation_defaulted": false,
+      "calibrated_impact": null
+    },
+    "morning_peak": {
+      "zone_id": "85618927fffffff",
+      "h3_id": "85618927fffffff",
+      "time_bucket": "morning_peak",
+      "lat": 12.888548719615365,
+      "lon": 77.63100879181823,
+      "congestion_impact": 29.937779753219008,
+      "impact_band": "MODERATE",
+      "components": {
+        "lane_blockage": 0.3275728656177457,
+        "intersection_impact": 0.3762214983713355,
+        "traffic_degradation": 0.12949999999999995,
+        "access_blockage": 0.17336268574573474,
+        "vehicle_size": 0.5733929467945904,
+        "severity": 0.40386807556836374
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 4681.5,
+      "total_records": 15615,
+      "top_violations": [
+        "NO PARKING",
+        "WRONG PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DEFECTIVE NUMBER PLATE",
+        "PARKING NEAR ROAD CROSSING"
+      ],
+      "station": "HAL Old Airport",
+      "junction": null,
+      "mappls_travel_time_ratio": 1.259,
+      "is_traffic_degradation_defaulted": false,
+      "calibrated_impact": null
+    },
+    "night": {
+      "zone_id": "85618927fffffff",
+      "h3_id": "85618927fffffff",
+      "time_bucket": "night",
+      "lat": 12.888548719615365,
+      "lon": 77.63100879181823,
+      "congestion_impact": 32.147633191837095,
+      "impact_band": "MODERATE",
+      "components": {
+        "lane_blockage": 0.4085633221563064,
+        "intersection_impact": 0.19381107491856678,
+        "traffic_degradation": 0.12949999999999995,
+        "access_blockage": 0.5866813428728673,
+        "vehicle_size": 0.594114322545506,
+        "severity": 0.41846313153205217
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 6107.25,
+      "total_records": 20763,
+      "top_violations": [
+        "NO PARKING",
+        "WRONG PARKING",
+        "PARKING IN A MAIN ROAD",
+        "PARKING NEAR BUSTOP/SCHOOL/HOSPITAL ETC",
+        "DEFECTIVE NUMBER PLATE"
+      ],
+      "station": "HAL Old Airport",
+      "junction": null,
+      "mappls_travel_time_ratio": 1.259,
+      "is_traffic_degradation_defaulted": false,
+      "calibrated_impact": null
+    }
+  },
+  "8561892bfffffff": {
+    "afternoon": {
+      "zone_id": "8561892bfffffff",
+      "h3_id": "8561892bfffffff",
+      "time_bucket": "afternoon",
+      "lat": 13.097510432218083,
+      "lon": 77.81180869040789,
+      "congestion_impact": 19.020972858417263,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.00012896569512509673,
+        "intersection_impact": 0.0016286644951140066,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.001651073197578426,
+        "vehicle_size": 0.6459876543209875,
+        "severity": 0.45499999999999996
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 4.25,
+      "total_records": 10,
+      "top_violations": [
+        "NO PARKING",
+        "WRONG PARKING",
+        "PARKING NEAR BUSTOP/SCHOOL/HOSPITAL ETC",
+        "PARKING NEAR ROAD CROSSING",
+        "DEFECTIVE NUMBER PLATE"
+      ],
+      "station": "K.R. Pura",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "all_day": {
+      "zone_id": "8561892bfffffff",
+      "h3_id": "8561892bfffffff",
+      "time_bucket": "all_day",
+      "lat": 13.097510432218083,
+      "lon": 77.81180869040789,
+      "congestion_impact": 20.974589093757338,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.00748001031725561,
+        "intersection_impact": 0.03745928338762215,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.03577325261419923,
+        "vehicle_size": 0.6955974173407122,
+        "severity": 0.4899425287356322
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 137.0,
+      "total_records": 348,
+      "top_violations": [
+        "NO PARKING",
+        "WRONG PARKING",
+        "PARKING NEAR BUSTOP/SCHOOL/HOSPITAL ETC",
+        "PARKING NEAR ROAD CROSSING",
+        "PARKING IN A MAIN ROAD"
+      ],
+      "station": "K.R. Pura",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "midday": {
+      "zone_id": "8561892bfffffff",
+      "h3_id": "8561892bfffffff",
+      "time_bucket": "midday",
+      "lat": 13.097510432218083,
+      "lon": 77.81180869040789,
+      "congestion_impact": 19.513120562245188,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.002966210987877225,
+        "intersection_impact": 0.023344191096634093,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.02201430930104568,
+        "vehicle_size": 0.6120386362182562,
+        "severity": 0.4310880829015544
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 76.25,
+      "total_records": 193,
+      "top_violations": [
+        "NO PARKING",
+        "WRONG PARKING",
+        "PARKING NEAR BUSTOP/SCHOOL/HOSPITAL ETC",
+        "PARKING NEAR ROAD CROSSING",
+        "PARKING NEAR TRAFFIC LIGHT OR ZEBRA CROSS"
+      ],
+      "station": "K.R. Pura",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "morning_peak": {
+      "zone_id": "8561892bfffffff",
+      "h3_id": "8561892bfffffff",
+      "time_bucket": "morning_peak",
+      "lat": 13.097510432218083,
+      "lon": 77.81180869040789,
+      "congestion_impact": 19.912085850904283,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.0020634511220015478,
+        "intersection_impact": 0.003257328990228013,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.003852504127682994,
+        "vehicle_size": 0.7230224051211704,
+        "severity": 0.5092592592592593
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 20.75,
+      "total_records": 54,
+      "top_violations": [
+        "NO PARKING",
+        "WRONG PARKING",
+        "PARKING IN A MAIN ROAD",
+        "PARKING NEAR BUSTOP/SCHOOL/HOSPITAL ETC",
+        "PARKING NEAR ROAD CROSSING"
+      ],
+      "station": "K.R. Pura",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "night": {
+      "zone_id": "8561892bfffffff",
+      "h3_id": "8561892bfffffff",
+      "time_bucket": "night",
+      "lat": 13.097510432218083,
+      "lon": 77.81180869040789,
+      "congestion_impact": 21.502852058650408,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.002321382512251741,
+        "intersection_impact": 0.009229098805646038,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.00825536598789213,
+        "vehicle_size": 0.8619929453262785,
+        "severity": 0.6071428571428571
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 35.75,
+      "total_records": 91,
+      "top_violations": [
+        "NO PARKING",
+        "WRONG PARKING",
+        "PARKING IN A MAIN ROAD",
+        "PARKING NEAR TRAFFIC LIGHT OR ZEBRA CROSS",
+        "PARKING NEAR BUSTOP/SCHOOL/HOSPITAL ETC"
+      ],
+      "station": "K.R. Pura",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    }
+  },
+  "8561892ffffffff": {
+    "afternoon": {
+      "zone_id": "8561892ffffffff",
+      "h3_id": "8561892ffffffff",
+      "time_bucket": "afternoon",
+      "lat": 13.045605743533345,
+      "lon": 77.66318380270546,
+      "congestion_impact": 14.76255915066815,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.0274696930616456,
+        "intersection_impact": 0.07166123778501629,
+        "traffic_degradation": 0.25060000000000004,
+        "access_blockage": 0.011557512383048982,
+        "vehicle_size": 0.5766362290362884,
+        "severity": 0.40615247436469015
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 641.25,
+      "total_records": 2243,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DEFECTIVE NUMBER PLATE",
+        "REFUSE TO GO FOR HIRE"
+      ],
+      "station": "Shivajinagar",
+      "junction": null,
+      "mappls_travel_time_ratio": 1.5012,
+      "is_traffic_degradation_defaulted": false,
+      "calibrated_impact": null
+    },
+    "all_day": {
+      "zone_id": "8561892ffffffff",
+      "h3_id": "8561892ffffffff",
+      "time_bucket": "all_day",
+      "lat": 13.045605743533345,
+      "lon": 77.66318380270546,
+      "congestion_impact": 77.16538432629075,
+      "impact_band": "CRITICAL",
+      "components": {
+        "lane_blockage": 1.0,
+        "intersection_impact": 1.0,
+        "traffic_degradation": 0.25060000000000004,
+        "access_blockage": 1.0,
+        "vehicle_size": 0.5900384326290754,
+        "severity": 0.4155922873300445
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 19213.75,
+      "total_records": 66488,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DEFECTIVE NUMBER PLATE",
+        "PARKING ON FOOTPATH"
+      ],
+      "station": "Shivajinagar",
+      "junction": null,
+      "mappls_travel_time_ratio": 1.5012,
+      "is_traffic_degradation_defaulted": false,
+      "calibrated_impact": null
+    },
+    "midday": {
+      "zone_id": "8561892ffffffff",
+      "h3_id": "8561892ffffffff",
+      "time_bucket": "midday",
+      "lat": 13.045605743533345,
+      "lon": 77.66318380270546,
+      "congestion_impact": 37.39525081171788,
+      "impact_band": "MODERATE",
+      "components": {
+        "lane_blockage": 0.3703894763992778,
+        "intersection_impact": 0.45765472312703587,
+        "traffic_degradation": 0.25060000000000004,
+        "access_blockage": 0.28233351678591084,
+        "vehicle_size": 0.5753863273704541,
+        "severity": 0.40527210884353737
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 7863.5,
+      "total_records": 27636,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DEFECTIVE NUMBER PLATE",
+        "DOUBLE PARKING"
+      ],
+      "station": "Shivajinagar",
+      "junction": null,
+      "mappls_travel_time_ratio": 1.5012,
+      "is_traffic_degradation_defaulted": false,
+      "calibrated_impact": null
+    },
+    "morning_peak": {
+      "zone_id": "8561892ffffffff",
+      "h3_id": "8561892ffffffff",
+      "time_bucket": "morning_peak",
+      "lat": 13.045605743533345,
+      "lon": 77.66318380270546,
+      "congestion_impact": 42.22872668310751,
+      "impact_band": "MODERATE",
+      "components": {
+        "lane_blockage": 0.2949445447510962,
+        "intersection_impact": 0.6449511400651466,
+        "traffic_degradation": 0.25060000000000004,
+        "access_blockage": 0.5162355531095212,
+        "vehicle_size": 0.5829256307850745,
+        "severity": 0.4105824008138352
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 5743.5,
+      "total_records": 19660,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DEFECTIVE NUMBER PLATE",
+        "PARKING ON FOOTPATH"
+      ],
+      "station": "Shivajinagar",
+      "junction": null,
+      "mappls_travel_time_ratio": 1.5012,
+      "is_traffic_degradation_defaulted": false,
+      "calibrated_impact": null
+    },
+    "night": {
+      "zone_id": "8561892ffffffff",
+      "h3_id": "8561892ffffffff",
+      "time_bucket": "night",
+      "lat": 13.045605743533345,
+      "lon": 77.66318380270546,
+      "congestion_impact": 31.76247900568544,
+      "impact_band": "MODERATE",
+      "components": {
+        "lane_blockage": 0.3071962857879804,
+        "intersection_impact": 0.32573289902280134,
+        "traffic_degradation": 0.25060000000000004,
+        "access_blockage": 0.189873417721519,
+        "vehicle_size": 0.6239533779260802,
+        "severity": 0.4394802053218479
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 4965.5,
+      "total_records": 16949,
+      "top_violations": [
+        "NO PARKING",
+        "WRONG PARKING",
+        "PARKING IN A MAIN ROAD",
+        "DEFECTIVE NUMBER PLATE",
+        "PARKING ON FOOTPATH"
+      ],
+      "station": "Shivajinagar",
+      "junction": null,
+      "mappls_travel_time_ratio": 1.5012,
+      "is_traffic_degradation_defaulted": false,
+      "calibrated_impact": null
+    }
+  },
+  "85618937fffffff": {
+    "afternoon": {
+      "zone_id": "85618937fffffff",
+      "h3_id": "85618937fffffff",
+      "time_bucket": "afternoon",
+      "lat": 12.783193954783718,
+      "lon": 77.74723402814648,
+      "congestion_impact": 19.615276164074547,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.0,
+        "intersection_impact": 0.0,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.001651073197578426,
+        "vehicle_size": 0.7098765432098764,
+        "severity": 0.5
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 0.75,
+      "total_records": 3,
+      "top_violations": [
+        "PARKING ON FOOTPATH",
+        "WRONG PARKING"
+      ],
+      "station": "Electronic City",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "all_day": {
+      "zone_id": "85618937fffffff",
+      "h3_id": "85618937fffffff",
+      "time_bucket": "all_day",
+      "lat": 12.783193954783718,
+      "lon": 77.74723402814648,
+      "congestion_impact": 20.028994392403042,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.02553520763476915,
+        "intersection_impact": 0.0054288816503800215,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.06714364336818933,
+        "vehicle_size": 0.5955779688418575,
+        "severity": 0.41949404761904757
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 143.75,
+      "total_records": 336,
+      "top_violations": [
+        "WRONG PARKING",
+        "PARKING IN A MAIN ROAD",
+        "NO PARKING",
+        "PARKING ON FOOTPATH",
+        "PARKING NEAR BUSTOP/SCHOOL/HOSPITAL ETC"
+      ],
+      "station": "Electronic City",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "midday": {
+      "zone_id": "85618937fffffff",
+      "h3_id": "85618937fffffff",
+      "time_bucket": "midday",
+      "lat": 12.783193954783718,
+      "lon": 77.74723402814648,
+      "congestion_impact": 18.522081955990917,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.003740005158627805,
+        "intersection_impact": 0.0016286644951140066,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.022564667033571822,
+        "vehicle_size": 0.5643518518518517,
+        "severity": 0.39749999999999996
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 29.5,
+      "total_records": 80,
+      "top_violations": [
+        "WRONG PARKING",
+        "PARKING ON FOOTPATH",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "PARKING NEAR BUSTOP/SCHOOL/HOSPITAL ETC"
+      ],
+      "station": "Electronic City",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "morning_peak": {
+      "zone_id": "85618937fffffff",
+      "h3_id": "85618937fffffff",
+      "time_bucket": "morning_peak",
+      "lat": 12.783193954783718,
+      "lon": 77.74723402814648,
+      "congestion_impact": 19.408535884956446,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.011477946866133609,
+        "intersection_impact": 0.003257328990228013,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.025866813428728673,
+        "vehicle_size": 0.6224096119929451,
+        "severity": 0.4383928571428571
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 55.5,
+      "total_records": 112,
+      "top_violations": [
+        "WRONG PARKING",
+        "PARKING IN A MAIN ROAD",
+        "NO PARKING",
+        "PARKING ON FOOTPATH",
+        "PARKING NEAR BUSTOP/SCHOOL/HOSPITAL ETC"
+      ],
+      "station": "Electronic City",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    },
+    "night": {
+      "zone_id": "85618937fffffff",
+      "h3_id": "85618937fffffff",
+      "time_bucket": "night",
+      "lat": 12.783193954783718,
+      "lon": 77.74723402814648,
+      "congestion_impact": 18.889200287940245,
+      "impact_band": "MINIMAL",
+      "components": {
+        "lane_blockage": 0.010317255610007738,
+        "intersection_impact": 0.0005428881650380022,
+        "traffic_degradation": 0.5,
+        "access_blockage": 0.0170610897083104,
+        "vehicle_size": 0.5895499518430959,
+        "severity": 0.41524822695035457
+      },
+      "weights": {
+        "lane_blockage": 0.3,
+        "intersection_impact": 0.25,
+        "traffic_degradation": 0.25,
+        "access_blockage": 0.1,
+        "vehicle_size": 0.1
+      },
+      "estimated_lane_hours_blocked": 58.0,
+      "total_records": 141,
+      "top_violations": [
+        "WRONG PARKING",
+        "NO PARKING",
+        "PARKING IN A MAIN ROAD",
+        "PARKING ON FOOTPATH",
+        "DEFECTIVE NUMBER PLATE"
+      ],
+      "station": "Electronic City",
+      "junction": null,
+      "mappls_travel_time_ratio": null,
+      "is_traffic_degradation_defaulted": true,
+      "calibrated_impact": null
+    }
+  }
+}
