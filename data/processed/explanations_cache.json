@@ -1,107 +1,362 @@
 {
-  "8928308280fffff": {
-    "zone_id": "8928308280fffff",
-    "hour": 9,
-    "explanation": "Zone 8928308280fffff on Subedar Chatram Road, Gandhi Nagar (Upparpet PS, pincode 560009) is the single highest-impact illegal parking zone in Bengaluru, scoring 88.7 out of 100 on the Congestion Impact Index — placing it in the CRITICAL band. This zone recorded 5,838 parking violations between November 2023 and April 2024, the highest in the city. The dominant violation is WRONG PARKING along Subedar Chatram Road, a primary arterial that feeds traffic toward Kempegowda Bus Station and the Majestic metro interchange. With two bus stops within 200 metres — including a busy KSRTC feeder stop — illegal parking in this zone directly blocks bus bay access and forces passengers to board in live traffic lanes, compounding pedestrian conflict. The zone is estimated to block 34.2 lane-hours per day. MapMyIndia real-time data shows a travel time ratio of 1.08x here — a relatively mild slowdown for the highest violation count in the city, a clear illustration that violation density overstates this wide corridor's actual flow impact. Our self-validating agent calibrates the raw 88.7 score down to 72.4 on exactly this basis. Enforcement recommendation: deploy one patrol team to this zone between 08:00 and 11:00 IST, focused on the north carriageway of Subedar Chatram Road adjacent to the bus stops. This corridor accounts for over 11% of all city violations by pincode (560009).",
+  "8960145b553ffff": {
+    "zone_id": "8960145b553ffff",
+    "explanation": "Zone 8960145b553ffff on Subedar Chatram Road, Gandhi Nagar (Upparpet PS) scores 15/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 12,109 violations (top type: NO PARKING) and an estimated 3072.0 lane-hours blocked per day. MapMyIndia measures a 1.59x travel-time ratio here; the self-validating agent calibrates the score to 16/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
     "source": "cache",
-    "is_cached": true
+    "generated_by": "grounded"
   },
-  "892830828ffffff": {
-    "zone_id": "892830828ffffff",
-    "hour": 9,
-    "explanation": "Zone 892830828ffffff at BGS Flyover, City Market Circle (City Market PS, pincode 560002) scores 85.3/100 on the Congestion Impact Index — CRITICAL band. MapMyIndia real-time data shows a travel time ratio of 1.31x on this corridor — a moderate slowdown despite the very high violation count, and a textbook example of why violation density and congestion impact are not the same map. The zone recorded 5,280 violations dominated by NO PARKING offences at City Market Circle, where commercial loading activity, auto-rickshaw queuing, and pedestrian overflow from KR Market converge on a two-lane approach road. Three bus stops are located within 60 metres, making this an acute bus bay obstruction zone. Estimated lane-hours blocked: 31.5 per day. The City Market junction (BTP082 - KR Market Junction) handles one of the city's highest pedestrian-vehicle conflict volumes. Enforcement recommendation: this zone remains a high patrol priority on violation volume, but Mappls live data (1.31x) tempers the congestion claim — our self-validating agent calibrates the raw 85.3 score down to 72.1 to reflect the road's real measured performance. Patrol focus: NO PARKING zone enforcement at the KR Market Circle approach between 08:30 and 12:00 IST.",
+  "8960145b59bffff": {
+    "zone_id": "8960145b59bffff",
+    "explanation": "Zone 8960145b59bffff on Mysore Road, Chickpete (City Market PS) scores 15/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 7,472 violations (top type: WRONG PARKING) and an estimated 1917.25 lane-hours blocked per day. MapMyIndia measures a 1.53x travel-time ratio here; the self-validating agent calibrates the score to 16/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
     "source": "cache",
-    "is_cached": true
+    "generated_by": "grounded"
   },
-  "892830829ffffff": {
-    "zone_id": "892830829ffffff",
-    "hour": 9,
-    "explanation": "Zone 892830829ffffff on New Horizon College Road, Kadubisanahalli (HAL Old Airport PS, pincode 560103) scores 79.1/100 — CRITICAL band. This zone recorded 5,166 violations with PARKING IN A MAIN ROAD as the dominant offence type. The road serves as the primary access route to HAL Old Airport area, Kadubisanahalli tech corridor, and several large IT campuses. Illegal main-road parking on this stretch effectively reduces a two-lane carriageway to a single moving lane, creating persistent peak-hour queues. Three bus stops are clustered within 185 metres — including BMTC route stops for the Electronic City and Whitefield IT corridors — indicating heavy commuter footfall. MapMyIndia ETA data shows a 1.26x travel time ratio, reflecting the zone's distance from the city centre compounding congestion from parking obstruction. Estimated 28.8 lane-hours blocked per day. This zone is a repeat-offender hotspot: the HAL Old Airport PS is the 4th highest violation-recording station in the city (20,819 records). Enforcement recommendation: deploy one patrol unit during the 08:00–10:00 morning IT commute window, focusing on PARKING IN A MAIN ROAD violations at the New Horizon College Road junction approach.",
+  "8960145b427ffff": {
+    "zone_id": "8960145b427ffff",
+    "explanation": "Zone 8960145b427ffff on 2nd Main Road, Gandhi Nagar (Upparpet PS) scores 6/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 7,368 violations (top type: NO PARKING) and an estimated 1856.5 lane-hours blocked per day. MapMyIndia measures a 0.99x travel-time ratio here; the self-validating agent calibrates the score to 6/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
     "source": "cache",
-    "is_cached": true
+    "generated_by": "grounded"
   },
-  "89283082affffff": {
-    "zone_id": "89283082affffff",
-    "hour": 9,
-    "explanation": "Zone 89283082affffff on Kamaraj Road, Sivanchetti Gardens (Shivajinagar PS, pincode 560042) scores 76.4/100 — CRITICAL band. This zone sits at the intersection approach to Safina Plaza Junction (BTP051), the single highest-volume junction in the dataset with 15,449 recorded violations — 5.2% of all city violations at one junction. The dominant violation is PARKING NEAR ROAD CROSSING, with 4,842 recorded events. Vehicles parked within the road crossing approach zone obstruct turning movements and reduce the green-time utilisation of Kamaraj Road's traffic signals, directly degrading intersection throughput. Three bus stops are within 80 metres (Dickenson Road Bus Stop at 80m), making bus-bay obstruction a secondary impact. MapMyIndia confirms a 1.70x travel time ratio — the highest measured among our top zones — consistent with genuine intersection disruption at this junction. Estimated 26.1 lane-hours blocked daily. Shivajinagar PS is the 2nd highest violation-recording station citywide (28,044 records). Enforcement recommendation: target PARKING NEAR ROAD CROSSING enforcement at Safina Plaza Junction approach lanes between 08:00 and 11:00 IST. Even small reductions here have outsized impact given the junction's traffic volume rank.",
+  "89618920923ffff": {
+    "zone_id": "89618920923ffff",
+    "explanation": "Zone 89618920923ffff on New Horizon College Road, Kadubisanahalli (HAL Old Airport PS) scores 50/100 on the Congestion Impact Index \u2014 MODERATE band \u2014 at 09:00 IST. It recorded 6,747 violations (top type: NO PARKING) and an estimated 2298.25 lane-hours blocked per day. MapMyIndia measures a 1.26x travel-time ratio here; the self-validating agent calibrates the score to 44/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
     "source": "cache",
-    "is_cached": true
+    "generated_by": "grounded"
   },
-  "89283082bffffff": {
-    "zone_id": "89283082bffffff",
-    "hour": 9,
-    "explanation": "Zone 89283082bffffff on BB Naidu Road, Gandhi Nagar (Upparpet PS, pincode 560009) scores 72.8/100 — SEVERE band. This zone recorded 4,408 WRONG PARKING violations in the Gandhi Nagar commercial district, one of the highest-density retail and wholesale markets in central Bengaluru. BB Naidu Road is a secondary collector road that feeds traffic from Kempegowda Road (the primary arterial) into the Gandhi Nagar market interior. Illegal parking on this road creates a full lane obstruction on what is effectively a single-lane service road during peak commercial hours. Gandhi Nagar Bus Stop is 266 metres away, with two additional stops within 320 metres, indicating active pedestrian-transit crossover at this node. MapMyIndia shows a 1.05x travel time ratio — relatively low despite high violation counts, suggesting BB Naidu Road's narrowness means violations are so chronic that they are priced into normal travel times (the road is never free-flowing). Estimated 23.7 lane-hours blocked per day. This is Upparpet PS's second-highest sub-zone (pincode 560009 accounts for 11.1% of all city violations). Enforcement recommendation: WRONG PARKING enforcement at BB Naidu Road between 09:00 and 12:00 IST, targeting loading-zone violations from wholesale delivery vehicles which are the primary large-vehicle obstruction source in this market zone.",
+  "8961892e9abffff": {
+    "zone_id": "8961892e9abffff",
+    "explanation": "Zone 8961892e9abffff on Dispensary Road, Shivaji Nagar (Shivajinagar PS) scores 26/100 on the Congestion Impact Index \u2014 MODERATE band \u2014 at 09:00 IST. It recorded 6,667 violations (top type: WRONG PARKING) and an estimated 1746.0 lane-hours blocked per day. MapMyIndia measures a 1.63x travel-time ratio here; the self-validating agent calibrates the score to 27/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
     "source": "cache",
-    "is_cached": true
+    "generated_by": "grounded"
   },
-  "892830833ffffff": {
-    "zone_id": "892830833ffffff",
-    "hour": 9,
-    "explanation": "Zone 892830833ffffff in Shivajinagar experiences MODERATE congestion with a score of 43.2/100. The primary issue is 'WRONG PARKING', accounting for 2963 violations in the last 30 days and leading to an estimated 11.4 lane-hours blocked daily, with lane blockage contributing 60% and intersection impact 30% to this congestion. The peak violation hour is 9:00 IST, coinciding with morning peak traffic, and MapMyIndia data further validates this, showing a travel time ratio of 1.5x during these hours. Therefore, focused enforcement on wrong parking at 9:00 IST, especially near the multiple bus stops, is crucial to mitigate morning peak hour congestion.",
-    "source": "gemini",
-    "is_cached": false
-  },
-  "892830834ffffff": {
-    "zone_id": "892830834ffffff",
-    "hour": 9,
-    "explanation": "Zone 892830834ffffff in Shivajinagar experiences MODERATE congestion with a score of 39.8/100, primarily driven by 2796 'NO PARKING' violations in the last 30 days. These violations lead to an estimated 10.1 lane-hours blocked daily, with 60% due to direct lane obstruction and 30% impacting nearby intersections, exacerbated by its proximity to multiple bus stops. The peak violation hour is 9:00 IST, indicating significant morning rush hour disruption. Focused enforcement, particularly around 9:00 IST, is crucial to mitigate lane blockages and improve traffic flow in this zone.",
-    "source": "gemini",
-    "is_cached": false
-  },
-  "892830835ffffff": {
-    "zone_id": "892830835ffffff",
-    "hour": 9,
-    "explanation": "Zone 892830835ffffff in Rajajinagar exhibits a MODERATE congestion impact score of 36.5/100. The 2670 violations in the last 30 days, predominantly 'PARKING NEAR BUSTOP/SCHOOL/HOSPITAL ETC' near landmarks like the BMTC Bus Stop, significantly block lanes (60% component) and impact intersections (30% component), resulting in 8.9 estimated lane-hours blocked daily. The peak violation hour at 9:00 IST, coinciding with morning rush, exacerbates traffic flow, with a MapMyIndia travel time ratio of 1.2x during peak hours. Therefore, targeted enforcement around these bus stops during the 9:00 IST peak hour is recommended to alleviate congestion.",
-    "source": "gemini",
-    "is_cached": false
-  },
-  "89283082cffffff": {
-    "zone_id": "89283082cffffff",
-    "hour": 9,
-    "explanation": "Zone 89283082cffffff, under Upparpet Police Station, exhibits a SEVERE congestion impact score of 69.5/100. The 3994 'NO PARKING' violations in the last 30 days, blocking an estimated 21.3 lane-hours daily, significantly contribute to this, with lane blockage accounting for 60% and intersection impact for 30% of the problem. The peak violation hour at 9:00 IST, coinciding with morning rush, exacerbates traffic flow, a fact further validated by a MapMyIndia travel time ratio of 1.6x during peak hours. Prioritise targeted enforcement against 'NO PARKING' violations around 9:00 IST, especially near the bus stops, to alleviate severe congestion.",
-    "source": "gemini",
-    "is_cached": false
-  },
-  "89283082dffffff": {
-    "zone_id": "89283082dffffff",
-    "hour": 9,
-    "explanation": "Zone 89283082dffffff, under City Market Police Station, exhibits a SEVERE congestion impact score of 65.2/100. The 3871 'WRONG PARKING' violations in the last 30 days, blocking an estimated 19.8 lane-hours daily, are the primary cause, with 60% due to direct lane blockage and 30% impacting intersections. The peak violation hour at 9:00 IST directly coincides with morning rush, exacerbating traffic flow, which MapMyIndia data corroborates with a travel time ratio of 1.5x. Focused enforcement, particularly around the nearby bus stops, is crucial during the 9:00 IST peak hour to mitigate this severe congestion.",
-    "source": "gemini",
-    "is_cached": false
-  },
-  "89283082fffffff": {
-    "zone_id": "89283082fffffff",
-    "hour": 9,
-    "explanation": "Zone 89283082fffffff, under Upparpet Police Station, exhibits a SEVERE congestion impact score of 58.4/100. The 3,485 'NO PARKING' violations in the last 30 days, blocking an estimated 16.5 lane-hours daily, are the primary cause, with lane blockage accounting for 60% and intersection impact for 30% of the congestion. The peak violation hour at 9:00 IST directly coincides with morning rush, exacerbating traffic flow around Gandhi Nagar Bus Stop and other nearby bus stops, where MapMyIndia data shows a travel time ratio of 1.0x. Consistent enforcement against 'NO PARKING' violations, particularly during the 9:00 IST peak, is essential to alleviate this severe congestion.",
-    "source": "gemini",
-    "is_cached": false
-  },
-  "892830830ffffff": {
-    "zone_id": "892830830ffffff",
-    "hour": 9,
-    "explanation": "Zone 892830830ffffff in Shivajinagar exhibits a SEVERE congestion impact score of 55.9/100. The 3,413 'PARKING NEAR ROAD CROSSING' violations in the last 30 days, peaking at 9:00 IST, block an estimated 15.2 lane-hours daily, with 60% due to lane blockage and 30% affecting intersections, particularly near the multiple bus stops. This significantly chokes traffic, contributing to a MapMyIndia travel time ratio of 1.7x during peak hours. Focused enforcement on 'PARKING NEAR ROAD CROSSING' during morning peak hours is crucial to mitigate congestion in this zone.",
-    "source": "gemini",
-    "is_cached": false
-  },
-  "892830832ffffff": {
-    "zone_id": "892830832ffffff",
-    "hour": 9,
-    "explanation": "Zone 892830832ffffff in Shivajinagar faces a MODERATE congestion impact score of 47.6/100. The primary issue is 'PARKING IN A MAIN ROAD', with 3198 violations recorded in the last 30 days, resulting in an estimated 12.8 lane-hours blocked daily; this significantly chokes traffic, with 60% impact from lane blockage and 30% from intersection impact, particularly problematic near the multiple bus stops. The peak violation hour is 9:00 IST, and MapMyIndia data shows a travel time ratio of 1.6x during peak hours, highlighting severe morning rush hour issues. Therefore, targeted enforcement against 'PARKING IN A MAIN ROAD' during morning peak hours is crucial to improve traffic flow in this Shivajinagar zone.",
-    "source": "gemini",
-    "is_cached": false
-  },
-  "89283082effffff": {
-    "zone_id": "89283082effffff",
-    "hour": 9,
-    "explanation": "Zone 89283082effffff, under Upparpet Police Station, exhibits a SEVERE congestion impact score of 62.1/100. The 3798 'PARKING IN A MAIN ROAD' violations recorded in the last 30 days lead to an estimated 18.1 lane-hours blocked daily, primarily due to direct lane blockage (60%) and significant intersection impact (30%). The peak violation hour at 9:00 IST, coinciding with morning rush, exacerbates traffic flow, with a MapMyIndia travel time ratio of 1.0x during peak hours, impacting nearby Gandhi Nagar and Flix Bus stops. Focused enforcement during the 9:00 IST peak hour is essential to clear these main road parking violations and improve traffic movement.",
-    "source": "gemini",
-    "is_cached": false
-  },
-  "892830831ffffff": {
-    "zone_id": "892830831ffffff",
-    "hour": 9,
-    "explanation": "Zone 892830831ffffff on 3rd Cross Road, Chickpete (Upparpet PS, pincode 560009) scores 51.3/100 on the Congestion Impact Index — SEVERE band. This zone recorded 3,309 parking violations dominated by WRONG PARKING and NO PARKING in the Chickpete commercial wholesale district, where narrow service roads serve high-density goods vehicle loading activity throughout the morning peak. Illegal parking on 3rd Cross Road reduces effective carriage width to a single passing lane, forcing oncoming vehicles to queue at the junction with 3rd Main Road. Gandhi Nagar Bus Stop is 300 metres away and Chickpete market generates significant pedestrian-vehicle conflict during the 09:00 IST peak window. The estimated 14.8 lane-hours blocked daily places this zone in the top-15 congestion impact zones citywide. MapMyIndia shows a 0.99x travel time ratio — essentially free-flowing despite chronic violations, a strong signal that raw violation counts overstate this zone's congestion impact. Enforcement recommendation: WRONG PARKING enforcement at 3rd Cross Road between 08:30 and 11:00 IST, targeting goods vehicle loading violations.",
+  "8960145b5cbffff": {
+    "zone_id": "8960145b5cbffff",
+    "explanation": "Zone 8960145b5cbffff on 3rd Cross Road, Chickpete (Upparpet PS) scores 9/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 5,992 violations (top type: NO PARKING) and an estimated 1552.0 lane-hours blocked per day. MapMyIndia measures a 0.99x travel-time ratio here; the self-validating agent calibrates the score to 8/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
     "source": "cache",
-    "is_cached": true
+    "generated_by": "grounded"
+  },
+  "8961892e917ffff": {
+    "zone_id": "8961892e917ffff",
+    "explanation": "Zone 8961892e917ffff on Kamaraj Road, Sivanchetti Gardens (Shivajinagar PS) scores 25/100 on the Congestion Impact Index \u2014 MODERATE band \u2014 at 09:00 IST. It recorded 4,867 violations (top type: WRONG PARKING) and an estimated 1268.25 lane-hours blocked per day. MapMyIndia measures a 1.48x travel-time ratio here; the self-validating agent calibrates the score to 25/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145b3a7ffff": {
+    "zone_id": "8960145b3a7ffff",
+    "explanation": "Zone 8960145b3a7ffff on Rajajinagar (Rajajinagar PS) scores 17/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 4,293 violations (top type: WRONG PARKING) and an estimated 1079.0 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 17/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8961892e9bbffff": {
+    "zone_id": "8961892e9bbffff",
+    "explanation": "Zone 8961892e9bbffff on Kamaraj Road, Sivanchetti Gardens (Shivajinagar PS) scores 23/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 4,253 violations (top type: WRONG PARKING) and an estimated 1236.5 lane-hours blocked per day. MapMyIndia measures a 1.70x travel-time ratio here; the self-validating agent calibrates the score to 24/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145a26bffff": {
+    "zone_id": "8960145a26bffff",
+    "explanation": "Zone 8960145a26bffff on Vijayanagara (Vijayanagara PS) scores 16/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 3,650 violations (top type: WRONG PARKING) and an estimated 932.5 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 16/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8961892e937ffff": {
+    "zone_id": "8961892e937ffff",
+    "explanation": "Zone 8961892e937ffff on Shivajinagar (Shivajinagar PS) scores 20/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 2,934 violations (top type: WRONG PARKING) and an estimated 751.5 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 20/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145b543ffff": {
+    "zone_id": "8960145b543ffff",
+    "explanation": "Zone 8960145b543ffff on Upparpet (Upparpet PS) scores 19/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 2,895 violations (top type: WRONG PARKING) and an estimated 750.5 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 19/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8961892e2bbffff": {
+    "zone_id": "8961892e2bbffff",
+    "explanation": "Zone 8961892e2bbffff on K.R. Pura (K.R. Pura PS) scores 27/100 on the Congestion Impact Index \u2014 MODERATE band \u2014 at 09:00 IST. It recorded 2,874 violations (top type: WRONG PARKING) and an estimated 905.75 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 28/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "896016964b7ffff": {
+    "zone_id": "896016964b7ffff",
+    "explanation": "Zone 896016964b7ffff on Kodigehalli (Kodigehalli PS) scores 16/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 2,801 violations (top type: WRONG PARKING) and an estimated 701.25 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 16/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "89618925b7bffff": {
+    "zone_id": "89618925b7bffff",
+    "explanation": "Zone 89618925b7bffff on Halasuru Gate (Halasuru Gate PS) scores 18/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 2,648 violations (top type: WRONG PARKING) and an estimated 700.0 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 18/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145b30fffff": {
+    "zone_id": "8960145b30fffff",
+    "explanation": "Zone 8960145b30fffff on Malleshwaram (Malleshwaram PS) scores 17/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 2,592 violations (top type: WRONG PARKING) and an estimated 653.25 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 17/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "89601690193ffff": {
+    "zone_id": "89601690193ffff",
+    "explanation": "Zone 89601690193ffff on Chikkajala (Chikkajala PS) scores 28/100 on the Congestion Impact Index \u2014 MODERATE band \u2014 at 09:00 IST. It recorded 2,527 violations (top type: NO PARKING) and an estimated 793.25 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 28/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145a24fffff": {
+    "zone_id": "8960145a24fffff",
+    "explanation": "Zone 8960145a24fffff on Magadi Road (Magadi Road PS) scores 16/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 2,513 violations (top type: NO PARKING) and an estimated 645.5 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 16/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145b307ffff": {
+    "zone_id": "8960145b307ffff",
+    "explanation": "Zone 8960145b307ffff on Malleshwaram (Malleshwaram PS) scores 17/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 2,490 violations (top type: WRONG PARKING) and an estimated 623.5 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 17/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145b2a7ffff": {
+    "zone_id": "8960145b2a7ffff",
+    "explanation": "Zone 8960145b2a7ffff on Malleshwaram (Malleshwaram PS) scores 17/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 2,486 violations (top type: WRONG PARKING) and an estimated 621.75 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 17/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145b5c7ffff": {
+    "zone_id": "8960145b5c7ffff",
+    "explanation": "Zone 8960145b5c7ffff on City Market (City Market PS) scores 18/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 2,391 violations (top type: WRONG PARKING) and an estimated 620.0 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 18/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145b55bffff": {
+    "zone_id": "8960145b55bffff",
+    "explanation": "Zone 8960145b55bffff on Upparpet (Upparpet PS) scores 19/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 2,212 violations (top type: WRONG PARKING) and an estimated 568.75 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 19/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145b377ffff": {
+    "zone_id": "8960145b377ffff",
+    "explanation": "Zone 8960145b377ffff on Malleshwaram (Malleshwaram PS) scores 19/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 2,148 violations (top type: WRONG PARKING) and an estimated 548.5 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 19/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145b4cbffff": {
+    "zone_id": "8960145b4cbffff",
+    "explanation": "Zone 8960145b4cbffff on Shivajinagar (Shivajinagar PS) scores 16/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 2,008 violations (top type: WRONG PARKING) and an estimated 503.75 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 16/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145b16bffff": {
+    "zone_id": "8960145b16bffff",
+    "explanation": "Zone 8960145b16bffff on Padmabhushan Dr MC Modi Road, Rajaji Nagar (Vijayanagara PS) scores 8/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,884 violations (top type: WRONG PARKING) and an estimated 503.75 lane-hours blocked per day. MapMyIndia measures a 1.18x travel-time ratio here; the self-validating agent calibrates the score to 8/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8961892e387ffff": {
+    "zone_id": "8961892e387ffff",
+    "explanation": "Zone 8961892e387ffff on Banaswadi (Banaswadi PS) scores 35/100 on the Congestion Impact Index \u2014 MODERATE band \u2014 at 09:00 IST. It recorded 1,837 violations (top type: NO PARKING) and an estimated 662.25 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 35/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8961892c9d7ffff": {
+    "zone_id": "8961892c9d7ffff",
+    "explanation": "Zone 8961892c9d7ffff on Hebbala (Hebbala PS) scores 16/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,752 violations (top type: NO PARKING) and an estimated 440.25 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 16/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145b6a7ffff": {
+    "zone_id": "8960145b6a7ffff",
+    "explanation": "Zone 8960145b6a7ffff on High ground (High ground PS) scores 15/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,637 violations (top type: WRONG PARKING) and an estimated 412.75 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 15/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145a223ffff": {
+    "zone_id": "8960145a223ffff",
+    "explanation": "Zone 8960145a223ffff on Vijayanagara (Vijayanagara PS) scores 16/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,587 violations (top type: WRONG PARKING) and an estimated 403.5 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 16/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8961892e9a3ffff": {
+    "zone_id": "8961892e9a3ffff",
+    "explanation": "Zone 8961892e9a3ffff on Main Guard Cross Road, Shivaji Nagar (Shivajinagar PS) scores 5/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,577 violations (top type: NO PARKING) and an estimated 399.5 lane-hours blocked per day. MapMyIndia measures a 1.00x travel-time ratio here; the self-validating agent calibrates the score to 5/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "89618920963ffff": {
+    "zone_id": "89618920963ffff",
+    "explanation": "Zone 89618920963ffff on HAL Old Airport (HAL Old Airport PS) scores 38/100 on the Congestion Impact Index \u2014 MODERATE band \u2014 at 09:00 IST. It recorded 1,509 violations (top type: WRONG PARKING) and an estimated 713.0 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 38/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145b3b7ffff": {
+    "zone_id": "8960145b3b7ffff",
+    "explanation": "Zone 8960145b3b7ffff on Malleshwaram (Malleshwaram PS) scores 18/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,429 violations (top type: WRONG PARKING) and an estimated 364.5 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 18/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "89618925b2bffff": {
+    "zone_id": "89618925b2bffff",
+    "explanation": "Zone 89618925b2bffff on City Market (City Market PS) scores 19/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,424 violations (top type: WRONG PARKING) and an estimated 381.5 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 19/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145b073ffff": {
+    "zone_id": "8960145b073ffff",
+    "explanation": "Zone 8960145b073ffff on Malleshwaram (Malleshwaram PS) scores 17/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,410 violations (top type: WRONG PARKING) and an estimated 357.0 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 17/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145b58bffff": {
+    "zone_id": "8960145b58bffff",
+    "explanation": "Zone 8960145b58bffff on Chamarajpet (Chamarajpet PS) scores 23/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,410 violations (top type: WRONG PARKING) and an estimated 443.25 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 23/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8961892cb7bffff": {
+    "zone_id": "8961892cb7bffff",
+    "explanation": "Zone 8961892cb7bffff on Kodigehalli (Kodigehalli PS) scores 17/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,400 violations (top type: WRONG PARKING) and an estimated 353.0 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 17/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "89618925b6fffff": {
+    "zone_id": "89618925b6fffff",
+    "explanation": "Zone 89618925b6fffff on City Market (City Market PS) scores 17/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,396 violations (top type: WRONG PARKING) and an estimated 354.75 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 17/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145b547ffff": {
+    "zone_id": "8960145b547ffff",
+    "explanation": "Zone 8960145b547ffff on Chamarajpet (Chamarajpet PS) scores 22/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,339 violations (top type: NO PARKING) and an estimated 403.0 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 22/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "89618925b63ffff": {
+    "zone_id": "89618925b63ffff",
+    "explanation": "Zone 89618925b63ffff on Halasuru Gate (Halasuru Gate PS) scores 18/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,329 violations (top type: WRONG PARKING) and an estimated 347.25 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 18/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "89618920b0fffff": {
+    "zone_id": "89618920b0fffff",
+    "explanation": "Zone 89618920b0fffff on HAL Old Airport (HAL Old Airport PS) scores 21/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,306 violations (top type: NO PARKING) and an estimated 388.5 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 21/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8961892e16bffff": {
+    "zone_id": "8961892e16bffff",
+    "explanation": "Zone 8961892e16bffff on Mahadevapura (Mahadevapura PS) scores 36/100 on the Congestion Impact Index \u2014 MODERATE band \u2014 at 09:00 IST. It recorded 1,304 violations (top type: WRONG PARKING) and an estimated 606.25 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 36/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960169052fffff": {
+    "zone_id": "8960169052fffff",
+    "explanation": "Zone 8960169052fffff on Chikkajala (Chikkajala PS) scores 30/100 on the Congestion Impact Index \u2014 MODERATE band \u2014 at 09:00 IST. It recorded 1,259 violations (top type: NO PARKING) and an estimated 448.0 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 30/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8961892cb4fffff": {
+    "zone_id": "8961892cb4fffff",
+    "explanation": "Zone 8961892cb4fffff on Kodigehalli (Kodigehalli PS) scores 17/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,243 violations (top type: WRONG PARKING) and an estimated 313.0 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 17/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8961892e3d3ffff": {
+    "zone_id": "8961892e3d3ffff",
+    "explanation": "Zone 8961892e3d3ffff on K.R. Pura (K.R. Pura PS) scores 19/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,187 violations (top type: WRONG PARKING) and an estimated 327.5 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 19/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8961892092bffff": {
+    "zone_id": "8961892092bffff",
+    "explanation": "Zone 8961892092bffff on HAL Old Airport (HAL Old Airport PS) scores 23/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,162 violations (top type: NO PARKING) and an estimated 374.25 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 23/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "89618925453ffff": {
+    "zone_id": "89618925453ffff",
+    "explanation": "Zone 89618925453ffff on HAL Old Airport (HAL Old Airport PS) scores 32/100 on the Congestion Impact Index \u2014 MODERATE band \u2014 at 09:00 IST. It recorded 1,137 violations (top type: NO PARKING) and an estimated 394.0 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 32/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145b1b7ffff": {
+    "zone_id": "8960145b1b7ffff",
+    "explanation": "Zone 8960145b1b7ffff on Vijayanagara (Vijayanagara PS) scores 18/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,128 violations (top type: WRONG PARKING) and an estimated 294.25 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 18/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8961892c98bffff": {
+    "zone_id": "8961892c98bffff",
+    "explanation": "Zone 8961892c98bffff on Hebbala (Hebbala PS) scores 16/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,124 violations (top type: NO PARKING) and an estimated 282.5 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 16/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "89618926397ffff": {
+    "zone_id": "89618926397ffff",
+    "explanation": "Zone 89618926397ffff on Electronic City (Electronic City PS) scores 16/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,122 violations (top type: WRONG PARKING) and an estimated 281.75 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 16/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8961892ec9bffff": {
+    "zone_id": "8961892ec9bffff",
+    "explanation": "Zone 8961892ec9bffff on Jeevanbheemanagar (Jeevanbheemanagar PS) scores 19/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,119 violations (top type: NO PARKING) and an estimated 328.5 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 19/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145b193ffff": {
+    "zone_id": "8960145b193ffff",
+    "explanation": "Zone 8960145b193ffff on Magadi Road (Magadi Road PS) scores 16/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,097 violations (top type: NO PARKING) and an estimated 281.5 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 16/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145b5dbffff": {
+    "zone_id": "8960145b5dbffff",
+    "explanation": "Zone 8960145b5dbffff on Upparpet (Upparpet PS) scores 17/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,090 violations (top type: NO PARKING) and an estimated 280.0 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 17/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8961892e933ffff": {
+    "zone_id": "8961892e933ffff",
+    "explanation": "Zone 8961892e933ffff on Shivajinagar (Shivajinagar PS) scores 23/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,086 violations (top type: WRONG PARKING) and an estimated 311.75 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 23/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8961892e98fffff": {
+    "zone_id": "8961892e98fffff",
+    "explanation": "Zone 8961892e98fffff on Shivajinagar (Shivajinagar PS) scores 18/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,068 violations (top type: NO PARKING) and an estimated 268.0 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 18/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145b147ffff": {
+    "zone_id": "8960145b147ffff",
+    "explanation": "Zone 8960145b147ffff on Rajajinagar (Rajajinagar PS) scores 18/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,052 violations (top type: WRONG PARKING) and an estimated 268.0 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 18/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145a2b7ffff": {
+    "zone_id": "8960145a2b7ffff",
+    "explanation": "Zone 8960145a2b7ffff on Byatarayanapura (Byatarayanapura PS) scores 22/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,049 violations (top type: WRONG PARKING) and an estimated 297.75 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 22/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145a69bffff": {
+    "zone_id": "8960145a69bffff",
+    "explanation": "Zone 8960145a69bffff on Basavanagudi (Basavanagudi PS) scores 16/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 1,025 violations (top type: WRONG PARKING) and an estimated 267.0 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 16/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "89618925b67ffff": {
+    "zone_id": "89618925b67ffff",
+    "explanation": "Zone 89618925b67ffff on City Market (City Market PS) scores 18/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 988 violations (top type: WRONG PARKING) and an estimated 263.75 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 18/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "89618920babffff": {
+    "zone_id": "89618920babffff",
+    "explanation": "Zone 89618920babffff on HAL Old Airport (HAL Old Airport PS) scores 30/100 on the Congestion Impact Index \u2014 MODERATE band \u2014 at 09:00 IST. It recorded 974 violations (top type: WRONG PARKING) and an estimated 427.75 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 30/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
+  },
+  "8960145b6a3ffff": {
+    "zone_id": "8960145b6a3ffff",
+    "explanation": "Zone 8960145b6a3ffff on High ground (High ground PS) scores 15/100 on the Congestion Impact Index \u2014 MINIMAL band \u2014 at 09:00 IST. It recorded 969 violations (top type: WRONG PARKING) and an estimated 243.5 lane-hours blocked per day. MapMyIndia travel-time data is unavailable for this zone; the self-validating agent calibrates the score to 15/100 against that live reading. Recommended: targeted enforcement during the morning peak around this zone.",
+    "source": "cache",
+    "generated_by": "grounded"
   }
 }

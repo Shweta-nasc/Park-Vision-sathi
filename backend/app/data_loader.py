@@ -50,6 +50,12 @@ DATA = PROJECT_ROOT / "data"
 
 # Stackelberg emphasis exponent (docs/README: patrol_prob ∝ score^α, α=1.5).
 PATROL_ALPHA = 1.5
+# Size of the served hotspot / OPTIMIZE zone universe — the top-N real CIS zones
+# (ranked by violation volume) that drive markers, game theory, simulation, and
+# the station views. Kept modest so the simulation's risk-weighted coverage % is
+# meaningful (covering a few teams over the whole 2,527-zone city would read ~0%).
+# The full 2,527-zone CIS artifact still powers the heatmap / hotspots / forecast.
+HOTSPOT_UNIVERSE_SIZE = 60
 # Violator expected-utility knobs (illustrative units, documented in MODEL).
 VIOLATOR_TIME_SAVED = 100.0   # value of time saved by parking illegally
 VIOLATOR_FINE = 500.0         # fine if caught
@@ -163,8 +169,12 @@ class DataStore:
 
     # ── load ────────────────────────────────────────────────────────────
     def load(self) -> "DataStore":
-        hotspots = _load(self.data_dir / "mock" / "hotspots.json", [])
-        traffic = _load(self.data_dir / "enriched" / "traffic_context.json", {})
+        # Real MapMyIndia enrichment, keyed by TRUE H3 ids so it matches the CIS
+        # universe (Audit P0-2). Prefer the H3-keyed file produced by
+        # run_pipeline.py; fall back to the legacy mock-keyed file only if it is
+        # absent, so a partial checkout still boots.
+        traffic = (_load(self.data_dir / "enriched" / "traffic_context_h3.json", None)
+                   or _load(self.data_dir / "enriched" / "traffic_context.json", {}))
         calibrated = _load(self.data_dir / "processed" / "calibrated_scores.json", {})
         agent_log = _load(self.data_dir / "processed" / "agent_log.json", {})
         explanations = _load(self.data_dir / "processed" / "explanations_cache.json", {})
@@ -191,75 +201,23 @@ class DataStore:
         self.calibrated = calibrated
         self.agent_summary = {k: v for k, v in agent_log.items() if k != "log"}
         self.explanations = explanations
+
+        # Build the served hotspot / OPTIMIZE zone universe from the REAL CIS
+        # artifact (top-N by violation volume) instead of the legacy mock
+        # hotspots. Every id here is a true H3 id matching the CIS map, the
+        # traffic enrichment, the calibration, and the forecast — so game theory,
+        # simulation, the station views, and /traffic all run on the SAME real
+        # zones the map shows (Audit P0-1).
+        zones = self._build_zone_universe(traffic, calibrated, HOTSPOT_UNIVERSE_SIZE)
+
         self.sources = {
-            "hotspots": len(hotspots),
+            "congestion_artifact_zones": len(self.congestion),
+            "hotspot_universe": len(zones),
             "traffic_context_enriched": len(traffic),
             "calibrated_scores": len(calibrated),
             "explanations_cache": len(explanations),
-            "congestion_artifact_zones": len(self.congestion),
             "forecast_zones": len(self.forecasts),
         }
-
-        max_viol = max((h.get("violation_count", 0) for h in hotspots), default=1) or 1
-        zones: list[dict] = []
-        for h in hotspots:
-            zid = h["zone_id"]
-            tc = traffic.get(zid, {})
-            cal = calibrated.get(zid, {})
-            score = float(h.get("congestion_impact", 0.0))
-            # Congestion Impact Score served from the canonical artifact (NOT
-            # aliased to risk_score). `all_day` is the zone's default rollup; None
-            # when the artifact has no entry for this zone — e.g. the artifact is
-            # absent at startup, giving an empty congestion universe (Req 14.3).
-            cis = self.congestion.get(zid, {}).get("all_day")
-            congestion_impact = cis.get("congestion_impact") if isinstance(cis, dict) else None
-            ratio = tc.get("travel_time_ratio")
-            road = tc.get("road_name") or tc.get("street") or h.get("station", zid)
-            viol = int(h.get("violation_count", 0))
-
-            zones.append({
-                # identity / map
-                "grid_cell_id": zid,
-                "h3_id": zid,
-                "grid_lat": h.get("lat"),
-                "grid_lon": h.get("lon"),
-                "hour": 9,
-                # `risk_score` keeps its legacy enforcement-priority role — it
-                # drives game-theory patrol allocation, simulation, and forecasts.
-                # It is NO LONGER aliased to the congestion impact (Decision 2;
-                # Requirements 10.1, 10.3).
-                "risk_score": round(score, 1),
-                # Congestion Impact Score (the QUANTIFY pillar) served straight from
-                # the canonical CIS artifact — a distinct value and source from
-                # `risk_score`; None when the artifact is absent (empty universe).
-                "congestion_impact": congestion_impact,
-                "calibrated_score": cal.get("calibrated_score", round(score, 1)),
-                "risk_label": _risk_label(score),
-                "impact_band": h.get("impact_band", _band(score)),
-                # volume / derived risk components (documented proxies)
-                "violation_count": viol,
-                "density": round(viol / max_viol, 3),
-                "road_importance": _road_importance(road, ratio),
-                "peak_weight": 1.0,
-                "repeat_offender": round(0.30 + 0.50 * (viol / max_viol), 3),
-                "validation_trust": 0.70,
-                "heavy_vehicle_ratio": _heavy_vehicle_ratio(h.get("top_violation", "")),
-                # real MapMyIndia validation
-                "travel_time_ratio": ratio,
-                "mappls_ratio": ratio,
-                "road_name": road,
-                "road_type": tc.get("road_type") or ("primary" if _road_importance(road, ratio) > 0.8 else "secondary"),
-                "nearby_pois": tc.get("nearby_pois", []),
-                # context
-                "police_station": h.get("station"),
-                "station": h.get("station"),
-                "top_junction": tc.get("locality"),
-                "top_violation": h.get("top_violation"),
-                "estimated_lane_hours_blocked": h.get("estimated_lane_hours_blocked"),
-                # agent
-                "agent_status": cal.get("status"),
-                "agent_reasoning": cal.get("reasoning"),
-            })
 
         # Game theory: Stackelberg patrol probability ∝ score^alpha (normalised).
         weights = [max(z["risk_score"], 0.0) ** PATROL_ALPHA for z in zones]
@@ -282,8 +240,116 @@ class DataStore:
         self.zones = zones
         self.zones_by_id = {z["grid_cell_id"]: z for z in zones}
         self.loaded = True
-        logger.info("DataStore loaded: %d zones from real H3 data.", len(zones))
+        logger.info("DataStore loaded: %d hotspot zones from the real CIS artifact "
+                    "(%d total CIS zones).", len(zones), len(self.congestion))
         return self
+
+    def _build_zone_universe(self, traffic: dict, calibrated: dict,
+                             top_n: int) -> list[dict]:
+        """Shape the served hotspot/OPTIMIZE zone universe from the REAL CIS artifact.
+
+        Selects the top-``top_n`` H3 zones by violation volume (their ``all_day``
+        rollup) and shapes each into the legacy zone dict the routers and the
+        frontend already consume — but populated entirely from real data:
+
+          * identity / coords / station / volume / top-violation / lane-hours,
+            ``congestion_impact`` and ``impact_band``  → the CIS artifact
+          * ``heavy_vehicle_ratio``                    → the CIS ``vehicle_size``
+            component (a real, data-derived signal)
+          * ``road_importance`` / ``travel_time_ratio`` / ``road_name`` / POIs
+            → real MapMyIndia enrichment (``traffic_context_h3.json``)
+          * ``calibrated_score``                       → the self-validating agent
+          * ``risk_score`` (enforcement priority, "where violations happen") →
+            violation volume scaled 0-100, kept DISTINCT from the CIS (the
+            "density != impact" thesis: a busy wide road can have high volume but
+            low congestion impact).
+
+        Three fields the dataset genuinely cannot supply are transparent
+        ILLUSTRATIVE proxies, not measured values (documented here and in
+        API_DOCS): ``peak_weight`` (the ``all_day`` rollup carries no hourly peak),
+        ``repeat_offender`` (no plate-level recurrence in the artifact), and
+        ``validation_trust``. Everything else is real and id-aligned with the map.
+
+        Returns ``[]`` when the CIS artifact is absent (graceful empty universe).
+        """
+        # Collect each zone's all_day rollup from the canonical CIS artifact.
+        entries: list[tuple[str, dict]] = []
+        for h3_id in self.congestion:
+            entry = self._bucket_entry(self.congestion.get(h3_id), "all_day")
+            if isinstance(entry, dict):
+                entries.append((h3_id, entry))
+
+        # Rank by violation volume (enforcement hotspots), deterministic tie-break.
+        entries.sort(key=lambda t: (-(int(t[1].get("total_records") or 0)), t[0]))
+        if top_n and top_n > 0:
+            entries = entries[:top_n]
+        max_vol = max((int(e.get("total_records") or 0) for _, e in entries), default=1) or 1
+
+        zones: list[dict] = []
+        n_zones = len(entries)
+        for i, (h3_id, e) in enumerate(entries):
+            tc = traffic.get(h3_id, {}) or {}
+            cal = calibrated.get(h3_id, {}) or {}
+            comps = e.get("components") or {}
+            viol = int(e.get("total_records") or 0)
+            cis = float(e.get("congestion_impact") or 0.0)
+            ratio = tc.get("travel_time_ratio")
+            road = tc.get("road_name") or tc.get("street") or e.get("station") or h3_id
+            top_violations = e.get("top_violations") or []
+            # Enforcement priority (distinct from CIS): relative priority RANK among
+            # the city's hotspot zones, scaled 0-100 (entries are pre-sorted by
+            # descending volume, so the busiest zone = 100). A rank percentile —
+            # rather than raw min-max volume — gives a meaningful label spread (so
+            # the simulation can surface genuinely uncovered HIGH-risk zones) and
+            # balanced Stackelberg patrol probabilities, while still meaning "where
+            # the most violations are recorded."
+            risk_score = round(100.0 * (n_zones - i) / n_zones, 1) if n_zones else 0.0
+            density = round(viol / max_vol, 3)
+            # Heavy-vehicle obstruction is the REAL CIS vehicle_size component (0-1).
+            heavy = round(float(comps.get("vehicle_size") or 0.0), 3)
+            road_imp = _road_importance(road, ratio)
+
+            zones.append({
+                # identity / map
+                "grid_cell_id": h3_id,
+                "h3_id": h3_id,
+                "grid_lat": e.get("lat"),
+                "grid_lon": e.get("lon"),
+                "hour": 9,
+                # Enforcement-priority score — drives game theory / simulation /
+                # markers. DISTINCT from the congestion impact (Decision 2).
+                "risk_score": risk_score,
+                # Congestion Impact Score (QUANTIFY pillar) straight from the CIS
+                # artifact — a distinct value and source from risk_score.
+                "congestion_impact": cis,
+                "calibrated_score": cal.get("calibrated_score", round(cis, 1)),
+                "risk_label": _risk_label(risk_score),
+                "impact_band": e.get("impact_band", _band(cis)),
+                # volume / risk components
+                "violation_count": viol,
+                "density": density,                       # REAL volume density
+                "road_importance": road_imp,              # REAL (Mappls-informed)
+                "peak_weight": 1.0,                       # illustrative (no hourly peak in all_day)
+                "repeat_offender": round(0.30 + 0.50 * density, 3),  # illustrative proxy
+                "validation_trust": 0.70,                 # illustrative
+                "heavy_vehicle_ratio": heavy,             # REAL (CIS vehicle_size component)
+                # real MapMyIndia validation
+                "travel_time_ratio": ratio,
+                "mappls_ratio": ratio,
+                "road_name": road,
+                "road_type": tc.get("road_type") or ("primary" if road_imp > 0.8 else "secondary"),
+                "nearby_pois": tc.get("nearby_pois", []),
+                # context
+                "police_station": e.get("station"),
+                "station": e.get("station"),
+                "top_junction": tc.get("locality"),
+                "top_violation": top_violations[0] if top_violations else None,
+                "estimated_lane_hours_blocked": e.get("estimated_lane_hours_blocked"),
+                # agent
+                "agent_status": cal.get("status"),
+                "agent_reasoning": cal.get("reasoning"),
+            })
+        return zones
 
     # ── accessors ───────────────────────────────────────────────────────
     def ensure(self) -> "DataStore":
@@ -299,7 +365,7 @@ class DataStore:
 
     def heatmap_points(self, layer: str) -> list[dict]:
         """Points for the map. layer: raw (violation density) | risk (congestion
-        impact) | spillover (agent-calibrated)."""
+        impact) | spillover (agent-calibrated) | violator (game-theory net benefit)."""
         self.ensure()
         pts = []
         for z in self.zones:
@@ -307,6 +373,8 @@ class DataStore:
                 intensity = z["violation_count"]
             elif layer == "spillover":
                 intensity = z["calibrated_score"]
+            elif layer == "violator":
+                intensity = z["violator_risk_score"]
             else:  # risk / congestion
                 intensity = z["risk_score"]
             pts.append({"lat": z["grid_lat"], "lon": z["grid_lon"],

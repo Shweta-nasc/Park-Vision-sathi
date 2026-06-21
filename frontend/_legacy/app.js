@@ -1,898 +1,716 @@
-/**
- * ParkVisionSaathi – Patrol Operations Dashboard (Leaflet Edition)
- * Interactive Leaflet Map with Heatmaps, Game-Theory Overlays, Routing, and Patrol Simulation.
- */
+import React, { useState, useEffect, useRef } from 'react';
 
-const API = ''; // Empty string resolves to same host (http://localhost:8000)
-
-/* ═══ STATE ════════════════════════════════════════════════════════ */
-const state = {
-    station: null,
-    hour: 9,
-    layer: 'risk',
-    selectedZone: null,
-    map: null,
-    heatLayer: null,
-    markers: [],
-    routeLayer: null,
-    destMarker: null,
-    stations: [],
-    priorityAreas: [],
-    arrowLayers: [],
-    // Simulation state
-    numTeams: 6,
-    teamMarkers: [],
-    apiConnected: false,
-    isLoading: false,
-};
-
-// ── Team colors for simulation markers ──────────────────────────────────
-const TEAM_COLORS = [
-    '#2A9D8F', '#E76F51', '#457B9D', '#F4A261', '#9B5DE5',
-    '#00F5D4', '#F15BB5', '#FEE440', '#00BBF9', '#8338EC',
-    '#FF006E', '#3A86C8', '#38B000', '#70E000', '#CCff00',
+// --- CONSTANTS ---
+const BUCKETS = [
+  { label: 'Night 00–06', start: 0, end: 6, dimFrom: 4 },
+  { label: 'Morning 06–10', start: 6, end: 10, dimFrom: 10 },
+  { label: 'Midday 10–14', start: 10, end: 14, dimFrom: 14 },
+  { label: 'Afternoon 14–16', start: 14, end: 16, dimFrom: 15 }
 ];
 
-// ── Time period labels ──────────────────────────────────────────────────
-function getTimePeriod(hour) {
-    if (hour >= 8 && hour <= 10) return '🔴 Morning Peak';
-    if (hour >= 17 && hour <= 19) return '🔴 Evening Peak';
-    if (hour >= 6 && hour < 8) return 'Early Morning';
-    if (hour >= 11 && hour <= 16) return 'Midday';
-    if (hour >= 20 && hour <= 22) return 'Late Evening';
-    return 'Night';
-}
+const DENSITY = [
+  0.08, 0.24, 0.42, 0.58, 0.72, 0.84, 0.95, 1.0, 0.97, 0.91, 0.81, 0.68,
+  0.54, 0.38, 0.18, 0.06, 0.02, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01
+];
 
-// ── Initialize App ──────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-    populateHourSelect();
-    checkApi();
-    loadStations();
-    bindEvents();
-});
+export default function ParkVisionSaathi() {
+  // --- STATE ---
+  const [activeTab, setActiveTab] = useState('police'); // 'police' | 'ctrl'
+  const [selectedHotspot, setSelectedHotspot] = useState(0);
+  const [teamCount, setTeamCount] = useState(5);
+  const [currentBucketIdx, setCurrentBucketIdx] = useState(1);
+  const [currentHour, setCurrentHour] = useState(9);
+  const [isDragging, setIsDragging] = useState(false);
 
-// ── API Health Check ────────────────────────────────────────────────────
-async function checkApi() {
-    try {
-        const r = await fetch(`${API}/health`);
-        if (r.ok) {
-            state.apiConnected = true;
-            setStatus('ok', 'Connected');
-            showToast('Connected to ParkVisionSaathi API', 'success');
-        } else {
-            state.apiConnected = false;
-            setStatus('err', 'API error');
-        }
-    } catch {
-        state.apiConnected = false;
-        setStatus('err', 'Offline');
-        showToast('FastAPI server offline. Run: uvicorn backend.app.main:app --reload', 'error');
-    }
-}
+  // --- REFS ---
+  const railRef = useRef(null);
 
-function setStatus(type, text) {
-    const pill = document.getElementById('apiStatusPill');
-    if (!pill) return;
-    pill.querySelector('.status-dot').className = `status-dot ${type}`;
-    pill.querySelector('span:last-child').textContent = text;
-}
+  const currentBucket = BUCKETS[currentBucketIdx];
+  const bucketHours = [];
+  for (let h = currentBucket.start; h < currentBucket.end; h++) {
+    bucketHours.push(h);
+  }
 
-// ── Toast Notifications ─────────────────────────────────────────────────
-function showToast(message, type = 'info') {
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.textContent = message;
-    
-    // Inline styling for premium look if stylesheet has no toast classes
-    toast.style.position = 'fixed';
-    toast.style.bottom = '24px';
-    toast.style.right = '24px';
-    toast.style.padding = '12px 20px';
-    toast.style.borderRadius = '8px';
-    toast.style.backgroundColor = type === 'success' ? '#059669' : type === 'error' ? '#DC2626' : '#2563EB';
-    toast.style.color = '#FFFFFF';
-    toast.style.fontFamily = 'Inter, sans-serif';
-    toast.style.fontSize = '13px';
-    toast.style.fontWeight = '500';
-    toast.style.zIndex = '9999';
-    toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-    toast.style.transition = 'opacity 0.3s ease';
-    
-    document.body.appendChild(toast);
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
-}
+  // --- COMPUTED VALUES ---
+  const congestionPct = Math.min(100, Math.round(40 + teamCount * 9.5));
+  
+  const hourToPercent = (hour) => {
+    const range = currentBucket.end - currentBucket.start;
+    return Math.max(0, Math.min(1, (hour - currentBucket.start) / range));
+  };
 
-// ── Station Selection Screen ────────────────────────────────────────────
-async function loadStations() {
-    try {
-        const r = await fetch(`${API}/stations`);
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        state.stations = await r.json();
-        renderStationList(state.stations);
-        const lbl = document.getElementById('stationCountLabel');
-        if (lbl) lbl.textContent = `${state.stations.length} stations available`;
-    } catch (e) {
-        console.error('Station load error:', e);
-        document.getElementById('stationList').innerHTML =
-            `<div style="padding:32px;text-align:center;color:#9CA3AF">
-                <p style="font-size:14px;margin-bottom:8px">Could not load stations</p>
-                <p style="font-size:12px">Check that the API is running on port 8000</p>
-            </div>`;
-    }
-}
+  const percentToHour = (pct) => {
+    const range = currentBucket.end - currentBucket.start;
+    return Math.round(currentBucket.start + pct * range);
+  };
 
-function renderStationList(list) {
-    const el = document.getElementById('stationList');
-    if (!list.length) {
-        el.innerHTML = '<div style="padding:32px;text-align:center;color:#9CA3AF;font-size:13px">No stations match your search</div>';
-        return;
-    }
-    el.innerHTML = list.map(s => `
-        <div class="station-item" data-station='${JSON.stringify(s).replace(/'/g, "&#39;")}'>
-            <div class="station-item-left">
-                <div class="station-item-icon">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/>
-                        <circle cx="12" cy="10" r="3"/>
-                    </svg>
-                </div>
-                <div>
-                    <div class="station-item-name">${s.name}</div>
-                    <div class="station-item-meta">${s.zone_count} zones · ${s.total_violations.toLocaleString()} violations</div>
-                </div>
-            </div>
-            <svg class="station-item-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-        </div>`).join('');
+  const currentPct = hourToPercent(currentHour);
+  const handleLeftPx = railRef.current ? Math.round(currentPct * railRef.current.offsetWidth) : 0;
 
-    el.querySelectorAll('.station-item').forEach(row => {
-        row.addEventListener('click', () => selectStation(JSON.parse(row.dataset.station)));
-    });
-}
+  // --- HANDLERS & LOGIC ---
+  const handleBucketChange = (idx) => {
+    setCurrentBucketIdx(idx);
+    setCurrentHour(BUCKETS[idx].start);
+  };
 
-function selectStation(s) {
-    state.station = s;
-    document.getElementById('stationScreen').classList.add('hidden');
-    document.getElementById('appShell').classList.remove('hidden');
-    document.getElementById('currentStationName').textContent = s.name;
-    document.getElementById('stripStation').textContent = `Under ${s.name}`;
+  const updateHourFromEvent = (e) => {
+    if (!railRef.current) return;
+    const rect = railRef.current.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const calculatedHour = percentToHour(pct);
+    setCurrentHour(Math.max(currentBucket.start, Math.min(currentBucket.end - 1, calculatedHour)));
+  };
 
-    initMap(s.lat, s.lon);
-    loadDashboard();
-}
-
-// ── Initialize Map (Leaflet) ────────────────────────────────────────────
-function initMap(lat, lon) {
-    if (state.map) {
-        state.map.setView([lat, lon], 14);
-        return;
-    }
-
-    state.map = L.map('map', {
-        center: [lat, lon],
-        zoom: 14,
-        zoomControl: true,
-        attributionControl: true,
-    });
-
-    // CartoDB Dark Matter map tiles (free, offline fallback)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        subdomains: 'abcd',
-        maxZoom: 20,
-    }).addTo(state.map);
-
-    // Station Base Icon
-    const stationIcon = L.divIcon({
-        className: '',
-        html: `<div style="width:32px; height:32px; background:#2A9D8F; border:3px solid white; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 5px rgba(0,0,0,0.5)">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>
-               </div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-    });
-
-    L.marker([lat, lon], { icon: stationIcon })
-        .addTo(state.map)
-        .bindPopup(`<div style="font-family:Inter,sans-serif;padding:4px;color:#f3f4f6;"><strong>${state.station.name}</strong><br><span style="color:#9CA3AF;font-size:12px">Jurisdiction Base Station</span></div>`);
-
-    // Map click for generic coordinate detail query
-    state.map.on('click', (e) => {
-        loadZoneDetailByCoords(e.latlng.lat, e.latlng.lng);
-    });
-}
-
-// ── Dashboard Loading ───────────────────────────────────────────────────
-async function loadDashboard() {
-    showLoading(true);
-    await Promise.all([
-        loadHeatmap(),
-        loadPriorityAreas(),
-        loadStationSummary()
-    ]);
-    showLoading(false);
-}
-
-function showLoading(v) {
-    document.getElementById('mapLoading')?.classList.toggle('hidden', !v);
-}
-
-// ── Heatmap Rendering ───────────────────────────────────────────────────
-async function loadHeatmap() {
-    if (!state.map) return;
-    try {
-        const r = await fetch(`${API}/heatmap?hour=${state.hour}&type=${state.layer}`);
-        const data = await r.json();
-
-        // Clear old heatmap layer and zone markers
-        if (state.heatLayer) {
-            state.map.removeLayer(state.heatLayer);
-            state.heatLayer = null;
-        }
-        state.markers.forEach(m => state.map.removeLayer(m));
-        state.markers = [];
-
-        // Build data for Leaflet heatLayer
-        const heatData = data.points.map(p => [
-            p.lat,
-            p.lon,
-            p.intensity / (data.max_intensity || 1)
-        ]);
-
-        const gradients = {
-            risk:      { 0.0: '#059669', 0.4: '#F59E0B', 0.7: '#F97316', 1.0: '#DC2626' },
-            violator:  { 0.0: '#6366F1', 0.4: '#A855F7', 0.7: '#EC4899', 1.0: '#DC2626' },
-            spillover: { 0.0: '#06B6D4', 0.4: '#2A9D8F', 0.7: '#F59E0B', 1.0: '#DC2626' },
-        };
-
-        if (typeof L.heatLayer === 'function') {
-            state.heatLayer = L.heatLayer(heatData, {
-                radius: 25,
-                blur: 15,
-                max: 1.0,
-                gradient: gradients[state.layer] || gradients.risk
-            }).addTo(state.map);
-        } else {
-            console.warn('L.heatLayer not loaded. Drawing circle fallbacks.');
-            // Circle fallback for points
-            const sorted = data.points.sort((a, b) => b.intensity - a.intensity).slice(0, 80);
-            sorted.forEach(p => {
-                const intensity = p.intensity / (data.max_intensity || 100);
-                const color = intensity > 0.7 ? '#DC2626' : intensity > 0.4 ? '#F59E0B' : '#059669';
-                const circle = L.circleMarker([p.lat, p.lon], {
-                    radius: 8 + intensity * 12,
-                    fillColor: color,
-                    fillOpacity: 0.3,
-                    color: color,
-                    weight: 1,
-                    opacity: 0.4,
-                }).addTo(state.map);
-                state.markers.push(circle);
-            });
-        }
-
-        // Add clickable hotspot zone pins
-        await addHotspotMarkers();
-        // Load displacement arrows if spillover mode
-        await loadSpilloverArrows();
-    } catch (e) {
-        console.error('Heatmap error:', e);
-    }
-}
-
-async function addHotspotMarkers() {
-    if (!state.map) return;
-    try {
-        const r = await fetch(`${API}/risk/top_zones?hour=${state.hour}&n=15`);
-        const zones = await r.json();
-
-        zones.forEach(z => {
-            const color = z.risk_label === 'HIGH' ? '#DC2626' : z.risk_label === 'MEDIUM' ? '#F59E0B' : '#059669';
-            const size = z.risk_label === 'HIGH' ? 16 : 12;
-
-            const icon = L.divIcon({
-                className: '',
-                html: `<div style="width:${size}px; height:${size}px; background:${color}; border:2px solid white; border-radius:50%; box-shadow:0 1px 4px rgba(0,0,0,0.4)"></div>`,
-                iconSize: [size, size],
-                iconAnchor: [size / 2, size / 2],
-            });
-
-            const marker = L.marker([z.grid_lat, z.grid_lon], { icon })
-                .addTo(state.map)
-                .bindPopup(`
-                    <div style="font-family:Inter,sans-serif;padding:8px;min-width:160px;color:#f3f4f6;">
-                        <strong style="font-size:13px">${z.grid_cell_id}</strong><br>
-                        <span style="color:#9ca3af;font-size:12px">Risk: <strong style="color:${color}">${z.risk_score.toFixed(0)}</strong> (${z.risk_label})</span>
-                        <div style="margin-top:8px">
-                            <button onclick="window._selectZone('${z.grid_cell_id}')" style="
-                                background:#2A9D8F;color:white;border:none;padding:6px 14px;
-                                border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;
-                                font-family:Inter,sans-serif;width:100%;
-                            ">View Details</button>
-                        </div>
-                    </div>`);
-
-            marker._zoneData = z;
-            state.markers.push(marker);
-        });
-
-        window._selectZone = (cellId) => {
-            const zone = state.markers.find(m => m._zoneData?.grid_cell_id === cellId)?._zoneData;
-            if (zone) showZoneDetail(zone);
-        };
-    } catch (e) {
-        console.error('Hotspot markers error:', e);
-    }
-}
-
-// ── Spillover Animated Arrows ───────────────────────────────────────────
-async function loadSpilloverArrows() {
-    if (state.arrowLayers) {
-        state.arrowLayers.forEach(l => state.map.removeLayer(l));
-    }
-    state.arrowLayers = [];
-
-    if (state.layer !== 'spillover') return;
-
-    try {
-        const r = await fetch(`${API}/game/spillover_arrows`);
-        const data = await r.json();
-        if (data && data.arrows) {
-            const hourArrows = data.arrows.filter(a => a.hour === state.hour);
-            hourArrows.forEach(a => {
-                const line = L.polyline([[a.from_lat, a.from_lon], [a.to_lat, a.to_lon]], {
-                    color: '#F43F5E',
-                    weight: 2.5,
-                    dashArray: '5, 5',
-                    opacity: 0.75
-                }).addTo(state.map);
-
-                const head = L.circleMarker([a.to_lat, a.to_lon], {
-                    radius: 4,
-                    fillColor: '#F43F5E',
-                    fillOpacity: 1,
-                    color: '#FFFFFF',
-                    weight: 1
-                }).addTo(state.map).bindPopup(`
-                    <div style="font-family:Inter,sans-serif;padding:4px;color:#f3f4f6;">
-                        <strong>Waterbed Spillover Arrow</strong><br>
-                        <span style="font-size:12px;">Risk Shifted: +${a.magnitude.toFixed(1)} points</span>
-                    </div>
-                `);
-
-                state.arrowLayers.push(line, head);
-            });
-        }
-    } catch (e) {
-        console.error('Arrows load error:', e);
-    }
-}
-
-// ── Priority Areas cards ────────────────────────────────────────────────
-async function loadPriorityAreas() {
-    if (!state.station) return;
-    try {
-        const r = await fetch(`${API}/stations/${encodeURIComponent(state.station.name)}/priority_areas?hour=${state.hour}&limit=12`);
-        state.priorityAreas = await r.json();
-        renderPriorityCards();
-    } catch (e) {
-        console.error('Priority load error:', e);
-    }
-}
-
-function renderPriorityCards() {
-    const el = document.getElementById('priorityCards');
-    if (!state.priorityAreas.length) {
-        el.innerHTML = '<div style="padding:16px;color:#9CA3AF;font-size:12px">No priority areas defined for this shift</div>';
-        return;
-    }
-    el.innerHTML = state.priorityAreas.map((a, i) => {
-        const cls = a.priority === 'High' ? 'high' : a.priority === 'Medium' ? 'medium' : 'low';
-        const name = a.top_junction && a.top_junction !== 'No Junction'
-            ? a.top_junction.replace(/^BTP\d+\s*-\s*/, '') : a.grid_cell_id;
-        return `
-        <div class="priority-card" data-idx="${i}">
-            <div class="card-top">
-                <span class="card-area-name" title="${name}">${name}</span>
-                <span class="priority-badge ${cls}">${a.priority}</span>
-            </div>
-            <div class="card-meta">
-                <span class="card-meta-item">👮 ${a.force_needed} units</span>
-                <span class="card-meta-item">📍 ${a.distance_km} km</span>
-                <span class="card-meta-item">⏱ ${a.eta_minutes}m ETA</span>
-            </div>
-            <div class="card-actions">
-                <button class="card-route-btn" data-idx="${i}">Route now →</button>
-            </div>
-        </div>`;
-    }).join('');
-
-    el.querySelectorAll('.priority-card').forEach(card => {
-        card.addEventListener('click', e => {
-            if (e.target.classList.contains('card-route-btn')) return;
-            pickArea(+card.dataset.idx);
-        });
-    });
-    el.querySelectorAll('.card-route-btn').forEach(btn => {
-        btn.addEventListener('click', e => {
-            e.stopPropagation();
-            const idx = +btn.dataset.idx;
-            pickArea(idx);
-            routeToZone();
-        });
-    });
-}
-
-function pickArea(idx) {
-    const area = state.priorityAreas[idx];
-    if (!area) return;
-    document.querySelectorAll('.priority-card').forEach(c => c.classList.remove('selected'));
-    document.querySelector(`.priority-card[data-idx="${idx}"]`)?.classList.add('selected');
-    if (state.map) {
-        state.map.setView([area.grid_lat, area.grid_lon], 15);
-    }
-    showZoneDetail(area);
-}
-
-// ── Station Summary Stats ───────────────────────────────────────────────
-async function loadStationSummary() {
-    if (!state.station) return;
-    try {
-        const r = await fetch(`${API}/stations/${encodeURIComponent(state.station.name)}/summary?hour=${state.hour}`);
-        const d = await r.json();
-        document.getElementById('headerZoneCount').textContent = `${d.total_zones} zones`;
-        document.getElementById('headerHighCount').textContent = `${d.high_risk_zones} high priority`;
-    } catch (e) {
-        console.error('Summary stats error:', e);
-    }
-}
-
-// ── Zone Detail Panel ───────────────────────────────────────────────────
-async function showZoneDetail(zone) {
-    state.selectedZone = zone;
-    activatePanel('details');
-
-    const content = document.getElementById('detailsContent');
-    const empty = document.getElementById('detailsEmpty');
-    empty.classList.add('hidden');
-    content.classList.remove('hidden');
-    content.innerHTML = '<div style="padding:40px;text-align:center"><div class="loading-spinner" style="margin:0 auto"></div></div>';
-
-    // Fetch detailed risk details
-    let detail = null;
-    try {
-        const r = await fetch(`${API}/risk/${zone.grid_cell_id}?hour=${state.hour}`);
-        if (r.ok) {
-            detail = await r.json();
-        }
-    } catch (err) {
-        console.error('Detail fetch error:', err);
-    }
-
-    const score = zone.risk_score || detail?.risk_score || 0;
-    const label = zone.risk_label || detail?.risk_label || (score >= 67 ? 'HIGH' : score >= 34 ? 'MEDIUM' : 'LOW');
-    const jName = zone.top_junction && zone.top_junction !== 'No Junction'
-        ? zone.top_junction.replace(/^BTP\d+\s*-\s*/, '') : (detail?.grid_cell_id || zone.grid_cell_id);
-    
-    // Fallback values
-    const densityVal = zone.density ?? detail?.density ?? 0;
-    const roadVal = zone.road_importance ?? detail?.road_importance ?? 0;
-    const peakVal = zone.peak_weight ?? detail?.peak_weight ?? 1;
-    const offenderVal = zone.repeat_offender ?? detail?.repeat_offender ?? 0;
-    const heavyVal = zone.heavy_vehicle_ratio ?? detail?.heavy_vehicle_ratio ?? 0;
-
-    const pp = detail?.patrol_probability ?? zone.patrol_probability ?? 0;
-    const vr = detail?.violator_risk_score ?? zone.violator_risk_score ?? 0;
-    const expCost = detail?.expected_cost ?? 0;
-    const fn = zone.force_needed || (score >= 67 ? 3 : score >= 34 ? 2 : 1);
-
-    content.innerHTML = `
-        <div class="detail-zone-header" style="display:flex; justify-content:space-between; margin-bottom:16px;">
-            <div>
-                <div style="font-size:15px;font-weight:700;margin-bottom:2px;color:#f3f4f6;">${jName}</div>
-                <div class="detail-zone-id" style="font-size:11px;color:#9CA3AF">${zone.grid_cell_id} · Hour ${state.hour}:00</div>
-            </div>
-            <span class="detail-risk-badge ${label}" style="padding:4px 8px; border-radius:4px; font-size:11px; font-weight:700; text-transform:uppercase;">${label}</span>
-        </div>
-        <div class="detail-score-row" style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
-            <span class="detail-score-big" style="font-size:32px; font-weight:800; color:#EF4444">${score.toFixed(0)}</span>
-            <div>
-                <div class="detail-score-label" style="font-size:11px; color:#9CA3AF">Risk Score</div>
-                <div class="detail-score-label" style="font-size:11px; color:#9CA3AF">out of 100</div>
-            </div>
-        </div>
-        <div class="detail-section" style="margin-bottom:16px;">
-            <div class="detail-section-title" style="font-size:12px; font-weight:600; color:#9CA3AF; margin-bottom:8px; text-transform:uppercase;">Risk Breakdown</div>
-            ${bar('Density', densityVal * 100)}
-            ${bar('Road Imp.', roadVal * 100)}
-            ${bar('Peak Weight', (peakVal / 1.5) * 100)}
-            ${bar('Repeat Offend.', offenderVal * 100)}
-            ${bar('Heavy Vehicle', heavyVal * 100)}
-        </div>
-        <div class="detail-section" style="margin-bottom:16px;">
-            <div class="detail-section-title" style="font-size:12px; font-weight:600; color:#9CA3AF; margin-bottom:8px; text-transform:uppercase;">Operations Intel</div>
-            <div class="detail-stats" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:8px;">
-                <div class="detail-stat" style="background:#1F2937; padding:8px; border-radius:6px; text-align:center;"><div class="detail-stat-value" style="font-weight:700; font-size:16px;">${fn}</div><div class="detail-stat-label" style="font-size:10px; color:#9CA3AF;">Force units</div></div>
-                <div class="detail-stat" style="background:#1F2937; padding:8px; border-radius:6px; text-align:center;"><div class="detail-stat-value" style="font-weight:700; font-size:16px;">${zone.violation_count || detail?.violation_count || '—'}</div><div class="detail-stat-label" style="font-size:10px; color:#9CA3AF;">Violations</div></div>
-                <div class="detail-stat" style="background:#1F2937; padding:8px; border-radius:6px; text-align:center;"><div class="detail-stat-value" style="font-weight:700; font-size:16px; color:#3B82F6;">${(pp*100).toFixed(1)}%</div><div class="detail-stat-label" style="font-size:10px; color:#9CA3AF;">Patrol prob.</div></div>
-                <div class="detail-stat" style="background:#1F2937; padding:8px; border-radius:6px; text-align:center;"><div class="detail-stat-value" style="font-weight:700; font-size:16px; color:#EC4899;">${vr.toFixed(0)}</div><div class="detail-stat-label" style="font-size:10px; color:#9CA3AF;">Violator risk</div></div>
-            </div>
-        </div>
-        ${zone.distance_km ? `<div class="detail-section" style="margin-bottom:16px;"><div class="detail-section-title" style="font-size:12px; font-weight:600; color:#9CA3AF; margin-bottom:4px; text-transform:uppercase;">From Station</div><div style="display:flex;gap:16px;font-size:13px;color:#f3f4f6;"><span>📍 <strong>${zone.distance_km} km</strong></span><span>⏱ <strong>${zone.eta_minutes}m</strong> ETA</span></div></div>` : ''}
-        <div class="detail-actions" style="display:flex; gap:8px;">
-            <button class="detail-btn detail-btn-primary" onclick="routeToZone()" style="flex:1;">Route now →</button>
-            <button class="detail-btn detail-btn-outline" onclick="askAboutZone()" style="flex:1;">Ask AI</button>
-        </div>`;
-
-    document.getElementById('rightPanel')?.classList.add('mobile-visible');
-}
-
-async function loadZoneDetailByCoords(lat, lon) {
-    if (!state.apiConnected) return;
-    const cellLat = (Math.floor(lat / 0.005) * 0.005 + 0.0025);
-    const cellLon = (Math.floor(lon / 0.005) * 0.005 + 0.0025);
-    const cellId = `${Math.floor(lat / 0.005)}_${Math.floor(lon / 0.005)}`;
-
-    // Fake a zone model for layout
-    const dummyZone = {
-        grid_cell_id: cellId,
-        grid_lat: cellLat,
-        grid_lon: cellLon,
-        risk_score: 0,
-        risk_label: 'LOW',
-        violation_count: 0,
-        density: 0,
-        road_importance: 0,
-        peak_weight: 1,
-        repeat_offender: 0,
-        heavy_vehicle_ratio: 0,
+  // Drag listeners
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (isDragging) updateHourFromEvent(e);
     };
-    showZoneDetail(dummyZone);
-}
+    const handleMouseUp = () => setIsDragging(false);
 
-function bar(label, pct) {
-    pct = Math.max(0, Math.min(100, pct));
-    const c = pct >= 70 ? '#EF4444' : pct >= 40 ? '#F59E0B' : '#059669';
-    return `
-    <div class="detail-bar-row" style="display:flex; align-items:center; margin-bottom:6px; font-size:12px;">
-        <span class="detail-bar-label" style="min-width:100px; color:#9CA3AF;">${label}</span>
-        <div class="detail-bar-track" style="flex:1; background:#374151; height:6px; border-radius:3px; margin:0 8px; overflow:hidden;">
-            <div class="detail-bar-fill" style="width:${pct}%; background:${c}; height:100%"></div>
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchmove', handleMouseMove);
+      window.addEventListener('touchend', handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleMouseMove);
+      window.removeEventListener('touchend', handleMouseUp);
+    };
+  }, [isDragging, currentBucketIdx]);
+
+  return (
+    <>
+      {/* Embedded UI Styles */}
+      <style>{`
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root { --font: system-ui, -apple-system, sans-serif; }
+        .pv-container { font-family: var(--font); background: #F5F6FA; color: #1A1D23; font-size: 14px; line-height: 1.5; min-height: 100vh; }
+        .tab-bar { display: flex; align-items: center; gap: 0; background: #fff; border-bottom: 1px solid #E2E5EC; padding: 0 20px; height: 48px; position: sticky; top: 0; z-index: 100; }
+        .tab-bar-brand { display: flex; align-items: center; gap: 8px; margin-right: 24px; }
+        .brand-dot { width: 28px; height: 28px; border-radius: 8px; background: #1A56DB; display: flex; align-items: center; justify-content: center; }
+        .brand-dot svg { width: 16px; height: 16px; fill: #fff; }
+        .brand-name { font-size: 14px; font-weight: 600; color: #1A1D23; letter-spacing: -0.3px; }
+        .brand-sub { font-size: 11px; color: #6B7280; letter-spacing: 0.5px; text-transform: uppercase; }
+        .tab-btn { height: 48px; padding: 0 16px; border: none; background: transparent; cursor: pointer; font-size: 13px; font-weight: 500; color: #6B7280; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; white-space: nowrap; }
+        .tab-btn.active { color: #1A56DB; border-bottom-color: #1A56DB; }
+        .tab-btn:hover:not(.active) { color: #374151; }
+        .tab-spacer { flex: 1; }
+        .chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 1px solid; }
+        .chip-blue { background: #EFF6FF; color: #1D4ED8; border-color: #BFDBFE; }
+        .chip-green { background: #F0FDF4; color: #15803D; border-color: #BBF7D0; }
+        .chip-amber { background: #FFFBEB; color: #92400E; border-color: #FDE68A; }
+        .chip-red { background: #FEF2F2; color: #991B1B; border-color: #FECACA; }
+        .chip-dot { width: 7px; height: 7px; border-radius: 50%; }
+        .chip-dot-green { background: #22C55E; }
+        .chip-dot-amber { background: #F59E0B; }
+        .chip-dot-red { background: #EF4444; }
+        .chip-dot-blue { background: #3B82F6; }
+        .police-shell { display: flex; flex-direction: column; height: calc(100vh - 48px); overflow: hidden; }
+        .police-topbar { background: #fff; border-bottom: 1px solid #E2E5EC; padding: 9px 16px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        .topbar-title { font-size: 14px; font-weight: 600; color: #1A1D23; flex: 1; }
+        .police-body { display: grid; grid-template-columns: 288px 1fr; flex: 1; overflow: hidden; }
+        .police-left { background: #fff; border-right: 1px solid #E2E5EC; overflow-y: auto; padding: 12px; flex-shrink: 0; }
+        .map-col { display: flex; flex-direction: column; overflow: hidden; }
+        .map-area { background: #E8ECF2; position: relative; overflow: hidden; flex: 1; }
+        .map-bg { position: absolute; inset: 0; background: #ECF0F6; }
+        .map-road-h { position: absolute; background: #fff; height: 3px; opacity: 0.7; }
+        .map-road-v { position: absolute; background: #fff; width: 3px; opacity: 0.7; }
+        .map-major-h { position: absolute; background: #D1D9E6; height: 7px; opacity: 0.9; }
+        .map-major-v { position: absolute; background: #D1D9E6; width: 7px; opacity: 0.9; }
+        .heat-cell { position: absolute; border-radius: 4px; opacity: 0.35; }
+        .map-marker { position: absolute; width: 32px; height: 32px; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; }
+        .marker-icon { width: 32px; height: 32px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+        .marker-icon svg { transform: rotate(45deg); }
+        .marker-red { background: #EF4444; }
+        .marker-amber { background: #F59E0B; }
+        .marker-green { background: #22C55E; }
+        .marker-blue { background: #3B82F6; }
+        .map-controls { position: absolute; right: 12px; top: 12px; display: flex; flex-direction: column; gap: 4px; }
+        .map-btn { width: 32px; height: 32px; background: #fff; border: 1px solid #E2E5EC; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; color: #374151; font-weight: 500; }
+        .map-legend { position: absolute; right: 12px; bottom: 12px; background: #fff; border: 1px solid #E2E5EC; border-radius: 8px; padding: 10px 12px; font-size: 11px; }
+        .map-legend-title { font-weight: 600; margin-bottom: 6px; color: #374151; }
+        .legend-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; color: #6B7280; }
+        .legend-box { width: 14px; height: 10px; border-radius: 2px; }
+        .time-scrubber { background: #fff; border-top: 1px solid #E2E5EC; padding: 14px 20px 12px; flex-shrink: 0; user-select: none; }
+        .scrubber-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        .scrubber-title { font-size: 12px; font-weight: 600; color: #374151; }
+        .scrubber-time-display { font-size: 18px; font-weight: 700; color: #1A56DB; letter-spacing: -0.5px; min-width: 72px; text-align: right; }
+        .scrubber-buckets { display: flex; gap: 6px; }
+        .scrubber-bucket { padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 500; cursor: pointer; border: 1px solid #E2E5EC; color: #6B7280; background: #F9FAFB; transition: background 0.12s, color 0.12s, border-color 0.12s; }
+        .scrubber-bucket.active { background: #EFF6FF; color: #1D4ED8; border-color: #BFDBFE; }
+        .scrubber-track-wrap { position: relative; height: 44px; margin-top: 2px; }
+        .scrubber-ticks { display: flex; justify-content: space-between; padding: 0 0px; margin-bottom: 4px; }
+        .scrubber-tick { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; color: #9CA3AF; min-width: 28px; text-align: center; position: relative; }
+        .scrubber-tick-mark { width: 1px; height: 8px; background: #E2E5EC; }
+        .scrubber-tick.major .scrubber-tick-mark { height: 12px; background: #D1D5DB; }
+        .scrubber-tick.major { color: #6B7280; font-weight: 500; }
+        .scrubber-tick.dim { color: #D1D5DB; }
+        .scrubber-tick.dim .scrubber-tick-mark { background: #E9EAEC; }
+        .scrubber-rail { position: relative; height: 6px; background: #F3F4F6; border-radius: 3px; cursor: pointer; }
+        .scrubber-fill { position: absolute; left: 0; top: 0; height: 100%; background: #1A56DB; border-radius: 3px; pointer-events: none; }
+        .scrubber-dim-zone { position: absolute; top: 0; height: 100%; background: repeating-linear-gradient(90deg,#F3F4F6 0px,#F3F4F6 4px,#E9EAEC 4px,#E9EAEC 8px); border-radius: 0 3px 3px 0; pointer-events: none; opacity: 0.7; }
+        .scrubber-handle { position: absolute; top: 50%; width: 18px; height: 18px; background: #1A56DB; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 0 1.5px #1A56DB, 0 2px 6px rgba(26,86,219,0.35); cursor: grab; transform: translate(-50%, -50%); z-index: 3; transition: box-shadow 0.12s; }
+        .scrubber-handle:active { cursor: grabbing; box-shadow: 0 0 0 3px rgba(26,86,219,0.2), 0 2px 8px rgba(26,86,219,0.4); }
+        .scrubber-tooltip { position: absolute; top: -32px; transform: translateX(-50%); background: #1A56DB; color: #fff; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; white-space: nowrap; pointer-events: none; z-index: 4; }
+        .scrubber-tooltip::after { content: ''; position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 4px solid #1A56DB; }
+        .scrubber-data-bar { display: flex; gap: 2px; height: 16px; margin-bottom: 4px; border-radius: 2px; overflow: hidden; }
+        .sdb-seg { flex-shrink: 0; height: 100%; border-radius: 1px; }
+        .panel-section { margin-bottom: 14px; }
+        .panel-section-title { font-size: 11px; font-weight: 600; color: #9CA3AF; letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 8px; }
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .stat-card { background: #F9FAFB; border-radius: 8px; padding: 10px; border: 1px solid #F3F4F6; }
+        .stat-value { font-size: 20px; font-weight: 600; line-height: 1; }
+        .stat-label { font-size: 11px; color: #6B7280; margin-top: 3px; }
+        .stat-delta { font-size: 11px; font-weight: 500; margin-top: 2px; }
+        .delta-up { color: #EF4444; }
+        .delta-dn { color: #22C55E; }
+        .hotspot-list { display: flex; flex-direction: column; gap: 5px; }
+        .hotspot-item { display: flex; align-items: center; gap: 8px; background: #F9FAFB; border-radius: 8px; padding: 8px 10px; border: 1px solid #F3F4F6; cursor: pointer; transition: border-color 0.15s; }
+        .hotspot-item.selected { border-color: #BFDBFE; background: #EFF6FF; }
+        .hotspot-item:hover:not(.selected) { border-color: #E5E7EB; }
+        .hotspot-rank { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+        .rank-1 { background: #FEE2E2; color: #991B1B; }
+        .rank-2 { background: #FEF3C7; color: #92400E; }
+        .rank-3 { background: #FEF3C7; color: #B45309; }
+        .rank-n { background: #F3F4F6; color: #6B7280; }
+        .hotspot-info { flex: 1; min-width: 0; }
+        .hotspot-name { font-size: 12px; font-weight: 600; color: #1A1D23; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .hotspot-sub { font-size: 11px; color: #6B7280; }
+        .risk-badge { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 4px; flex-shrink: 0; }
+        .risk-high { background: #FEE2E2; color: #991B1B; }
+        .risk-med { background: #FEF3C7; color: #92400E; }
+        .risk-low { background: #F0FDF4; color: #15803D; }
+        .team-slider-wrap { background: #EFF6FF; border-radius: 8px; padding: 12px; border: 1px solid #BFDBFE; }
+        .team-slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .team-slider-title { font-size: 12px; font-weight: 600; color: #1E40AF; }
+        .team-count-badge { font-size: 18px; font-weight: 700; color: #1A56DB; background: #fff; border: 1px solid #BFDBFE; border-radius: 6px; padding: 1px 8px; min-width: 36px; text-align: center; }
+        .sim-bar { margin-top: 8px; }
+        .sim-bar-label { display: flex; justify-content: space-between; font-size: 11px; color: #6B7280; margin-bottom: 4px; }
+        .sim-track { height: 8px; background: #BFDBFE; border-radius: 4px; overflow: hidden; }
+        .sim-fill { height: 100%; background: #1A56DB; border-radius: 4px; transition: width 0.2s; }
+        .sim-info { font-size: 11px; color: #1E40AF; margin-top: 5px; text-align: center; font-weight: 500; }
+        input[type=range] { cursor: pointer; width: 100%; accent-color: #1A56DB; }
+        .ctrl-layout { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; background: #F5F6FA; min-height: calc(100vh - 48px); }
+        .ctrl-topbar { display: flex; align-items: center; gap: 10px; }
+        .ctrl-title { font-size: 16px; font-weight: 700; color: #1A1D23; }
+        .ctrl-sub { font-size: 12px; color: #6B7280; }
+        .ctrl-spacer { flex: 1; }
+        .live-badge { display: flex; align-items: center; gap: 6px; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 20px; padding: 4px 10px; font-size: 12px; font-weight: 600; color: #15803D; }
+        .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #22C55E; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .ctrl-row { display: grid; gap: 12px; }
+        .ctrl-row-3 { grid-template-columns: repeat(3, 1fr); }
+        .card { background: #fff; border-radius: 10px; border: 1px solid #E2E5EC; padding: 14px 16px; }
+        .card-title { font-size: 11px; font-weight: 600; color: #9CA3AF; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 10px; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .kpi-card { background: #fff; border-radius: 10px; border: 1px solid #E2E5EC; padding: 14px 16px; }
+        .kpi-icon-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .kpi-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+        .kpi-icon-blue { background: #EFF6FF; color: #1D4ED8; }
+        .kpi-icon-red { background: #FEF2F2; color: #DC2626; }
+        .kpi-icon-amber { background: #FFFBEB; color: #D97706; }
+        .kpi-icon-green { background: #F0FDF4; color: #15803D; }
+        .kpi-icon svg { width: 18px; height: 18px; }
+        .kpi-trend { font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
+        .trend-up { background: #FEE2E2; color: #DC2626; }
+        .trend-dn { background: #F0FDF4; color: #15803D; }
+        .kpi-value { font-size: 26px; font-weight: 700; color: #1A1D23; line-height: 1; }
+        .kpi-label { font-size: 12px; color: #6B7280; margin-top: 3px; }
+        .ctrl-map { background: #E8ECF2; border-radius: 10px; border: 1px solid #E2E5EC; position: relative; overflow: hidden; min-height: 280px; }
+        .ctrl-map-title { position: absolute; top: 12px; left: 12px; background: #fff; border-radius: 6px; padding: 6px 10px; font-size: 12px; font-weight: 600; color: #1A1D23; border: 1px solid #E2E5EC; z-index:2; }
+        .toggle-group { position: absolute; top: 12px; right: 12px; background: #fff; border-radius: 6px; border: 1px solid #E2E5EC; display: flex; overflow: hidden; z-index:2; }
+        .toggle-opt { padding: 5px 10px; font-size: 11px; font-weight: 500; cursor: pointer; color: #6B7280; }
+        .toggle-opt.on { background: #EFF6FF; color: #1D4ED8; }
+        .station-table { width: 100%; border-collapse: collapse; }
+        .station-table th { font-size: 10px; font-weight: 600; color: #9CA3AF; text-transform: uppercase; letter-spacing: 0.4px; padding: 4px 8px; text-align: left; border-bottom: 1px solid #E2E5EC; }
+        .station-table td { font-size: 12px; padding: 6px 8px; border-bottom: 1px solid #F3F4F6; color: #374151; }
+        .station-table tr:last-child td { border-bottom: none; }
+        .st-name { font-weight: 600; color: #1A1D23; }
+        .risk-pill { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 20px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+        .risk-pill-red { background: #FEE2E2; color: #991B1B; }
+        .risk-pill-amber { background: #FEF3C7; color: #92400E; }
+        .risk-pill-green { background: #F0FDF4; color: #15803D; }
+        .forecast-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .forecast-day { font-size: 11px; font-weight: 600; color: #374151; min-width: 28px; }
+        .forecast-track { flex: 1; height: 8px; background: #F3F4F6; border-radius: 4px; overflow: hidden; }
+        .forecast-fill { height: 100%; border-radius: 4px; }
+        .forecast-num { font-size: 11px; font-weight: 600; color: #374151; min-width: 36px; text-align: right; }
+        .waterbed-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 6px; }
+        .wb-cell { aspect-ratio: 1; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; cursor: pointer; }
+        .wb-enforced { background: #DCFCE7; color: #15803D; border: 2px solid #22C55E; }
+        .wb-spill-high { background: #FEF9C3; color: #92400E; }
+        .wb-spill-med { background: #FEF9C3; color: #B45309; opacity: 0.7; }
+        .wb-normal { background: #EFF6FF; color: #1E40AF; }
+        .wb-neutral { background: #F3F4F6; color: #9CA3AF; }
+        .alert-feed { display: flex; flex-direction: column; gap: 6px; }
+        .alert-item { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border-radius: 7px; border: 1px solid; }
+        .alert-crit { background: #FEF2F2; border-color: #FECACA; }
+        .alert-warn { background: #FFFBEB; border-color: #FDE68A; }
+        .alert-info { background: #EFF6FF; border-color: #BFDBFE; }
+        .alert-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+        .alert-icon-red { background: #FEE2E2; }
+        .alert-icon-amber { background: #FEF3C7; }
+        .alert-icon-blue { background: #DBEAFE; }
+        .alert-icon svg { width: 10px; height: 10px; }
+        .alert-msg { font-size: 12px; color: #374151; line-height: 1.4; }
+        .alert-time { font-size: 10px; color: #9CA3AF; margin-top: 2px; }
+        .patrol-zone-list { display: flex; flex-direction: column; gap: 6px; }
+        .pz-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: #F9FAFB; border-radius: 7px; border: 1px solid #F3F4F6; }
+        .pz-team { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; color: #fff; }
+        .pz-team-1 { background: #1A56DB; }
+        .pz-team-2 { background: #7C3AED; }
+        .pz-team-3 { background: #0891B2; }
+        .pz-team-4 { background: #15803D; }
+        .pz-team-5 { background: #B45309; }
+        .pz-info { flex: 1; }
+        .pz-zone { font-size: 12px; font-weight: 600; color: #1A1D23; }
+        .pz-sub { font-size: 10px; color: #6B7280; }
+        .pz-prob { font-size: 12px; font-weight: 700; color: #1A1D23; }
+        .divider { height: 1px; background: #F3F4F6; margin: 8px 0; }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
+      `}</style>
+
+      <div className="pv-container">
+        {/* TAB BAR */}
+        <div className="tab-bar">
+          <div className="tab-bar-brand">
+            <div className="brand-dot">
+              <svg viewBox="0 0 16 16">
+                <circle cx="8" cy="8" r="3"/>
+                <circle cx="8" cy="3" r="1.5"/>
+                <circle cx="8" cy="13" r="1.5"/>
+                <circle cx="3" cy="8" r="1.5"/>
+                <circle cx="13" cy="8" r="1.5"/>
+              </svg>
+            </div>
+            <div>
+              <div className="brand-name">ParkVision-Saathi</div>
+              <div className="brand-sub">AI Enforcement Platform</div>
+            </div>
+          </div>
+          <button 
+            className={`tab-btn ${activeTab === 'police' ? 'active' : ''}`} 
+            onClick={() => setActiveTab('police')}
+          >
+            Field Officer View
+          </button>
+          <button 
+            className={`tab-btn ${activeTab === 'ctrl' ? 'active' : ''}`} 
+            onClick={() => setActiveTab('ctrl')}
+          >
+            Control Room
+          </button>
+          <div className="tab-spacer"></div>
+          <span className="chip chip-green"><span className="chip-dot chip-dot-green"></span>Bengaluru Active</span>
+          <span style={{ marginLeft: '8px', fontSize: '12px', color: '#6B7280' }}>Thursday, 10:45 AM</span>
         </div>
-        <span class="detail-bar-value" style="font-family:monospace; min-width:32px; text-align:right;">${pct.toFixed(0)}%</span>
-    </div>`;
-}
 
-// ── Routing Polyline (Leaflet) ──────────────────────────────────────────
-function routeToZone() {
-    if (!state.selectedZone || !state.station || !state.map) return;
-    const z = state.selectedZone;
+        {/* FIELD OFFICER VIEW */}
+        {activeTab === 'police' && (
+          <div id="view-police">
+            <div className="police-shell">
+              <div className="police-topbar">
+                <span className="topbar-title">Bengaluru Parking Enforcement — Morning Peak</span>
+                <span className="chip chip-red"><span className="chip-dot chip-dot-red"></span>24 Critical Zones</span>
+                <span className="chip chip-amber"><span className="chip-dot chip-dot-amber"></span>Morning Peak Active</span>
+                <span className="chip chip-blue"><span className="chip-dot chip-dot-blue"></span>5 Teams Deployed</span>
+                <span className="chip chip-green"><span className="chip-dot chip-dot-green"></span>Traffic Layer On</span>
+              </div>
 
-    // Clear old route line and marker
-    if (state.routeLayer) { state.map.removeLayer(state.routeLayer); state.routeLayer = null; }
-    if (state.destMarker) { state.map.removeLayer(state.destMarker); state.destMarker = null; }
+              <div className="police-body">
+                {/* LEFT PANEL */}
+                <div className="police-left">
+                  <div className="panel-section">
+                    <div className="panel-section-title">Zone Summary</div>
+                    <div className="stat-grid">
+                      <div className="stat-card">
+                        <div className="stat-value" style={{ color: '#DC2626' }}>298K</div>
+                        <div className="stat-label">Total violations</div>
+                        <div className="stat-delta delta-up">↑ 12% vs last week</div>
+                      </div>
+                      <div className="stat-card">
+                        <div className="stat-value" style={{ color: '#D97706' }}>169</div>
+                        <div className="stat-label">Named junctions</div>
+                        <div className="stat-delta" style={{ color: '#6B7280' }}>Monitored</div>
+                      </div>
+                      <div className="stat-card">
+                        <div className="stat-value" style={{ color: '#1A56DB' }}>54</div>
+                        <div className="stat-label">Police stations</div>
+                        <div className="stat-delta delta-dn">3 offline</div>
+                      </div>
+                      <div className="stat-card">
+                        <div className="stat-value" style={{ color: '#15803D' }}>66.6%</div>
+                        <div className="stat-label">Approval rate</div>
+                        <div className="stat-delta" style={{ color: '#6B7280' }}>validated</div>
+                      </div>
+                    </div>
+                  </div>
 
-    // Draw Leaflet polyline
-    state.routeLayer = L.polyline(
-        [
-            [state.station.lat, state.station.lon],
-            [z.grid_lat, z.grid_lon]
-        ],
-        {
-            color: '#2A9D8F',
-            weight: 3.5,
-            opacity: 0.85,
-            dashArray: '8, 6',
-        }
-    ).addTo(state.map);
-
-    // Destination target marker
-    const destIcon = L.divIcon({
-        className: '',
-        html: `<div style="width:20px; height:20px; background:#DC2626; border:3px solid white; border-radius:50%; box-shadow:0 1px 4px rgba(0,0,0,0.5)"></div>`,
-        iconSize: [20, 20],
-        iconAnchor: [10, 10],
-    });
-
-    state.destMarker = L.marker([z.grid_lat, z.grid_lon], { icon: destIcon })
-        .addTo(state.map)
-        .bindPopup(`<div style="font-family:Inter,sans-serif;padding:4px;color:#f3f4f6;"><strong>Patrol Destination</strong><br><span style="color:#9CA3AF;font-size:12px">Zone: ${z.grid_cell_id}</span></div>`);
-
-    // Zoom map to cover station and target
-    state.map.fitBounds([
-        [state.station.lat, state.station.lon],
-        [z.grid_lat, z.grid_lon]
-    ], { padding: [50, 50] });
-
-    showToast(`Route plotted: ${z.distance_km} km · ETA ${z.eta_minutes} mins`, 'info');
-}
-
-// ── Chatbot Assistant ───────────────────────────────────────────────────
-function askAboutZone() {
-    if (!state.selectedZone) return;
-    activatePanel('chat');
-    const p = `Why is zone ${state.selectedZone.grid_cell_id} high risk at hour ${state.hour}?`;
-    addMsg('user', p);
-    reply(p);
-}
-
-function addMsg(role, text) {
-    const c = document.getElementById('chatMessages');
-    const d = document.createElement('div');
-    d.className = `chat-msg ${role}`;
-    d.textContent = text;
-    
-    // Apply styling for chat bubbles
-    d.style.padding = '10px 14px';
-    d.style.borderRadius = '8px';
-    d.style.marginBottom = '8px';
-    d.style.maxWidth = '85%';
-    d.style.fontSize = '12.5px';
-    d.style.lineHeight = '1.4';
-    
-    if (role === 'user') {
-        d.style.backgroundColor = '#2A9D8F';
-        d.style.color = '#FFFFFF';
-        d.style.alignSelf = 'flex-end';
-        d.style.marginLeft = 'auto';
-    } else {
-        d.style.backgroundColor = '#1F2937';
-        d.style.color = '#F3F4F6';
-        d.style.alignSelf = 'flex-start';
-        d.style.marginRight = 'auto';
-        d.style.whiteSpace = 'pre-line';
-    }
-    
-    c.appendChild(d);
-    c.scrollTop = c.scrollHeight;
-}
-
-function reply(prompt) {
-    const z = state.selectedZone;
-    const st = state.station;
-    const p = prompt.toLowerCase();
-    let ans = '';
-
-    if (p.includes('why') && p.includes('risk')) {
-        const score = z?.risk_score ?? 0;
-        ans = `Zone ${z?.grid_cell_id || 'unselected'} — risk score ${score.toFixed(0)}/100\n\nKey components driving this risk:\n• Violation density: ${((z?.density||0)*100).toFixed(0)}%\n• Repeat offender weight: ${((z?.repeat_offender||0)*100).toFixed(0)}%\n• Heavy commercial vehicles: ${((z?.heavy_vehicle_ratio||0)*100).toFixed(0)}%\n• Peak congestion weight: ${z?.peak_weight||1}x\n\nPatrol recommendation: deploy ${z?.force_needed||2} officers to maintain enforcement coverage.`;
-    } else if (p.includes('strategy') || p.includes('patrol')) {
-        const hi = state.priorityAreas.filter(a => a.priority === 'High').length;
-        const total = state.priorityAreas.reduce((s, a) => s + (a.force_needed || 1), 0);
-        ans = `Strategic Patrol Summary for ${st?.name || 'Jurisdiction'} at ${state.hour}:00:\n\n• High-priority hotspots: ${hi}\n• Total required force: ${total} officers\n• Closest hotspot: ${state.priorityAreas[0]?.distance_km || '—'} km away\n\nRecommended: deploy units to the top 3 priority areas to optimize coverage.`;
-    } else if (p.includes('summary') || p.includes('priority')) {
-        const hi = state.priorityAreas.filter(a => a.priority === 'High').length;
-        const md = state.priorityAreas.filter(a => a.priority === 'Medium').length;
-        const tv = state.priorityAreas.reduce((s, a) => s + (a.violation_count || 0), 0);
-        ans = `Shift Briefing Summary (${state.hour}:00):\n\n• High priority areas: ${hi}\n• Medium priority areas: ${md}\n• Aggregated violations: ${tv.toLocaleString()}\n\nTop focus point: grid cell ${state.priorityAreas[0]?.grid_cell_id || '—'} (risk: ${state.priorityAreas[0]?.risk_score?.toFixed(0) || '—'}).`;
-    } else if (p.includes('officer') || p.includes('force') || p.includes('needed')) {
-        const total = state.priorityAreas.reduce((s, a) => s + (a.force_needed || 1), 0);
-        ans = `Officer requirements for ${st?.name || 'jurisdiction'}:\n\n` +
-            state.priorityAreas.slice(0, 5).map(a => `• Grid ${a.grid_cell_id}: ${a.force_needed} units (risk ${a.risk_score?.toFixed(0)})`).join('\n') +
-            `\n\nTotal requirement across all zones: ${total} units.`;
-    } else if (p.includes('route')) {
-        if (z) { 
-            routeToZone(); 
-            ans = `Route successfully plotted to zone ${z.grid_cell_id}\n\n📍 Distance: ${z.distance_km || '—'} km\n⏱ ETA: ${z.eta_minutes || '—'} min\n🛡 Risk Level: ${z.risk_label || '—'}`; 
-        } else { 
-            ans = 'Please select a hotspot or priority zone first, then ask to route.'; 
-        }
-    } else {
-        ans = `Hello! I am your Patrol Assistant. I can help you with:\n\n• "Why is this area high risk?"\n• "Suggest patrol strategy"\n• "How many officers are needed?"\n• "Summarize priority areas"\n• "Show route to zone"\n\nSelect any zone to get started!`;
-    }
-    setTimeout(() => addMsg('assistant', ans), 400);
-}
-
-// ── Run Simulation (Greedy Team Deployment) ─────────────────────────────
-async function runSimulation() {
-    if (!state.apiConnected) {
-        showToast('API not connected', 'error');
-        return;
-    }
-
-    showLoading(true);
-    try {
-        const r = await fetch(`${API}/simulate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                num_teams: state.numTeams,
-                hour: state.hour,
-                strategy: 'stackelberg',
-            }),
-        });
-        const data = await r.json();
-
-        if (data) {
-            // Clear old simulation markers
-            state.teamMarkers.forEach(m => state.map.removeLayer(m));
-            state.teamMarkers = [];
-
-            // Deploy team markers on map
-            data.assignments.forEach(a => {
-                const color = TEAM_COLORS[(a.team_id - 1) % TEAM_COLORS.length];
-                const icon = L.divIcon({
-                    className: '',
-                    html: `<div class="team-marker" style="background:${color}; width:32px; height:32px; border:2px solid white; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:12px; box-shadow:0 2px 5px rgba(0,0,0,0.4)">${a.team_id}</div>`,
-                    iconSize: [32, 32],
-                    iconAnchor: [16, 16],
-                });
-
-                const marker = L.marker([a.grid_lat, a.grid_lon], { icon })
-                    .addTo(state.map)
-                    .bindPopup(`
-                        <div style="font-family:Inter,sans-serif;padding:8px;color:#f3f4f6;">
-                            <strong style="font-size:13px">Team ${a.team_id} Assigned</strong><br>
-                            <span style="font-size:12px;">Zone: ${a.grid_cell_id}</span><br>
-                            <span style="font-size:12px;">Risk Score: ${a.risk_score.toFixed(0)}</span><br>
-                            <span style="font-size:12px;">Patrol Prob: ${(a.patrol_probability * 100).toFixed(1)}%</span><br>
-                            <span style="font-size:12px;">Priority Rank: #${a.priority_rank}</span>
+                  <div className="panel-section">
+                    <div className="panel-section-title">Top Hotspots — <span>{currentHour < 10 ? `0${currentHour}` : currentHour}:00</span></div>
+                    <div className="hotspot-list">
+                      {[
+                        { name: 'Upparpet / Elite Jct', sub: '5,838 records · Main road', risk: 87, rankCls: 'rank-1' },
+                        { name: 'Shivajinagar Market', sub: '3,402 records · Double park', risk: 79, rankCls: 'rank-2' },
+                        { name: 'Majestic Bus Terminal', sub: '2,981 records · Near bus stop', risk: 74, rankCls: 'rank-3' },
+                        { name: 'Indiranagar 100ft Rd', sub: '2,114 records · Wrong parking', risk: 61, rankCls: 'rank-n', isMed: true },
+                        { name: 'Koramangala 5th Block', sub: '1,856 records · No parking zone', risk: 55, rankCls: 'rank-n', isMed: true },
+                        { name: 'Silk Board Flyover', sub: '1,423 records · Heavy vehicles', risk: 48, rankCls: 'rank-n', isMed: true }
+                      ].map((item, idx) => (
+                        <div 
+                          key={idx} 
+                          className={`hotspot-item ${selectedHotspot === idx ? 'selected' : ''}`} 
+                          onClick={() => setSelectedHotspot(idx)}
+                        >
+                          <div className={`hotspot-rank ${item.rankCls}`}>{idx + 1}</div>
+                          <div className="hotspot-info">
+                            <div className="hotspot-name">{item.name}</div>
+                            <div className="hotspot-sub">{item.sub}</div>
+                          </div>
+                          <span className={`risk-badge ${item.isMed ? 'risk-med' : 'risk-high'}`}>{item.risk}</span>
                         </div>
-                    `);
-                state.teamMarkers.push(marker);
-            });
+                      ))}
+                    </div>
+                  </div>
 
-            // Draw simulation spillover circles
-            if (data.spillover_zones && data.spillover_zones.length > 0) {
-                data.spillover_zones.forEach(sz => {
-                    const circle = L.circleMarker([sz.grid_lat, sz.grid_lon], {
-                        radius: 8,
-                        fillColor: sz.risk_change_pct > 0 ? '#EF4444' : '#10B981',
-                        fillOpacity: 0.5,
-                        color: '#FFFFFF',
-                        weight: 1,
-                    }).addTo(state.map).bindPopup(`
-                        <div style="font-family:Inter,sans-serif;padding:8px;color:#f3f4f6;">
-                            <strong>Simulation Spillover</strong><br>
-                            <span style="font-size:12px;">Zone: ${sz.grid_cell_id}</span><br>
-                            <span style="font-size:12px;">Original Risk: ${sz.original_risk.toFixed(1)}</span><br>
-                            <span style="font-size:12px;">Adjusted Risk: ${sz.adjusted_risk.toFixed(1)}</span><br>
-                            <span style="font-size:12px;color:${sz.risk_change_pct > 0 ? '#EF4444' : '#10B981'};">Change: ${sz.risk_change_pct > 0 ? '+' : ''}${sz.risk_change_pct.toFixed(1)}%</span>
+                  <div className="panel-section">
+                    <div className="panel-section-title">Patrol Simulation</div>
+                    <div className="team-slider-wrap">
+                      <div className="team-slider-header">
+                        <span className="team-slider-title">Teams deployed</span>
+                        <span className="team-count-badge">{teamCount}</span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="1" 
+                        max="12" 
+                        value={teamCount} 
+                        step="1" 
+                        onChange={(e) => setTeamCount(parseInt(e.target.value))}
+                      />
+                      <div className="sim-bar">
+                        <div className="sim-bar-label"><span>Congestion coverage</span><span>{congestionPct}%</span></div>
+                        <div className="sim-track"><div className="sim-fill" style={{ width: `${congestionPct}%` }}></div></div>
+                      </div>
+                      <div className="sim-info">{teamCount} teams → {congestionPct}% congestion impact covered</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* MAP COLUMN */}
+                <div className="map-col">
+                  <div className="map-area">
+                    <div className="map-bg"></div>
+                    <div className="map-major-h" style={{ top: '35%', left: 0, right: 0 }}></div>
+                    <div className="map-major-h" style={{ top: '60%', left: 0, right: 0 }}></div>
+                    <div className="map-major-v" style={{ left: '30%', top: 0, bottom: 0 }}></div>
+                    <div className="map-major-v" style={{ left: '65%', top: 0, bottom: 0 }}></div>
+                    <div className="map-road-h" style={{ top: '20%', left: 0, right: 0 }}></div>
+                    <div className="map-road-h" style={{ top: '48%', left: 0, right: 0 }}></div>
+                    <div className="map-road-h" style={{ top: '75%', left: 0, right: 0 }}></div>
+                    <div className="map-road-v" style={{ left: '15%', top: 0, bottom: 0 }}></div>
+                    <div className="map-road-v" style={{ left: '45%', top: 0, bottom: 0 }}></div>
+                    <div className="map-road-v" style={{ left: '80%', top: 0, bottom: 0 }}></div>
+                    
+                    <div className="heat-cell" style={{ width: '80px', height: '70px', top: '28%', left: '27%', background: '#DC2626' }}></div>
+                    <div className="heat-cell" style={{ width: '60px', height: '55px', top: '53%', left: '42%', background: '#F59E0B' }}></div>
+                    <div className="heat-cell" style={{ width: '70px', height: '60px', top: '15%', left: '62%', background: '#EF4444' }}></div>
+                    <div className="heat-cell" style={{ width: '50px', height: '45px', top: '64%', left: '20%', background: '#F97316' }}></div>
+                    <div className="heat-cell" style={{ width: '45px', height: '40px', top: '40%', left: '73%', background: '#FCD34D' }}></div>
+                    <div className="heat-cell" style={{ width: '40px', height: '35px', top: '70%', left: '60%', background: '#FDE68A', opacity: .3 }}></div>
+                    
+                    <div className="map-marker" style={{ top: '35%', left: '30%' }}><div className="marker-icon marker-red"><svg width="12" height="12" viewBox="0 0 12 12" fill="white"><circle cx="6" cy="5" r="3"/></svg></div></div>
+                    <div className="map-marker" style={{ top: '22%', left: '65%' }}><div className="marker-icon marker-red"><svg width="12" height="12" viewBox="0 0 12 12" fill="white"><circle cx="6" cy="5" r="3"/></svg></div></div>
+                    <div className="map-marker" style={{ top: '60%', left: '45%' }}><div className="marker-icon marker-amber"><svg width="12" height="12" viewBox="0 0 12 12" fill="white"><circle cx="6" cy="5" r="3"/></svg></div></div>
+                    <div className="map-marker" style={{ top: '48%', left: '78%' }}><div className="marker-icon marker-amber"><svg width="12" height="12" viewBox="0 0 12 12" fill="white"><circle cx="6" cy="5" r="3"/></svg></div></div>
+                    <div className="map-marker" style={{ top: '72%', left: '22%' }}><div className="marker-icon marker-amber"><svg width="12" height="12" viewBox="0 0 12 12" fill="white"><circle cx="6" cy="5" r="3"/></svg></div></div>
+                    <div className="map-marker" style={{ top: '38%', left: '55%' }}><div className="marker-icon marker-green"><svg width="12" height="12" viewBox="0 0 12 12" fill="white"><path d="M2 6 L5 9 L10 3" stroke="white" stroke-width="2" fill="none"/></svg></div></div>
+                    <div className="map-marker" style={{ top: '76%', left: '68%' }}><div className="marker-icon marker-blue"><svg width="12" height="12" viewBox="0 0 12 12" fill="white"><circle cx="6" cy="5" r="3"/></svg></div></div>
+                    
+                    <div className="map-controls">
+                      <div className="map-btn">+</div>
+                      <div className="map-btn">−</div>
+                      <div className="map-btn" style={{ fontSize: '12px' }}>⊞</div>
+                    </div>
+                    <div className="map-legend">
+                      <div className="map-legend-title">Risk Score</div>
+                      <div className="legend-row"><div className="legend-box" style={{ background: '#DC2626' }}></div>0.9 – 1.0</div>
+                      <div className="legend-row"><div className="legend-box" style={{ background: '#F97316' }}></div>0.7 – 0.89</div>
+                      <div className="legend-row"><div className="legend-box" style={{ background: '#FCD34D' }}></div>0.5 – 0.69</div>
+                      <div className="legend-row"><div className="legend-box" style={{ background: '#86EFAC' }}></div>0.3 – 0.49</div>
+                      <div className="legend-row"><div className="legend-box" style={{ background: '#BFDBFE' }}></div>0.0 – 0.29</div>
+                    </div>
+                  </div>
+
+                  {/* TIME SCRUBBER */}
+                  <div className="time-scrubber">
+                    <div className="scrubber-header">
+                      <div><div className="scrubber-title">Time window</div></div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div className="scrubber-buckets">
+                          {BUCKETS.map((bucket, bIdx) => (
+                            <div 
+                              key={bIdx} 
+                              className={`scrubber-bucket ${currentBucketIdx === bIdx ? 'active' : ''}`} 
+                              onClick={() => handleBucketChange(bIdx)}
+                            >
+                              {bucket.label}
+                            </div>
+                          ))}
                         </div>
-                    `);
-                    state.teamMarkers.push(circle);
-                });
-            }
+                        <div className="scrubber-time-display">{currentHour < 10 ? `0${currentHour}` : currentHour}:00</div>
+                      </div>
+                    </div>
 
-            // Update simulation results sidebar panel
-            document.getElementById('simResults').classList.remove('hidden');
-            document.getElementById('simCoverage').textContent = `${data.coverage_pct}%`;
-            document.getElementById('simRiskCovered').textContent = data.total_risk_covered.toFixed(0);
-            document.getElementById('simUncovered').textContent = data.uncovered_high_risk.length;
+                    {/* Density Bar */}
+                    <div className="scrubber-data-bar">
+                      {bucketHours.map((h) => {
+                        const d = DENSITY[h];
+                        const alpha = Math.round(d * 200);
+                        const r = Math.round(26 + d * 203);
+                        const g = Math.round(86 - d * 50);
+                        const bl = Math.round(219 - d * 150);
+                        const backgroundStyle = h >= currentBucket.dimFrom
+                          ? `rgba(209,213,219,${0.4 + d * 0.3})`
+                          : `rgba(${r},${g},${bl},${0.25 + d * 0.55})`;
+                        return (
+                          <div 
+                            key={h} 
+                            className="sdb-seg" 
+                            style={{ flex: '1', background: backgroundStyle, borderRadius: '2px' }}
+                          />
+                        );
+                      })}
+                    </div>
 
-            showToast(`Simulation complete: ${state.numTeams} teams deployed`, 'success');
-        }
-    } catch (err) {
-        console.error('Simulation run error:', err);
-        showToast('Error running simulation', 'error');
-    }
-    showLoading(false);
-}
+                    {/* Track */}
+                    <div className="scrubber-track-wrap">
+                      <div 
+                        className="scrubber-rail" 
+                        ref={railRef} 
+                        onMouseDown={(e) => {
+                          setIsDragging(true);
+                          updateHourFromEvent(e);
+                        }}
+                        onTouchStart={(e) => {
+                          setIsDragging(true);
+                          updateHourFromEvent(e);
+                        }}
+                      >
+                        {currentBucket.dimFrom < currentBucket.end && (
+                          <div 
+                            className="scrubber-dim-zone" 
+                            style={{ 
+                              left: `${hourToPercent(currentBucket.dimFrom) * 100}%`, 
+                              width: `${(1 - hourToPercent(currentBucket.dimFrom)) * 100}%` 
+                            }}
+                          ></div>
+                        )}
+                        <div className="scrubber-fill" style={{ width: `${currentPct * 100}%` }}></div>
+                        <div 
+                          className="scrubber-handle" 
+                          style={{ left: `${currentPct * 100}%` }}
+                        >
+                          <div className="scrubber-tooltip">
+                            {currentHour < 10 ? `0${currentHour}` : currentHour}:00
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
-// ── Hour select population ──────────────────────────────────────────────
-function populateHourSelect() {
-    const sel = document.getElementById('hourSelect');
-    if (!sel) return;
-    for (let h = 0; h < 24; h++) {
-        const opt = document.createElement('option');
-        opt.value = h;
-        const lbl = h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`;
-        const peak = (h >= 8 && h <= 10) || (h >= 17 && h <= 19);
-        opt.textContent = peak ? `${lbl} ●` : lbl;
-        if (h === state.hour) opt.selected = true;
-        sel.appendChild(opt);
-    }
-}
+                    {/* Tick Labels */}
+                    <div className="scrubber-ticks">
+                      {bucketHours.map((h) => (
+                        <div 
+                          key={h} 
+                          className={`scrubber-tick ${h % 2 === 0 ? 'major' : ''} ${h >= currentBucket.dimFrom ? 'dim' : ''}`}
+                        >
+                          <div className="scrubber-tick-mark"></div>
+                          <span>{h}:00</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
-// ── Tab Management ──────────────────────────────────────────────────────
-function handleTab(tab) {
-    const rp = document.getElementById('rightPanel');
-    if (tab === 'assistant') { 
-        rp?.classList.add('mobile-visible'); 
-        activatePanel('chat'); 
-    } else if (tab === 'areas') { 
-        document.getElementById('priorityStrip')?.scrollIntoView({ behavior: 'smooth' }); 
-    } else if (tab === 'map') { 
-        rp?.classList.remove('mobile-visible'); 
-    } else if (tab === 'dispatch' && state.selectedZone) { 
-        rp?.classList.add('mobile-visible'); 
-        activatePanel('details'); 
-    }
-}
+        {/* CONTROL ROOM VIEW */}
+        {activeTab === 'ctrl' && (
+          <div id="view-ctrl">
+            <div className="ctrl-layout">
+              <div className="ctrl-topbar">
+                <div>
+                  <div className="ctrl-title">Bengaluru Traffic Enforcement — Control Room</div>
+                  <div className="ctrl-sub">Live overview · 54 stations · Thursday, 10:45 AM</div>
+                </div>
+                <div className="ctrl-spacer"></div>
+                <div className="live-badge"><div className="live-dot"></div>Live Data</div>
+                <span className="chip chip-blue" style={{ marginLeft: '10px' }}>Forecast: High Risk Today</span>
+              </div>
 
-function activatePanel(p) {
-    document.querySelectorAll('.panel-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === p));
-    document.querySelectorAll('.panel-content').forEach(el => el.classList.remove('active'));
-    
-    if (p === 'chat') {
-        document.getElementById('chatPanel')?.classList.add('active');
-    } else if (p === 'sim') {
-        document.getElementById('simPanel')?.classList.add('active');
-    } else {
-        document.getElementById('detailsPanel')?.classList.add('active');
-    }
-}
+              <div className="kpi-grid">
+                <div className="kpi-card">
+                  <div className="kpi-icon-row">
+                    <div className="kpi-icon kpi-icon-red"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="9" cy="9" r="7"/><path d="M9 5v4l3 3"/></svg></div>
+                    <span className="kpi-trend trend-up">↑ 12%</span>
+                  </div>
+                  <div className="kpi-value">1,428</div>
+                  <div className="kpi-label">Violations today</div>
+                </div>
+                <div className="kpi-card">
+                  <div className="kpi-icon-row">
+                    <div className="kpi-icon kpi-icon-amber"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 9 Q9 3 15 9 Q9 15 3 9z"/></svg></div>
+                    <span className="kpi-trend trend-up">↑ 3</span>
+                  </div>
+                  <div className="kpi-value">24</div>
+                  <div className="kpi-label">Critical zones active</div>
+                </div>
+                <div className="kpi-card">
+                  <div className="kpi-icon-row">
+                    <div className="kpi-icon kpi-icon-blue"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="9" cy="7" r="3"/><path d="M3 16c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg></div>
+                    <span className="kpi-trend trend-dn">↓ 2</span>
+                  </div>
+                  <div className="kpi-value">5</div>
+                  <div className="kpi-label">Teams deployed</div>
+                </div>
+                <div className="kpi-card">
+                  <div className="kpi-icon-row">
+                    <div className="kpi-icon kpi-icon-green"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 9 L7 13 L15 5"/></svg></div>
+                    <span className="kpi-trend trend-dn">↓ 5%</span>
+                  </div>
+                  <div className="kpi-value">62%</div>
+                  <div className="kpi-label">Congestion covered</div>
+                </div>
+              </div>
 
-function sendChat() {
-    const inp = document.getElementById('chatInput');
-    const msg = inp.value.trim();
-    if (!msg) return;
-    inp.value = '';
-    addMsg('user', msg);
-    reply(msg);
-}
+              <div className="ctrl-row ctrl-row-3">
+                <div className="ctrl-map" style={{ minHeight: '260px' }}>
+                  <div className="map-bg"></div>
+                  <div className="map-major-h" style={{ top: '40%', left: 0, right: 0 }}></div>
+                  <div className="map-major-v" style={{ left: '35%', top: 0, bottom: 0 }}></div>
+                  <div className="map-major-v" style={{ left: '70%', top: 0, bottom: 0 }}></div>
+                  <div className="map-road-h" style={{ top: '60%', left: 0, right: 0 }}></div>
+                  <div className="map-road-v" style={{ left: '55%', top: 0, bottom: 0 }}></div>
+                  <div className="heat-cell" style={{ width: '60px', height: '55px', top: '30%', left: '30%', background: '#DC2626', opacity: .4 }}></div>
+                  <div className="heat-cell" style={{ width: '45px', height: '40px', top: '20%', left: '60%', background: '#F97316', opacity: .35 }}></div>
+                  <div className="heat-cell" style={{ width: '50px', height: '45px', top: '55%', left: '48%', background: '#F59E0B', opacity: .35 }}></div>
+                  <div className="heat-cell" style={{ width: '35px', height: '30px', top: '65%', left: '18%', background: '#FDE68A', opacity: .3 }}></div>
+                  <div className="map-marker" style={{ top: '36%', left: '33%' }}><div className="marker-icon marker-red" style={{ width: '24px', height: '24px' }}></div></div>
+                  <div className="map-marker" style={{ top: '26%', left: '63%' }}><div className="marker-icon marker-amber" style={{ width: '24px', height: '24px' }}></div></div>
+                  <div className="map-marker" style={{ top: '60%', left: '52%' }}><div className="marker-icon marker-amber" style={{ width: '24px', height: '24px' }}></div></div>
+                  <div className="map-marker" style={{ top: '48%', left: '20%' }}><div className="marker-icon marker-green" style={{ width: '24px', height: '24px' }}></div></div>
+                  <div className="ctrl-map-title">Live Congestion Heatmap</div>
+                  <div className="toggle-group">
+                    <div className="toggle-opt on">Risk</div>
+                    <div className="toggle-opt">Traffic</div>
+                    <div className="toggle-opt">Patrol</div>
+                  </div>
+                </div>
 
-// ── Event Bindings ──────────────────────────────────────────────────────
-function bindEvents() {
-    // Station search input filter
-    document.getElementById('stationSearch')?.addEventListener('input', e => {
-        const q = e.target.value.toLowerCase();
-        renderStationList(state.stations.filter(s => s.name.toLowerCase().includes(q)));
-    });
+                <div className="card">
+                  <div className="card-title">Active Alerts</div>
+                  <div className="alert-feed">
+                    <div className="alert-item alert-crit">
+                      <div className="alert-icon alert-icon-red"><svg viewBox="0 0 10 10" fill="#DC2626"><path d="M5 1L9 9H1L5 1z"/><rect x="4.5" y="4" width="1" height="3" fill="#fff"/><rect x="4.5" y="7.5" width="1" height="1" fill="#fff"/></svg></div>
+                      <div><div className="alert-msg">Upparpet junction overloaded — risk 87. No team assigned.</div><div className="alert-time">2 min ago</div></div>
+                    </div>
+                    <div className="alert-item alert-warn">
+                      <div className="alert-icon alert-icon-amber"><svg viewBox="0 0 10 10" fill="#F59E0B"><circle cx="5" cy="5" r="4"/><rect x="4.5" y="3" width="1" height="3" fill="#fff"/><rect x="4.5" y="7" width="1" height="1" fill="#fff"/></svg></div>
+                      <div><div className="alert-msg">Majestic Bus Terminal — spillover from Shivajinagar detected.</div><div className="alert-time">5 min ago</div></div>
+                    </div>
+                    <div className="alert-item alert-warn">
+                      <div className="alert-icon alert-icon-amber"><svg viewBox="0 0 10 10" fill="#F59E0B"><circle cx="5" cy="5" r="4"/><rect x="4.5" y="3" width="1" height="3" fill="#fff"/><rect x="4.5" y="7" width="1" height="1" fill="#fff"/></svg></div>
+                      <div><div className="alert-msg">Heavy vehicle parking on MG Road — junction risk +15 pts.</div><div className="alert-time">8 min ago</div></div>
+                    </div>
+                    <div className="alert-item alert-info">
+                      <div className="alert-icon alert-icon-blue"><svg viewBox="0 0 10 10" fill="#3B82F6"><circle cx="5" cy="5" r="4"/><rect x="4.5" y="4.5" width="1" height="3" fill="#fff"/><circle cx="5" cy="3" r="0.8" fill="#fff"/></svg></div>
+                      <div><div className="alert-msg">Team 3 completed patrol at Indiranagar. Violations ↓ 40%.</div><div className="alert-time">14 min ago</div></div>
+                    </div>
+                    <div className="alert-item alert-info">
+                      <div className="alert-icon alert-icon-blue"><svg viewBox="0 0 10 10" fill="#3B82F6"><circle cx="5" cy="5" r="4"/><rect x="4.5" y="4.5" width="1" height="3" fill="#fff"/><circle cx="5" cy="3" r="0.8" fill="#fff"/></svg></div>
+                      <div><div className="alert-msg">LightGBM forecast: Sunday predicted peak — 50K+ records expected.</div><div className="alert-time">22 min ago</div></div>
+                    </div>
+                  </div>
+                </div>
 
-    // Hour select trigger
-    document.getElementById('hourSelect')?.addEventListener('change', e => {
-        state.hour = +e.target.value;
-        if (state.station) loadDashboard();
-    });
+                <div className="card">
+                  <div className="card-title">Stackelberg Patrol Allocation</div>
+                  <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '8px' }}>Game-theory optimal · 5 teams · 10:45 AM</div>
+                  <div className="patrol-zone-list">
+                    <div className="pz-item"><div className="pz-team pz-team-1">T1</div><div className="pz-info"><div className="pz-zone">Upparpet / Elite Jct</div><div className="pz-sub">High risk · 2-wheeler dominant</div></div><div className="pz-prob">92%</div></div>
+                    <div className="pz-item"><div className="pz-team pz-team-2">T2</div><div className="pz-info"><div className="pz-zone">Shivajinagar Market</div><div className="pz-sub">High risk · Double parking</div></div><div className="pz-prob">85%</div></div>
+                    <div className="pz-item"><div className="pz-team pz-team-3">T3</div><div className="pz-info"><div className="pz-zone">Majestic Bus Terminal</div><div className="pz-sub">Spillover zone · Bus stop</div></div><div className="pz-prob">78%</div></div>
+                    <div className="pz-item"><div className="pz-team pz-team-4">T4</div><div className="pz-info"><div className="pz-zone">Indiranagar 100ft Rd</div><div className="pz-sub">Medium risk · Wrong parking</div></div><div className="pz-prob">61%</div></div>
+                    <div className="pz-item"><div className="pz-team pz-team-5">T5</div><div className="pz-info"><div className="pz-zone">Koramangala 5th Block</div><div className="pz-sub">Medium risk · NP zone</div></div><div className="pz-prob">55%</div></div>
+                  </div>
+                  <div className="divider"></div>
+                  <div style={{ fontSize: '11px', color: '#6B7280' }}>Patrol probability = P(enforcement | Stackelberg equilibrium)</div>
+                </div>
+              </div>
 
-    // Heatmap layer type toggle
-    document.querySelectorAll('.layer-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.layer-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            state.layer = btn.dataset.layer;
-            if (state.map) loadHeatmap();
-        });
-    });
+              <div className="ctrl-row ctrl-row-3">
+                <div className="card">
+                  <div className="card-title">7-Day Violation Forecast — LightGBM</div>
+                  <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '10px' }}>Precision@10: 81% · MAE: 214 violations/zone-day</div>
+                  <div className="forecast-row"><span className="forecast-day">Thu</span><div className="forecast-track"><div className="forecast-fill" style={{ width: '72%', background: '#1A56DB' }}></div></div><span className="forecast-num">1,428</span></div>
+                  <div className="forecast-row"><span className="forecast-day">Fri</span><div className="forecast-track"><div className="forecast-fill" style={{ width: '80%', background: '#3B82F6' }}></div></div><span className="forecast-num">1,591</span></div>
+                  <div className="forecast-row"><span className="forecast-day">Sat</span><div className="forecast-track"><div className="forecast-fill" style={{ width: '88%', background: '#F97316' }}></div></div><span className="forecast-num">1,744</span></div>
+                  <div className="forecast-row"><span className="forecast-day" style={{ color: '#DC2626', fontWeight: 700 }}>Sun</span><div className="forecast-track"><div className="forecast-fill" style={{ width: '100%', background: '#DC2626' }}></div></div><span className="forecast-num" style={{ color: '#DC2626' }}>1,986</span></div>
+                  <div className="forecast-row"><span className="forecast-day">Mon</span><div className="forecast-track"><div className="forecast-fill" style={{ width: '62%', background: '#60A5FA' }}></div></div><span className="forecast-num">1,230</span></div>
+                  <div className="forecast-row"><span className="forecast-day">Tue</span><div className="forecast-track"><div className="forecast-fill" style={{ width: '58%', background: '#93C5FD' }}></div></div><span className="forecast-num">1,148</span></div>
+                  <div className="forecast-row"><span className="forecast-day">Wed</span><div className="forecast-track"><div className="forecast-fill" style={{ width: '55%', background: '#BAE6FD' }}></div></div><span className="forecast-num">1,089</span></div>
+                  <div style={{ marginTop: '8px', padding: '6px 8px', background: '#FFFBEB', borderRadius: '6px', border: '1px solid #FDE68A', fontSize: '11px', color: '#92400E' }}>⚠ Sunday forecast exceeds average. Pre-deploy +3 teams recommended.</div>
+                </div>
 
-    // Left nav rail tabs
-    document.querySelectorAll('.nav-item[data-tab]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.nav-item[data-tab]').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            handleTab(btn.dataset.tab);
-        });
-    });
+                <div className="card">
+                  <div className="card-title">Waterbed Effect Simulation</div>
+                  <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '8px' }}>H3 hex grid · Enforce Zone A → violations migrate</div>
+                  <div className="waterbed-grid">
+                    <div className="wb-cell wb-neutral">—</div><div className="wb-cell wb-normal">42</div><div className="wb-cell wb-spill-high">67↑</div><div className="wb-cell wb-normal">38</div><div className="wb-cell wb-neutral">—</div>
+                    <div className="wb-cell wb-normal">51</div><div className="wb-cell wb-spill-high">89↑</div><div className="wb-cell wb-enforced">✓ 0</div><div className="wb-cell wb-spill-high">74↑</div><div className="wb-cell wb-normal">29</div>
+                    <div className="wb-cell wb-neutral">—</div><div className="wb-cell wb-spill-med">58↑</div><div className="wb-cell wb-normal">41</div><div className="wb-cell wb-spill-med">55↑</div><div className="wb-cell wb-neutral">—</div>
+                    <div className="wb-cell wb-neutral">—</div><div className="wb-cell wb-normal">33</div><div className="wb-cell wb-spill-med">48↑</div><div className="wb-cell wb-normal">26</div><div className="wb-cell wb-neutral">—</div>
+                    <div className="wb-cell wb-neutral">—</div><div className="wb-cell wb-neutral">—</div><div className="wb-cell wb-normal">22</div><div className="wb-cell wb-neutral">—</div><div className="wb-cell wb-neutral">—</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#DCFCE7', color: '#15803D', border: '1px solid #22C55E' }}>✓ Enforced</span>
+                    <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#FEF9C3', color: '#92400E' }}>↑ Spillover</span>
+                    <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#EFF6FF', color: '#1E40AF' }}>Normal</span>
+                  </div>
+                </div>
 
-    // Mobile tabs
-    document.querySelectorAll('.mobile-tab').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.mobile-tab').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            handleTab(btn.dataset.tab);
-        });
-    });
-
-    // Sidebar tab panel switcher
-    document.querySelectorAll('.panel-tab').forEach(btn => {
-        btn.addEventListener('click', () => activatePanel(btn.dataset.panel));
-    });
-
-    // AI chat operations
-    document.getElementById('chatSend')?.addEventListener('click', sendChat);
-    document.getElementById('chatInput')?.addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
-    document.querySelectorAll('.prompt-chip').forEach(chip => {
-        chip.addEventListener('click', () => { addMsg('user', chip.dataset.prompt); reply(chip.dataset.prompt); });
-    });
-
-    // Switch police station
-    document.getElementById('switchStationBtn')?.addEventListener('click', () => {
-        document.getElementById('stationScreen').classList.remove('hidden');
-        document.getElementById('appShell').classList.add('hidden');
-    });
-
-    // Patrol simulation setup
-    const teamSlider = document.getElementById('teamSlider');
-    const teamCountLbl = document.getElementById('teamCount');
-    if (teamSlider && teamCountLbl) {
-        teamSlider.addEventListener('input', e => {
-            state.numTeams = parseInt(e.target.value);
-            teamCountLbl.textContent = e.target.value;
-        });
-    }
-
-    document.getElementById('runSimBtn')?.addEventListener('click', runSimulation);
+                <div className="card">
+                  <div className="card-title">Top Stations by Violation Count</div>
+                  <table className="station-table">
+                    <thead>
+                      <tr><th>#</th><th>Station</th><th>Count</th><th>Risk</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr><td style={{ color: '#9CA3AF', fontWeight: 700 }}>1</td><td className="st-name">Upparpet</td><td>5,838</td><td><span className="risk-pill risk-pill-red">87</span></td><td><span className="chip chip-amber" style={{ fontSize: '10px', padding: '2px 7px' }}>Pending</span></td></tr>
+                      <tr><td style={{ color: '#9CA3AF', fontWeight: 700 }}>2</td><td className="st-name">Shivajinagar</td><td>3,402</td><td><span class="risk-pill risk-pill-red">79</span></td><td><span className="chip chip-green" style={{ fontSize: '10px', padding: '2px 7px' }}>Active</span></td></tr>
+                      <tr><td style={{ color: '#9CA3AF', fontWeight: 700 }}>3</td><td className="st-name">KR Market</td><td>2,981</td><td><span className="risk-pill risk-pill-amber">74</span></td><td><span className="chip chip-green" style={{ fontSize: '10px', padding: '2px 7px' }}>Active</span></td></tr>
+                      <tr><td style={{ color: '#9CA3AF', fontWeight: 700 }}>4</td><td className="st-name">Indiranagar</td><td>2,114</td><td><span className="risk-pill risk-pill-amber">61</span></td><td><span className="chip chip-green" style={{ fontSize: '10px', padding: '2px 7px' }}>Active</span></td></tr>
+                      <tr><td style={{ color: '#9CA3AF', fontWeight: 700 }}>5</td><td className="st-name">Koramangala</td><td>1,856</td><td><span className="risk-pill risk-pill-amber">55</span></td><td><span className="chip chip-blue" style={{ fontSize: '10px', padding: '2px 7px' }}>Patrol</span></td></tr>
+                      <tr><td style={{ color: '#9CA3AF', fontWeight: 700 }}>6</td><td className="st-name">Silk Board</td><td>1,423</td><td><span className="risk-pill risk-pill-green">48</span></td><td><span className="chip chip-amber" style={{ fontSize: '10px', padding: '2px 7px' }}>Pending</span></td></tr>
+                    </tbody>
+                  </table>
+                  <div className="divider"></div>
+                  <div style={{ fontSize: '11px', color: '#6B7280' }}>54 total stations · 29 monitored · 25 unmonitored</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
 }

@@ -1,30 +1,60 @@
 # ParkVision-Saathi: Backend Checklist & Implementation Status
 
-This document tracks the tasks required for the backend infrastructure as specified in `EXECUTION_PLANNER.md` (Sprint 1 Skeleton), highlighting what was required, what has been done, and the associated files.
+This document tracks the backend infrastructure against `EXECUTION_PLANNER.md`.
 
-## Summary Status
+> **Architecture:** the backend is **JSON + in-memory, no database**. At startup
+> `backend/app/data_loader.py` loads the pre-computed JSON artifacts in `data/`
+> into a single in-memory `DataStore`; every router reads from that store. There
+> is **no SQLite/PostgreSQL/Redis/Docker** and nothing makes a network call at
+> request time, so the API runs fully offline. See `API_DOCS.md` for the endpoint
+> reference and `run_pipeline.py` for how the artifacts are regenerated.
 
-| Requirement / Task | Target File(s) | Status | Details / Implementation |
+## Data artifacts the backend serves
+
+| Artifact | Purpose |
+| :-- | :-- |
+| `data/processed/zone_congestion_impact.json` | Canonical Congestion Impact Score (CIS) — 2,527 real H3 res-9 Bengaluru zones (QUANTIFY pillar; powers heatmap, hotspots, zone detail) |
+| `data/enriched/traffic_context_h3.json` | Real MapMyIndia travel-time ratio, road names, POIs — keyed by true H3 id |
+| `data/processed/calibrated_scores.json` | Self-validating agent's calibrated scores |
+| `data/processed/agent_log.json` | Agent run summary + per-zone reasoning |
+| `data/processed/forecasts.json` | H3-native LightGBM-Poisson next-day forecast (PREDICT pillar) |
+| `data/processed/explanations_cache.json` | Pre-generated LLM zone explanations (cache tier of `/explain`) |
+
+The served **hotspot / OPTIMIZE zone universe** (markers, game theory, simulation,
+stations, `/traffic`) is built in `data_loader._build_zone_universe()` as the
+**top-60 real CIS zones by violation volume** — every id is a true H3 id that
+matches the CIS map, the traffic enrichment, the calibration, and the forecast.
+
+## Summary status
+
+| Requirement / Task | Target File(s) | Status | Details |
 | :--- | :--- | :---: | :--- |
-| **FastAPI Skeleton with CORS** | [backend/app/main.py](file:///Users/abhijeetkushwaha/Park-Vision-sathi/backend/app/main.py) | ✅ **DONE** | Created FastAPI app entry, added CORSMiddleware configuration allowing wildcard origins, and mounted static frontend assets at `/dashboard`. |
-| **Heatmap Router Stub** | [backend/app/routers/heatmap.py](file:///Users/abhijeetkushwaha/Park-Vision-sathi/backend/app/routers/heatmap.py) | ✅ **DONE** | Implemented `/heatmap` and `/heatmap/patrol_overlay` endpoints querying risk, raw, violator, and spillover maps directly from the SQLite database. |
-| **Risk & Hotspots Router Stub** | [backend/app/routers/risk.py](file:///Users/abhijeetkushwaha/Park-Vision-sathi/backend/app/routers/risk.py) | ✅ **DONE** | Implemented `/hotspots` (DBSCAN cluster retrieval), `/risk` (zone list), `/risk/summary` (metrics aggregation), `/risk/top_zones` (highest risk areas), `/risk/overview`, and `/risk/{zone_id}` (detailed risk component breakdown). |
-| **Forecast Router Stub** | [backend/app/routers/forecast.py](file:///Users/abhijeetkushwaha/Park-Vision-sathi/backend/app/routers/forecast.py) | ✅ **DONE** | Implemented `/forecast/zones`, `/forecast/top_risk_zones`, `/forecast/accuracy` (computes live MAE, MSE, and RMSE against actuals), and `/forecast/stations` (aggregates forecasts by precinct). |
-| **Game Theory Router Stub** | [backend/app/routers/game.py](file:///Users/abhijeetkushwaha/Park-Vision-sathi/backend/app/routers/game.py) | ✅ **DONE** | Implemented `/game/stackelberg_strategy`, `/game/violator_adaptation`, `/game/spillover_forecast`, `/game/summary`, `/game/spillover_arrows`, and `/game/whatif_coverage`. |
-| **Patrol Simulation Router Stub** | [backend/app/routers/simulate.py](file:///Users/abhijeetkushwaha/Park-Vision-sathi/backend/app/routers/simulate.py) | ✅ **DONE** | Implemented `POST /simulate` route calculating greedy assignments, uncovered high-risk zones, and spillover effects dynamically. |
-| **Explanations Router Stub** | [backend/app/routers/explain.py](file:///Users/abhijeetkushwaha/Park-Vision-sathi/backend/app/routers/explain.py) | ✅ **DONE** | Created `POST /explain` to generate data-driven natural language explanations of risk components (double parking, heavy vehicle ratios, road importance) using active SQLite metrics. |
-| **Traffic Context Router Stub** | [backend/app/routers/traffic.py](file:///Users/abhijeetkushwaha/Park-Vision-sathi/backend/app/routers/traffic.py) | ✅ **DONE** | Created `GET /traffic/{zone_id}` calculating travel time delays, road type classifications, and local POIs dynamically. |
-| **Pydantic Model Definitions** | [backend/app/models.py](file:///Users/abhijeetkushwaha/Park-Vision-sathi/backend/app/models.py) | ✅ **DONE** | Centralized all data models (`TrafficContext`, `ExplainRequest`, `ExplainResponse`, `SimulationRequest`, `SimulationResponse`, etc.). |
-| **Requirements Specification** | [requirements.txt](file:///Users/abhijeetkushwaha/Park-Vision-sathi/requirements.txt) | ✅ **DONE** | Configured core libraries (`fastapi`, `uvicorn`, `lightgbm`, `pandas`, `pydantic`, etc.) in the root folder. |
+| FastAPI skeleton with CORS | `backend/app/main.py` | ✅ DONE | App entry, CORS wildcard, static dashboard mount at `/dashboard`; routes mounted at bare path and under `/api`. |
+| In-memory DataStore (no DB) | `backend/app/data_loader.py` | ✅ DONE | Loads all JSON once; builds the real-zone universe + game-theory fields. |
+| Heatmap router | `backend/app/routers/heatmap.py` | ✅ DONE | `/heatmap` (risk / raw / violator / spillover layers) + `/heatmap/patrol_overlay`. |
+| Risk & hotspots router | `backend/app/routers/risk.py` | ✅ DONE | `/hotspots` (CIS-ranked), `/risk`, `/risk/summary`, `/risk/top_zones`, `/risk/overview`, `/risk/{zone_id}` (CIS breakdown). |
+| Forecast router | `backend/app/routers/forecast.py` | ✅ DONE | `/forecast/zones`, `/forecast/top_risk_zones`, `/forecast/accuracy` (real held-out metrics), served from `forecasts.json`. |
+| Game theory router | `backend/app/routers/game.py` | ✅ DONE | `/game/stackelberg_strategy`, `/violator_adaptation`, `/spillover_forecast`, `/summary`, `/spillover_arrows`, `/whatif_coverage`. |
+| Simulation router | `backend/app/routers/simulate.py` | ✅ DONE | `POST /simulate` — greedy allocation, coverage %, waterbed spillover. |
+| Explanations router | `backend/app/routers/explain.py` | ✅ DONE | `POST /explain` — cache → optional Gemini → grounded offline fallback. |
+| Traffic context router | `backend/app/routers/traffic.py` | ✅ DONE | `GET /traffic/{zone_id}` — real MapMyIndia ratio, road, POIs. |
+| Stations router | `backend/app/routers/stations.py` | ✅ DONE | `/stations`, `/stations/{station}/priority_areas`, `/stations/{station}/summary`. |
+| Agent router | `backend/app/routers/agent.py` | ✅ DONE | `GET /agent/validation-report`. |
+| Pydantic models | `backend/app/models.py` | ✅ DONE | CIS contract + legacy response models. |
+| Requirements | `requirements.txt` / `requirements-backend.txt` | ✅ DONE | Full (ML + tests) and lean runtime (deploy) sets. |
+| Deploy config | `render.yaml`, `Procfile` | ✅ DONE | Render blueprint + Procfile, `$PORT`, `/health` check. |
 
 ---
 
-## Verification & Execution
-
-The integrated API was verified using the in-process test suite [scripts/test_in_process.py](file:///Users/abhijeetkushwaha/Park-Vision-sathi/scripts/test_in_process.py):
+## Verification
 
 ```bash
-PYTHONPATH=. .venv/bin/python scripts/test_in_process.py
+# Full test suite (backend + ML): 126 passed
+PYTHONPATH=. python -m pytest -q
+
+# Run the API (from the project root)
+uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-All endpoints are fully operational and connected to the underlying SQLite database structure (`data/parkvision.db`).
+All endpoints return HTTP 200 and serve real, id-aligned Bengaluru data from the
+in-memory JSON store.
