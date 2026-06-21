@@ -1,0 +1,772 @@
+{
+  "8960145b553ffff": {
+    "zone_id": "8960145b553ffff",
+    "lat": 12.975534,
+    "lon": 77.575868,
+    "station": "Upparpet",
+    "travel_time_to_center_sec": 450.7,
+    "travel_time_eta_sec": 718.4,
+    "travel_time_ratio": 1.594,
+    "travel_time_baseline_min": 7.5,
+    "travel_time_eta_min": 12.0,
+    "road_name": "Subedar Chatram Road, Gandhi Nagar",
+    "street": "Subedar Chatram Road",
+    "street_dist_m": "4",
+    "locality": "Gandhi Nagar",
+    "sub_locality": "Kempe Gowda Circle",
+    "district": "Bengaluru Urban District",
+    "city": "Bengaluru",
+    "state": "Karnataka",
+    "pincode": "560009",
+    "formatted_address": "Subedar Chatram Road, Kempe Gowda Circle, Gandhi Nagar, Bengaluru, Karnataka. Pin-560009 (India)",
+    "nearby_pois": [
+      "Flix Bus Bengaluru Bus Stop (106m)",
+      "Bus Stop (211m)",
+      "Private Bus Station (275m)",
+      "International Airport Bus Stop (432m)",
+      "Dawaa Dost Kempegowda Bangalore Bus Store (442m)"
+    ],
+    "nearby_pois_detailed": [
+      {
+        "name": "Flix Bus Bengaluru Bus Stop",
+        "distance_m": 106,
+        "eloc": "GO3VTT",
+        "address": "Major T Ramachandrappa Road, Gandhi Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Bus Stop",
+        "distance_m": 211,
+        "eloc": "7BS9MQ",
+        "address": "Major T Ramachandrappa Road, RK Puram, Gandhi Nagar, Bengaluru, Karnataka, 560009",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Private Bus Station",
+        "distance_m": 275,
+        "eloc": "BBD5NL",
+        "address": "Majestic, Bengaluru, Karnataka, 560023",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "International Airport Bus Stop",
+        "distance_m": 432,
+        "eloc": "28GDZN",
+        "address": "Kempegowda, Majestic, Bengaluru, Karnataka, 560023",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Dawaa Dost Kempegowda Bangalore Bus Store",
+        "distance_m": 442,
+        "eloc": "WMA9CP",
+        "address": "Bus Station, BMTC Complex, Kempegowda, Bengaluru, Karnataka, 560023",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      }
+    ],
+    "api_enriched": true,
+    "original_zone_id": "89283082cffffff"
+  },
+  "8960145b59bffff": {
+    "zone_id": "8960145b59bffff",
+    "lat": 12.964614,
+    "lon": 77.57623,
+    "station": "City Market",
+    "travel_time_to_center_sec": 262.0,
+    "travel_time_eta_sec": 400.6,
+    "travel_time_ratio": 1.529,
+    "travel_time_baseline_min": 4.4,
+    "travel_time_eta_min": 6.7,
+    "road_name": "Mysore Road, Chickpete",
+    "street": "Mysore Road",
+    "street_dist_m": "17",
+    "locality": "Chickpete",
+    "sub_locality": "Sri Krishna Rajendra Market",
+    "district": "Bengaluru Urban District",
+    "city": "Bengaluru",
+    "state": "Karnataka",
+    "pincode": "560002",
+    "formatted_address": "Mysore Road, Sri Krishna Rajendra Market, Chickpete, Bengaluru, Karnataka. Pin-560002 (India)",
+    "nearby_pois": [
+      "Bus Stop (82m)",
+      "City Market Bus Stop (115m)",
+      "Kengiri Route Bus Stop (279m)",
+      "Vanivilas Bus Stop (353m)",
+      "Madanapalle Bus Stop (369m)"
+    ],
+    "nearby_pois_detailed": [
+      {
+        "name": "Bus Stop",
+        "distance_m": 82,
+        "eloc": "F712HX",
+        "address": "Mysore Road, Kalasipalyam, Bengaluru, Karnataka, 560002",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "City Market Bus Stop",
+        "distance_m": 115,
+        "eloc": "72R6JN",
+        "address": "Kalasipalyam Main Road, Kalasipalyam, Bengaluru, Karnataka, 560002",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Kengiri Route Bus Stop",
+        "distance_m": 279,
+        "eloc": "E497XZ",
+        "address": "Vani Vilas Hospital Road, Doddamavalli, Bengaluru, Karnataka, 560002",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Vanivilas Bus Stop",
+        "distance_m": 353,
+        "eloc": "NVDOG8",
+        "address": "KR Main Road, Kalasipalyam, Bengaluru, Karnataka, 560002",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Madanapalle Bus Stop",
+        "distance_m": 369,
+        "eloc": "URSKV8",
+        "address": "VVI Road, Kalasipalyam, Bengaluru, Karnataka, 560002",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      }
+    ],
+    "api_enriched": true,
+    "original_zone_id": "89283082dffffff"
+  },
+  "89618920923ffff": {
+    "zone_id": "89618920923ffff",
+    "lat": 12.933596,
+    "lon": 77.690991,
+    "station": "HAL Old Airport",
+    "travel_time_to_center_sec": 1590.5,
+    "travel_time_eta_sec": 2001.8,
+    "travel_time_ratio": 1.259,
+    "travel_time_baseline_min": 26.5,
+    "travel_time_eta_min": 33.4,
+    "road_name": "New Horizon College Road, Kadubisanahalli",
+    "street": "New Horizon College Road",
+    "street_dist_m": "2",
+    "locality": "Kadubisanahalli",
+    "sub_locality": "New Horizon College of Engineering",
+    "district": "Bengaluru Urban District",
+    "city": "Bengaluru",
+    "state": "Karnataka",
+    "pincode": "560103",
+    "formatted_address": "New Horizon College Road, New Horizon College of Engineering, Kadubisanahalli, Bengaluru, Karnataka. Pin-560103 (India)",
+    "nearby_pois": [
+      "Bus Stop (180m)",
+      "Bus Stop (183m)",
+      "Bus Stop (185m)",
+      "Bus Stop (185m)",
+      "Bus Stop (192m)"
+    ],
+    "nearby_pois_detailed": [
+      {
+        "name": "Bus Stop",
+        "distance_m": 180,
+        "eloc": "Y8O4VA",
+        "address": "Chandana, Kadubisanahalli, Bengaluru, Karnataka, 560103",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Bus Stop",
+        "distance_m": 183,
+        "eloc": "TVT04D",
+        "address": "Embassy Tech Village, Bengaluru, Karnataka, 560103",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Bus Stop",
+        "distance_m": 185,
+        "eloc": "XFAUFQ",
+        "address": "Rajiv Nagar, Kadubisanahalli, Bengaluru, Karnataka, 560103",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Bus Stop",
+        "distance_m": 185,
+        "eloc": "1GTRJR",
+        "address": "Kadubisanahalli, Bengaluru, Karnataka, 560103",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Bus Stop",
+        "distance_m": 192,
+        "eloc": "47YVC3",
+        "address": "Kadubisanahalli, Bengaluru, Karnataka, 560103",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      }
+    ],
+    "api_enriched": true,
+    "original_zone_id": "892830829ffffff"
+  },
+  "8961892e9bbffff": {
+    "zone_id": "8961892e9bbffff",
+    "lat": 12.981066,
+    "lon": 77.610147,
+    "station": "Shivajinagar",
+    "travel_time_to_center_sec": 350.1,
+    "travel_time_eta_sec": 596.6,
+    "travel_time_ratio": 1.704,
+    "travel_time_baseline_min": 5.8,
+    "travel_time_eta_min": 9.9,
+    "road_name": "Kamaraj Road, Sivanchetti Gardens",
+    "street": "Kamaraj Road",
+    "street_dist_m": "2",
+    "locality": "Sivanchetti Gardens",
+    "sub_locality": "Sri Nagamma Devi Circle",
+    "district": "Bengaluru Urban District",
+    "city": "Bengaluru",
+    "state": "Karnataka",
+    "pincode": "560042",
+    "formatted_address": "Kamaraj Road, Sri Nagamma Devi Circle, Sivanchetti Gardens, Bengaluru, Karnataka. Pin-560042 (India)",
+    "nearby_pois": [
+      "Bus Stop (71m)",
+      "Bus Stop (78m)",
+      "Dickenson Road Bus Stop (80m)",
+      "Bus Stop (91m)",
+      "Commercial Street Bus Stop (109m)"
+    ],
+    "nearby_pois_detailed": [
+      {
+        "name": "Bus Stop",
+        "distance_m": 71,
+        "eloc": "7BS9FD",
+        "address": "Dickenson Road, Sivanchetti Gardens, Bengaluru, Karnataka, 560042",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Bus Stop",
+        "distance_m": 78,
+        "eloc": "PKG7NO",
+        "address": "Dickenson Road, Sivanchetti Gardens, Bengaluru, Karnataka, 560042",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Dickenson Road Bus Stop",
+        "distance_m": 80,
+        "eloc": "ATD915",
+        "address": "Dickenson Road, Sivanchetti Gardens, Bengaluru, Karnataka, 560042",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Bus Stop",
+        "distance_m": 91,
+        "eloc": "7P36DN",
+        "address": "Kamaraj Road, Tasker Town, Shivaji Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Commercial Street Bus Stop",
+        "distance_m": 109,
+        "eloc": "LBYDFD",
+        "address": "Kamaraj Road, Tasker Town, Shivaji Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      }
+    ],
+    "api_enriched": true,
+    "original_zone_id": "89283082affffff"
+  },
+  "8960145b427ffff": {
+    "zone_id": "8960145b427ffff",
+    "lat": 12.978101,
+    "lon": 77.579573,
+    "station": "Upparpet",
+    "travel_time_to_center_sec": 411.1,
+    "travel_time_eta_sec": 409.1,
+    "travel_time_ratio": 0.995,
+    "travel_time_baseline_min": 6.9,
+    "travel_time_eta_min": 6.8,
+    "road_name": "2nd Main Road, Gandhi Nagar",
+    "street": "2nd Main Road",
+    "street_dist_m": "9",
+    "locality": "Gandhi Nagar",
+    "sub_locality": "Jakkarayana Kere",
+    "district": "Bengaluru Urban District",
+    "city": "Bengaluru",
+    "state": "Karnataka",
+    "pincode": "560009",
+    "formatted_address": "2nd Main Road, Jakkarayana Kere, Gandhi Nagar, Bengaluru, Karnataka. Pin-560009 (India)",
+    "nearby_pois": [
+      "Gandhi Nagar Bus Stop (145m)",
+      "Bus Stop (466m)",
+      "KSRTC Bus Stop (467m)",
+      "Bus Stop (470m)",
+      "Mysore Bank Bus Stop (473m)"
+    ],
+    "nearby_pois_detailed": [
+      {
+        "name": "Gandhi Nagar Bus Stop",
+        "distance_m": 145,
+        "eloc": "WMW7E5",
+        "address": "Y Ramachandra Road, Gandhi Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Bus Stop",
+        "distance_m": 466,
+        "eloc": "4OT8WX",
+        "address": "Palace Road, Gandhi Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "KSRTC Bus Stop",
+        "distance_m": 467,
+        "eloc": "Y8HCV7",
+        "address": "Palace Road, Gandhi Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Bus Stop",
+        "distance_m": 470,
+        "eloc": "7R1TH7",
+        "address": "Palace Road, Gandhi Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Mysore Bank Bus Stop",
+        "distance_m": 473,
+        "eloc": "O82OGE",
+        "address": "Palace Road, Gandhi Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      }
+    ],
+    "api_enriched": true,
+    "original_zone_id": "89283082fffffff"
+  },
+  "8961892e9abffff": {
+    "zone_id": "8961892e9abffff",
+    "lat": 12.982147,
+    "lon": 77.606763,
+    "station": "Shivajinagar",
+    "travel_time_to_center_sec": 319.0,
+    "travel_time_eta_sec": 519.3,
+    "travel_time_ratio": 1.628,
+    "travel_time_baseline_min": 5.3,
+    "travel_time_eta_min": 8.7,
+    "road_name": "Dispensary Road, Shivaji Nagar",
+    "street": "Dispensary Road",
+    "street_dist_m": "3",
+    "locality": "Shivaji Nagar",
+    "sub_locality": "Tasker Town",
+    "district": "Bengaluru Urban District",
+    "city": "Bengaluru",
+    "state": "Karnataka",
+    "pincode": "560001",
+    "formatted_address": "Dispensary Road, Tasker Town, Shivaji Nagar, Bengaluru, Karnataka. Pin-560001 (India)",
+    "nearby_pois": [
+      "Bus Stop (384m)",
+      "Commercial Street Bus Stop (385m)",
+      "Bus Stop (394m)",
+      "Shivajinagara Bus Station (400m)",
+      "Bus Stop (418m)"
+    ],
+    "nearby_pois_detailed": [
+      {
+        "name": "Bus Stop",
+        "distance_m": 384,
+        "eloc": "7P36DN",
+        "address": "Kamaraj Road, Tasker Town, Shivaji Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Commercial Street Bus Stop",
+        "distance_m": 385,
+        "eloc": "LBYDFD",
+        "address": "Kamaraj Road, Tasker Town, Shivaji Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Bus Stop",
+        "distance_m": 394,
+        "eloc": "F69U5T",
+        "address": "Central Street, Shivaji Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Shivajinagara Bus Station",
+        "distance_m": 400,
+        "eloc": "V3WH9F",
+        "address": "Shivaji Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Bus Stop",
+        "distance_m": 418,
+        "eloc": "G0IOL4",
+        "address": "Kamaraj Road, Tasker Town, Shivaji Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      }
+    ],
+    "api_enriched": true,
+    "original_zone_id": "892830832ffffff"
+  },
+  "8960145b5cbffff": {
+    "zone_id": "8960145b5cbffff",
+    "lat": 12.973351,
+    "lon": 77.57924,
+    "station": "Upparpet",
+    "travel_time_to_center_sec": 325.8,
+    "travel_time_eta_sec": 323.2,
+    "travel_time_ratio": 0.992,
+    "travel_time_baseline_min": 5.4,
+    "travel_time_eta_min": 5.4,
+    "road_name": "3rd Cross Road, Chickpete",
+    "street": "3rd Cross Road",
+    "street_dist_m": "3",
+    "locality": "Chickpete",
+    "sub_locality": "Kempegowda Extension",
+    "district": "Bengaluru Urban District",
+    "city": "Bengaluru",
+    "state": "Karnataka",
+    "pincode": "560009",
+    "formatted_address": "3rd Cross Road, Kempegowda Extension, Chickpete, Bengaluru, Karnataka. Pin-560009 (India)",
+    "nearby_pois": [
+      "Mysore Bank Bus Stop (216m)",
+      "Mysore Bank Bus Stop (306m)",
+      "Bus Stop (307m)",
+      "Bus Stop (309m)",
+      "Bus Stop (311m)"
+    ],
+    "nearby_pois_detailed": [
+      {
+        "name": "Mysore Bank Bus Stop",
+        "distance_m": 216,
+        "eloc": "4WVKGB",
+        "address": "Palace Road, Ambedkar Veedhi, Gandhi Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Mysore Bank Bus Stop",
+        "distance_m": 306,
+        "eloc": "O82OGE",
+        "address": "Palace Road, Gandhi Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Bus Stop",
+        "distance_m": 307,
+        "eloc": "7R1TH7",
+        "address": "Palace Road, Gandhi Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Bus Stop",
+        "distance_m": 309,
+        "eloc": "4OT8WX",
+        "address": "Palace Road, Gandhi Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Bus Stop",
+        "distance_m": 311,
+        "eloc": "7P29OJ",
+        "address": "District Office Road, Cubbonpet, Nagartapete, Bengaluru, Karnataka, 560002",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      }
+    ],
+    "api_enriched": true,
+    "original_zone_id": "892830831ffffff"
+  },
+  "8961892e917ffff": {
+    "zone_id": "8961892e917ffff",
+    "lat": 12.982485,
+    "lon": 77.610725,
+    "station": "Shivajinagar",
+    "travel_time_to_center_sec": 411.7,
+    "travel_time_eta_sec": 608.4,
+    "travel_time_ratio": 1.478,
+    "travel_time_baseline_min": 6.9,
+    "travel_time_eta_min": 10.1,
+    "road_name": "Kamaraj Road, Sivanchetti Gardens",
+    "street": "Kamaraj Road",
+    "street_dist_m": "19",
+    "locality": "Sivanchetti Gardens",
+    "sub_locality": "Sri Nagamma Devi Circle",
+    "district": "Bengaluru Urban District",
+    "city": "Bengaluru",
+    "state": "Karnataka",
+    "pincode": "560042",
+    "formatted_address": "Kamaraj Road, Sri Nagamma Devi Circle, Sivanchetti Gardens, Bengaluru, Karnataka. Pin-560042 (India)",
+    "nearby_pois": [
+      "Bus Stop (179m)",
+      "Dickenson Road Bus Stop (197m)",
+      "Bus Stop (202m)",
+      "Bus Stop (233m)",
+      "Kamraj Road Bus Stop (241m)"
+    ],
+    "nearby_pois_detailed": [
+      {
+        "name": "Bus Stop",
+        "distance_m": 179,
+        "eloc": "PKG7NO",
+        "address": "Dickenson Road, Sivanchetti Gardens, Bengaluru, Karnataka, 560042",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Dickenson Road Bus Stop",
+        "distance_m": 197,
+        "eloc": "ATD915",
+        "address": "Dickenson Road, Sivanchetti Gardens, Bengaluru, Karnataka, 560042",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Bus Stop",
+        "distance_m": 202,
+        "eloc": "7BS9FD",
+        "address": "Dickenson Road, Sivanchetti Gardens, Bengaluru, Karnataka, 560042",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Bus Stop",
+        "distance_m": 233,
+        "eloc": "VIWP0T",
+        "address": "A Street, Bharthi Nagar, Shivaji Nagar, Bengaluru, Karnataka, 560051",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Kamraj Road Bus Stop",
+        "distance_m": 241,
+        "eloc": "WDD14F",
+        "address": "Nala Road, Bharthi Nagar, Shivaji Nagar, Bengaluru, Karnataka, 560051",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      }
+    ],
+    "api_enriched": true,
+    "original_zone_id": "892830833ffffff"
+  },
+  "8961892e9a3ffff": {
+    "zone_id": "8961892e9a3ffff",
+    "lat": 12.97991,
+    "lon": 77.607261,
+    "station": "Shivajinagar",
+    "travel_time_to_center_sec": 328.4,
+    "travel_time_eta_sec": 327.5,
+    "travel_time_ratio": 0.997,
+    "travel_time_baseline_min": 5.5,
+    "travel_time_eta_min": 5.5,
+    "road_name": "Main Guard Cross Road, Shivaji Nagar",
+    "street": "Main Guard Cross Road",
+    "street_dist_m": "7",
+    "locality": "Shivaji Nagar",
+    "sub_locality": "Tasker Town",
+    "district": "Bengaluru Urban District",
+    "city": "Bengaluru",
+    "state": "Karnataka",
+    "pincode": "560001",
+    "formatted_address": "Main Guard Cross Road, Tasker Town, Shivaji Nagar, Bengaluru, Karnataka. Pin-560001 (India)",
+    "nearby_pois": [
+      "Bus Stop (245m)",
+      "Manekshaw Parade Grounds Bus Stop (262m)",
+      "Commercial Street Bus Stop (265m)",
+      "Bus Stop (276m)",
+      "Bus Stop (295m)"
+    ],
+    "nearby_pois_detailed": [
+      {
+        "name": "Bus Stop",
+        "distance_m": 245,
+        "eloc": "G0IOL4",
+        "address": "Kamaraj Road, Tasker Town, Shivaji Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Manekshaw Parade Grounds Bus Stop",
+        "distance_m": 262,
+        "eloc": "4UOB6G",
+        "address": "Cubbon Road, Shivaji Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Commercial Street Bus Stop",
+        "distance_m": 265,
+        "eloc": "LBYDFD",
+        "address": "Kamaraj Road, Tasker Town, Shivaji Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Bus Stop",
+        "distance_m": 276,
+        "eloc": "7P36DN",
+        "address": "Kamaraj Road, Tasker Town, Shivaji Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Bus Stop",
+        "distance_m": 295,
+        "eloc": "ZZ3FUG",
+        "address": "Cubbon Road, Shivaji Nagar, Bengaluru, Karnataka, 560001",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      }
+    ],
+    "api_enriched": true,
+    "original_zone_id": "892830834ffffff"
+  },
+  "8960145b16bffff": {
+    "zone_id": "8960145b16bffff",
+    "lat": 12.997656,
+    "lon": 77.548731,
+    "station": "Rajajinagar",
+    "travel_time_to_center_sec": 836.1,
+    "travel_time_eta_sec": 983.6,
+    "travel_time_ratio": 1.176,
+    "travel_time_baseline_min": 13.9,
+    "travel_time_eta_min": 16.4,
+    "road_name": "Padmabhushan Dr MC Modi Road, Rajaji Nagar",
+    "street": "Padmabhushan Dr MC Modi Road",
+    "street_dist_m": "11",
+    "locality": "Rajaji Nagar",
+    "sub_locality": "Manjunatha Nagar",
+    "district": "Bengaluru Urban District",
+    "city": "Bengaluru",
+    "state": "Karnataka",
+    "pincode": "560010",
+    "formatted_address": "Padmabhushan Dr MC Modi Road, Phase 1, Manjunatha Nagar, Rajaji Nagar, Bengaluru, Karnataka. Pin-560010 (India)",
+    "nearby_pois": [
+      "BMTC Bus Stop (31m)",
+      "Dr Modi Hospital Road Bus Stop (44m)",
+      "Shankar Mutt Bus Stop (151m)",
+      "Bus Stop (231m)",
+      "Navarang Bus Stop (240m)"
+    ],
+    "nearby_pois_detailed": [
+      {
+        "name": "BMTC Bus Stop",
+        "distance_m": 31,
+        "eloc": "456L5B",
+        "address": "Padmabhushan Dr MC Modi Road, Phase 1, Manjunatha Nagar, Rajaji Nagar, Bengaluru, Karnataka, 560010",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Dr Modi Hospital Road Bus Stop",
+        "distance_m": 44,
+        "eloc": "HFOL5H",
+        "address": "Opposite Icici Bank, 1st Cross, Dr Modi Hospital Road, Rajajinagara, Bengaluru, Karnataka, 560010",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Shankar Mutt Bus Stop",
+        "distance_m": 151,
+        "eloc": "BCDBRN",
+        "address": "WOC Road, West of Chord Road Stage 2, Mahalakshmipuram, Bengaluru, Karnataka, 560086",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Bus Stop",
+        "distance_m": 231,
+        "eloc": "PSU55I",
+        "address": "WOC Road, West of Chord Road Stage 2, Mahalakshmipuram, Bengaluru, Karnataka, 560086",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      },
+      {
+        "name": "Navarang Bus Stop",
+        "distance_m": 240,
+        "eloc": "98654T",
+        "address": "19th Main Road, Block 1, Rajaji Nagar, Bengaluru, Karnataka, 560010",
+        "category_codes": [
+          "TRNBUS"
+        ]
+      }
+    ],
+    "api_enriched": true,
+    "original_zone_id": "892830835ffffff"
+  }
+}

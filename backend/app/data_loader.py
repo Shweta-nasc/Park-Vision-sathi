@@ -280,6 +280,42 @@ class DataStore:
     def zone(self, zone_id: str) -> Optional[dict]:
         return self.ensure().zones_by_id.get(zone_id)
 
+    def congestion_breakdown(
+        self, zone_id: str, time_bucket: str = "all_day"
+    ) -> Optional[dict]:
+        """Return the REAL CIS breakdown for an H3 zone, with calibrated_impact.
+
+        Resolves any of the 2,527 real H3 zones from the canonical CIS artifact
+        (``self.congestion``, keyed ``{h3_id: {time_bucket: breakdown}}``) and
+        returns that zone's breakdown for ``time_bucket`` (default ``all_day``).
+
+        The returned dict conforms to ``backend.app.models.CongestionBreakdown``.
+        Its ``calibrated_impact`` is attached additively from the self-validating
+        agent's output (``self.calibrated[zone_id].calibrated_score``) when an
+        entry exists for this zone; otherwise it is left as ``None`` (NOT 0.0, and
+        NOT the raw CIS) so consumers can tell "agent-calibrated" from "no agent
+        data". Only ~10 of the 2,527 zones carry a calibration entry.
+
+        Returns ``None`` when the zone (or the requested bucket) is absent from the
+        artifact, so the caller can fall back to its legacy behaviour.
+        """
+        self.ensure()
+        buckets = self.congestion.get(zone_id)
+        if not isinstance(buckets, dict):
+            return None
+        breakdown = buckets.get(time_bucket)
+        if not isinstance(breakdown, dict):
+            return None
+
+        # Shallow copy so the in-memory artifact is never mutated by serving.
+        result = dict(breakdown)
+        cal = self.calibrated.get(zone_id)
+        calibrated_score = cal.get("calibrated_score") if isinstance(cal, dict) else None
+        result["calibrated_impact"] = (
+            float(calibrated_score) if isinstance(calibrated_score, (int, float)) else None
+        )
+        return result
+
     def heatmap_points(self, layer: str) -> list[dict]:
         """Points for the map. layer: raw (violation density) | risk (congestion
         impact) | spillover (agent-calibrated)."""

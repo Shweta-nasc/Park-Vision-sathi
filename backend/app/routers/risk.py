@@ -107,8 +107,21 @@ def get_zone_risk_detail(
     hour: int = Query(default=None, ge=0, le=23),
     time_bucket: str = Query(default=None),
 ):
-    """Full detail for a single zone (scores, components, game theory, real Mappls)."""
+    """Full detail for a single zone.
+
+    For a REAL CIS zone (one of the 2,527 H3 zones in the canonical artifact) this
+    returns the per-zone Congestion Impact breakdown — the ``CongestionBreakdown``
+    contract — including ``calibrated_impact`` (a number for the ~10 agent-
+    calibrated zones, ``null`` otherwise). Falls back to the legacy in-memory zone
+    shape (game-theory fields, real Mappls) for the mock hotspot zones the
+    frontend already consumes, so existing behaviour is preserved.
+    """
+    breakdown = store.congestion_breakdown(zone_id, time_bucket or "all_day")
+    if breakdown is not None:
+        return breakdown
+
+    # Legacy mock-hotspot zones (not in the CIS artifact): keep the prior shape.
     z = store.zone(zone_id)
-    if not z:
-        return {"error": f"No data for zone {zone_id}"}
-    return z
+    if z:
+        return z
+    return {"error": f"No data for zone {zone_id}"}

@@ -228,7 +228,7 @@ def _ist_hours(timestamps: pd.Series) -> pd.Series:
     the dataset's ``...+00`` convention) and converted to IST before the hour is
     read, so bucketing reflects local Bengaluru time (Requirement 12.2).
     """
-    parsed = pd.to_datetime(timestamps, errors="coerce", utc=True)
+    parsed = pd.to_datetime(timestamps, errors="coerce", utc=True, format="ISO8601")
     return parsed.dt.tz_convert(IST).dt.hour
 
 
@@ -376,7 +376,7 @@ def read_violations(source: Union[str, Path, pd.DataFrame]) -> pd.DataFrame:
     )
 
 
-def prepare_violations(df: pd.DataFrame) -> pd.DataFrame:
+def prepare_violations(df: pd.DataFrame, resolution: int = H3_RESOLUTION) -> pd.DataFrame:
     """Derive the per-row fields the aggregator groups on.
 
     Adds ``h3_id``, ``time_bucket``, parsed ``violation_tuple``, the four boolean
@@ -413,7 +413,7 @@ def prepare_violations(df: pd.DataFrame) -> pd.DataFrame:
         return out
 
     out["h3_id"] = [
-        h3_id_for(lat, lon) for lat, lon in zip(out[LAT_COL], out[LON_COL])
+        h3_id_for(lat, lon, resolution) for lat, lon in zip(out[LAT_COL], out[LON_COL])
     ]
 
     # Violation strings -> category membership flags.
@@ -608,6 +608,7 @@ def build_aggregates(
     traffic_context_path: Union[str, Path] = DEFAULT_TRAFFIC_CONTEXT_PATH,
     *,
     travel_time_ratios: Optional[Mapping[str, float]] = None,
+    resolution: int = H3_RESOLUTION,
 ) -> tuple[dict[tuple[str, str], ZoneAggregate], CorpusMaxima]:
     """Read, prepare, aggregate, and compute corpus maxima in one call.
 
@@ -621,7 +622,7 @@ def build_aggregates(
     otherwise loaded from ``traffic_context_path`` (a missing file -> empty join).
     """
     frame = read_violations(violations)
-    prepared = prepare_violations(frame)
+    prepared = prepare_violations(frame, resolution=resolution)
 
     ratios = (
         dict(travel_time_ratios)
@@ -640,6 +641,9 @@ def build_congestion_artifact(
     violations_path: Union[str, Path, pd.DataFrame] = DEFAULT_VIOLATIONS_PATH,
     traffic_context_path: Union[str, Path] = DEFAULT_TRAFFIC_CONTEXT_PATH,
     out_path: Union[str, Path] = DEFAULT_ARTIFACT_PATH,
+    *,
+    resolution: int = H3_RESOLUTION,
+    travel_time_ratios: Optional[Mapping[str, float]] = None,
 ) -> dict:
     """Score every aggregated zone-bucket and write the canonical CIS artifact.
 
@@ -678,7 +682,10 @@ def build_congestion_artifact(
     :returns: the in-memory ``{h3_id: {time_bucket: breakdown-dict}}`` artifact,
         identical to what was written to ``out_path``.
     """
-    aggregates, maxima = build_aggregates(violations_path, traffic_context_path)
+    aggregates, maxima = build_aggregates(
+        violations_path, traffic_context_path,
+        travel_time_ratios=travel_time_ratios, resolution=resolution,
+    )
 
     artifact: dict[str, dict[str, dict]] = {}
     centroids: dict[str, tuple[float, float]] = {}
@@ -741,10 +748,51 @@ def _resolve_real_csv() -> Path:
     )
 
 
+def compute_ratios_from_coords(
+    traffic_context_path: Union[str, Path] = DEFAULT_TRAFFIC_CONTEXT_PATH,
+    resolution: int = H3_RESOLUTION,
+) -> dict[str, float]:
+    """Build ``{h3_id(resolution): travel_time_ratio}`` from enrichment lat/lon.
+
+    The committed ``traffic_context.json`` is keyed by placeholder H3 ids that do
+    NOT match the cells its coordinates fall in, so the by-key join never resolves.
+    This recomputes the key from each entry's REAL ``lat``/``lon`` at the requested
+    resolution (so the join activates at any resolution), keeping only finite,
+    strictly-positive ratios. Multiple coords landing in one cell are averaged.
+    """
+    path = Path(traffic_context_path)
+    if not path.exists():
+        return {}
+    with path.open("r", encoding="utf-8") as handle:
+        raw = json.load(handle)
+
+    buckets: dict[str, list[float]] = {}
+    for payload in raw.values():
+        if not isinstance(payload, Mapping):
+            continue
+        lat, lon = payload.get("lat"), payload.get("lon")
+        ratio = payload.get("travel_time_ratio")
+        if lat is None or lon is None:
+            continue
+        if isinstance(ratio, bool) or not isinstance(ratio, (int, float)):
+            continue
+        if not math.isfinite(float(ratio)) or ratio <= 0:
+            continue
+        try:
+            cell = h3_id_for(float(lat), float(lon), resolution)
+        except (ValueError, TypeError):
+            continue
+        buckets.setdefault(cell, []).append(float(ratio))
+    return {cell: sum(vals) / len(vals) for cell, vals in buckets.items()}
+
+
 def build_from_real_csv(
     csv_path: Optional[Union[str, Path]] = None,
     traffic_context_path: Union[str, Path] = DEFAULT_TRAFFIC_CONTEXT_PATH,
     out_path: Union[str, Path] = DEFAULT_ARTIFACT_PATH,
+    *,
+    resolution: int = H3_RESOLUTION,
+    travel_time_ratios: Optional[Mapping[str, float]] = None,
 ) -> dict:
     """Load the real violation CSV into a DataFrame and build the CIS artifact.
 
@@ -761,15 +809,78 @@ def build_from_real_csv(
         violations_path=frame,
         traffic_context_path=traffic_context_path,
         out_path=out_path,
+        resolution=resolution,
+        travel_time_ratios=travel_time_ratios,
     )
     n_entries = sum(len(buckets) for buckets in artifact.values())
+    n_nondefault = sum(
+        1 for z in artifact.values() for b in z.values()
+        if b.get("is_traffic_degradation_defaulted") is False
+    )
     print(
-        f"[cis] Wrote {out_path}: {len(artifact):,} H3 zone(s), "
-        f"{n_entries:,} (zone, bucket) entr(ies)."
+        f"[cis] Wrote {out_path}: {len(artifact):,} H3 zone(s) @res{resolution}, "
+        f"{n_entries:,} (zone, bucket) entr(ies), "
+        f"{n_nondefault:,} with measured travel_time_ratio."
     )
     return artifact
 
 
+def build_multi_resolution(
+    csv_path: Optional[Union[str, Path]] = None,
+    traffic_context_path: Union[str, Path] = DEFAULT_TRAFFIC_CONTEXT_PATH,
+    resolutions: tuple[int, ...] = (5, 7, 8, 9),
+    out_dir: Union[str, Path] = "data/processed",
+) -> dict[int, dict]:
+    """Build the CIS artifact at several H3 resolutions (Phase 5).
+
+    Writes ``data/processed/zone_impact_res{R}.json`` per resolution. Corpus
+    maxima are recomputed independently at each resolution (they are derived from
+    that resolution's aggregates). The travel-time ratios are re-keyed from the
+    enrichment coordinates to each resolution so the MapMyIndia join activates at
+    every level. Returns ``{resolution: artifact}`` and prints zone counts.
+    """
+    resolved = Path(csv_path) if csv_path is not None else _resolve_real_csv()
+    print(f"[cis-multi] Loading real violations CSV: {resolved}")
+    frame = pd.read_csv(resolved, low_memory=False)
+    print(f"[cis-multi] Raw rows: {len(frame):,}")
+
+    out_dir = Path(out_dir)
+    artifacts: dict[int, dict] = {}
+    print(f"\n{'res':>4} | {'zones':>7} | {'entries':>8} | {'measured_ratio':>14}")
+    print("-" * 44)
+    for res in resolutions:
+        ratios = compute_ratios_from_coords(traffic_context_path, resolution=res)
+        out_path = out_dir / f"zone_impact_res{res}.json"
+        artifact = build_congestion_artifact(
+            violations_path=frame,
+            traffic_context_path=traffic_context_path,
+            out_path=out_path,
+            resolution=res,
+            travel_time_ratios=ratios,
+        )
+        n_entries = sum(len(b) for b in artifact.values())
+        n_nd = sum(1 for z in artifact.values() for b in z.values()
+                   if b.get("is_traffic_degradation_defaulted") is False)
+        artifacts[res] = artifact
+        print(f"{res:>4} | {len(artifact):>7,} | {n_entries:>8,} | {n_nd:>14,}")
+    return artifacts
+
+
 if __name__ == "__main__":
+    import argparse
+
     logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
-    build_from_real_csv()
+    parser = argparse.ArgumentParser(description="Build the Congestion Impact artifact(s).")
+    parser.add_argument("--multi-res", action="store_true",
+                        help="Build at H3 resolutions 5/7/8/9 → data/processed/zone_impact_res*.json")
+    parser.add_argument("--resolutions", default="5,7,8,9",
+                        help="Comma-separated resolutions for --multi-res")
+    parser.add_argument("--traffic-context", default=DEFAULT_TRAFFIC_CONTEXT_PATH,
+                        help="Traffic-context JSON used for the travel-time join")
+    args = parser.parse_args()
+
+    if args.multi_res:
+        res = tuple(int(r) for r in args.resolutions.split(","))
+        build_multi_resolution(traffic_context_path=args.traffic_context, resolutions=res)
+    else:
+        build_from_real_csv(traffic_context_path=args.traffic_context)
