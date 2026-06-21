@@ -38,29 +38,44 @@ Design choices (documented so the team can defend them to judges):
     BOTH the reasoning string and the summary from it. The log a judge reads
     and the headline numbers can never contradict each other.
 
-Inputs
-------
-  data/processed/zone_congestion_impact.json → CIS scores (PRIMARY, per design):
-                                       the canonical Congestion Impact Score artifact,
-                                       keyed {h3_id: {time_bucket: breakdown}}. The agent
-                                       reads each zone's `all_day` rollup `congestion_impact`
-                                       as the raw score it calibrates.
-  data/mock/hotspots.json              → raw congestion scores (SECONDARY fallback, used
-                                       only when the CIS artifact is absent/empty)
+Inputs (PRODUCTION run — REAL data, no mocks)
+---------------------------------------------
+  data/processed/zone_congestion_impact.json → canonical CIS artifact
+        ``{h3_id: {time_bucket: breakdown}}`` (2,527 real H3 zones). Each zone's
+        ``all_day`` bucket supplies raw_score = ``congestion_impact``,
+        actual_ratio = ``mappls_travel_time_ratio``, and the guard flag
+        ``is_traffic_degradation_defaulted``.
+
+GUARD (Error-Handling Scenario 1)
+---------------------------------
+  A zone is calibrated ONLY when ``is_traffic_degradation_defaulted`` is False
+  AND ``mappls_travel_time_ratio`` is a valid, strictly-positive number. Every
+  other zone is classified ``no_data`` and OMITTED from the calibrated output.
+  Over the committed artifact that means ~10 zones get a REAL calibration and
+  the remaining ~2,517 are no_data.
+
+Legacy input (mock path, kept for the library API only)
+-------------------------------------------------------
+  data/mock/hotspots.json              → raw congestion scores (zone_id, congestion_impact)
   data/enriched/traffic_context.json   → real Mappls travel_time_ratio per zone
 
 Outputs
 -------
-  data/processed/calibrated_scores.json → {zone_id: {raw, calibrated, reasoning, ...}}
-  data/processed/agent_log.json         → {summary counts + ordered reasoning log}
+  data/processed/calibrated_scores.json → {h3_id: {raw_score, calibrated_score, ...}}
+                                          (ONLY the calibrated zones)
+  data/processed/agent_log.json         → {summary counts (calibrated vs no_data) + log}
 
 Usage
 -----
-    # As a script (writes both JSON files, prints a summary table):
+    # As a script (PRODUCTION run — calibrates the REAL CIS artifact, no mocks):
     python -m ml.agent.validation_agent
     python ml/agent/validation_agent.py
 
-    # As a library (drop-in for Person 1's /api/agent/validation-report):
+    # As a library — production (REAL artifact + GUARD):
+    from ml.agent.validation_agent import calibrate_artifact_zones, run_from_artifact
+    calibrated, summary = calibrate_artifact_zones(artifact)
+
+    # As a library — legacy mock-keyed path:
     from ml.agent.validation_agent import validate_and_calibrate, run
     calibrated, summary = validate_and_calibrate(congestion_scores, mappls_data)
 """
@@ -69,6 +84,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from pathlib import Path
 from typing import Optional
 
@@ -90,12 +106,15 @@ TRAFFIC_PATH = PROJECT_ROOT / "data" / "enriched" / "traffic_context.json"
 CALIBRATED_OUT = PROJECT_ROOT / "data" / "processed" / "calibrated_scores.json"
 AGENT_LOG_OUT = PROJECT_ROOT / "data" / "processed" / "agent_log.json"
 
+# The canonical Congestion Impact Score (CIS) artifact — the REAL production
+# input for the calibration run: ``{h3_id: {time_bucket: breakdown}}`` produced
+# by ``ml.congestion.build_artifact``. Each zone's ``all_day`` bucket carries the
+# raw ``congestion_impact`` (the CIS), the MapMyIndia ``mappls_travel_time_ratio``,
+# and the ``is_traffic_degradation_defaulted`` guard flag.
+ARTIFACT_PATH = PROJECT_ROOT / "data" / "processed" / "zone_congestion_impact.json"
 # The day-level rollup the agent reads from the CIS artifact (the artifact keys
 # each zone by time bucket; the agent calibrates the all-day score).
 DEFAULT_CIS_TIME_BUCKET = "all_day"
-
-# ─── Tunable constants (kept verbatim from the planner) ──────────────────────
-
 ALPHA = 0.3                 # trust weight placed on the Mappls measurement
 SCORE_TO_RATIO_GAIN = 2.0   # a 100/100 score implies a (1 + 2.0) = 3.0x slowdown
 ACCURATE_BAND = 0.05        # |adjustment| ≤ 5% → the model was already accurate
@@ -112,6 +131,46 @@ def _impact_band(score: float) -> str:
     elif score <= 75:
         return "SEVERE"
     return "CRITICAL"
+
+
+def _calibrate_one(raw_score: float, actual_ratio: float) -> dict:
+    """The canonical calibration maths — the SINGLE source of the formula.
+
+    Given a raw CIS (0-100) and a real, validated MapMyIndia ``travel_time_ratio``,
+    returns the calibrated score, the intermediate quantities, and the status band.
+    Both calibration entry points — the artifact-native production path
+    (:func:`calibrate_artifact_zones`) and the score/context path
+    (:func:`validate_and_calibrate`) — call this, so the maths can never drift
+    between them (verbatim from EXECUTION_PLANNER, "SELF-VALIDATING CONGESTION
+    AGENT")::
+
+        expected_ratio   = 1.0 + (raw_score / 100) * SCORE_TO_RATIO_GAIN   # gain 2.0
+        discrepancy      = actual_ratio - expected_ratio
+        adjustment       = ALPHA * (discrepancy / max(expected_ratio, 1.0)) # ALPHA 0.3
+        calibrated_score = clamp(raw_score * (1 + adjustment), 0, 100)
+
+    ``status`` is the single categorisation (by ``|adjustment|`` vs
+    ``ACCURATE_BAND``) that drives both the human-readable reasoning and the
+    summary counts, so the log a judge reads and the headline numbers always agree.
+    Pure and deterministic: no I/O, randomness, or clock-dependence.
+    """
+    expected_ratio = 1.0 + (raw_score / 100.0) * SCORE_TO_RATIO_GAIN
+    discrepancy = actual_ratio - expected_ratio
+    adjustment = ALPHA * (discrepancy / max(expected_ratio, 1.0))
+    calibrated_score = max(0.0, min(100.0, raw_score * (1.0 + adjustment)))
+    if adjustment > ACCURATE_BAND:
+        status = "adjusted_up"
+    elif adjustment < -ACCURATE_BAND:
+        status = "adjusted_down"
+    else:
+        status = "validated_accurate"
+    return {
+        "expected_ratio": expected_ratio,
+        "discrepancy": discrepancy,
+        "adjustment": adjustment,
+        "calibrated_score": calibrated_score,
+        "status": status,
+    }
 
 
 def validate_and_calibrate(congestion_scores: dict, mappls_data: dict) -> tuple[dict, dict]:
@@ -174,24 +233,24 @@ def validate_and_calibrate(congestion_scores: dict, mappls_data: dict) -> tuple[
             })
             continue
 
-        # ── Calibration maths (verbatim from the build bible) ───────────────
+        # ── Calibration maths (single shared formula — see _calibrate_one) ──
         actual_ratio = float(actual_ratio)
-        expected_ratio = 1.0 + (raw_score / 100.0) * SCORE_TO_RATIO_GAIN
-        discrepancy = actual_ratio - expected_ratio
-        adjustment = ALPHA * (discrepancy / max(expected_ratio, 1.0))
-        calibrated_score = max(0.0, min(100.0, raw_score * (1.0 + adjustment)))
+        calc = _calibrate_one(raw_score, actual_ratio)
+        expected_ratio = calc["expected_ratio"]
+        discrepancy = calc["discrepancy"]
+        adjustment = calc["adjustment"]
+        calibrated_score = calc["calibrated_score"]
+        status = calc["status"]
 
-        # ── Single, consistent categorisation drives text AND summary ───────
-        if adjustment > ACCURATE_BAND:
-            status = "adjusted_up"
+        # ── Reasoning text (road-centric) for the categorisation above ──────
+        if status == "adjusted_up":
             reasoning = (
                 f"⬆️ Adjusted UP {raw_score:.0f}→{calibrated_score:.0f}: "
                 f"Mappls shows {actual_ratio:.2f}x travel time on {road}, worse "
                 f"than the {expected_ratio:.2f}x our score implied. Parking impact "
                 f"was UNDERESTIMATED."
             )
-        elif adjustment < -ACCURATE_BAND:
-            status = "adjusted_down"
+        elif status == "adjusted_down":
             reasoning = (
                 f"⬇️ Adjusted DOWN {raw_score:.0f}→{calibrated_score:.0f}: "
                 f"Mappls shows only {actual_ratio:.2f}x travel time on {road} vs the "
@@ -199,7 +258,6 @@ def validate_and_calibrate(congestion_scores: dict, mappls_data: dict) -> tuple[
                 f"the parking load better than violations alone suggest."
             )
         else:
-            status = "validated_accurate"
             reasoning = (
                 f"✅ Validated: {raw_score:.0f}/100 matches Mappls data on {road} "
                 f"({actual_ratio:.2f}x travel time, within tolerance of the "
@@ -450,6 +508,243 @@ def _print_report(calibrated: dict, summary: dict, calibrated_out: Path, log_out
     print("=" * 74 + "\n")
 
 
+# ─── REAL artifact calibration (production run) ──────────────────────────────
+#
+# The functions above (``validate_and_calibrate`` / ``run``) are the legacy
+# mock-keyed path. The production self-validating run reads the canonical CIS
+# artifact (``data/processed/zone_congestion_impact.json``, 2,527 real H3 zones)
+# and calibrates ONLY the zones that carry a genuine MapMyIndia measurement —
+# everything else is left strictly uncalibrated. No mocks, no randomness, no
+# clock-dependence.
+
+
+def _is_valid_ratio(ratio: object) -> bool:
+    """True only for a real, finite, strictly-positive travel-time ratio.
+
+    ``bool`` is rejected explicitly (``True``/``False`` are ``int`` subclasses);
+    ``None``, NaN, ±inf, and non-positive values are all rejected so the GUARD
+    never lets a missing/garbage ratio through to calibration.
+    """
+    if isinstance(ratio, bool) or not isinstance(ratio, (int, float)):
+        return False
+    return math.isfinite(float(ratio)) and float(ratio) > 0.0
+
+
+def load_congestion_artifact(path: Path = ARTIFACT_PATH) -> dict:
+    """Load the canonical CIS artifact ``{h3_id: {time_bucket: breakdown}}``."""
+    with open(path) as f:
+        return json.load(f)
+
+
+def calibrate_artifact_zones(
+    artifact: dict, time_bucket: str = "all_day"
+) -> tuple[dict, dict]:
+    """Calibrate REAL CIS zones against MapMyIndia travel-time, with the GUARD.
+
+    For every zone in ``artifact`` the chosen ``time_bucket`` bucket (default
+    ``all_day``) supplies:
+
+      * ``raw_score``    = ``congestion_impact``                 (the CIS)
+      * ``actual_ratio`` = ``mappls_travel_time_ratio``          (real Mappls)
+      * guard flag       = ``is_traffic_degradation_defaulted``  (True == fallback)
+
+    GUARD (Error-Handling Scenario 1): a zone is calibrated ONLY when its guard
+    flag is ``False`` **and** its ratio is a valid, strictly-positive number.
+    Every other zone is classified ``no_data`` and is **omitted entirely** from
+    the returned ``calibrated`` mapping — no entry is written for it.
+
+    The calibration maths is the canonical formula (identical to
+    :func:`validate_and_calibrate`)::
+
+        expected_ratio   = 1.0 + (raw_score / 100) * SCORE_TO_RATIO_GAIN  # gain 2.0
+        discrepancy      = actual_ratio - expected_ratio
+        adjustment       = ALPHA * (discrepancy / max(expected_ratio, 1.0))  # ALPHA 0.3
+        calibrated_score = clamp(raw_score * (1 + adjustment), 0, 100)
+
+    Deterministic: zones are processed in a fixed order (descending CIS, ties
+    broken by ``h3_id``) and the maths has no randomness or clock-dependence, so
+    repeated runs over the same artifact yield byte-identical output.
+
+    Returns ``(calibrated, summary)`` where ``calibrated`` is keyed by ``h3_id``
+    (the same key scheme as the artifact) and contains only the calibrated zones.
+    """
+    calibrated: dict = {}
+    agent_log: list = []
+    no_data_count = 0
+
+    # Deterministic processing order: highest CIS first, ties broken by h3_id, so
+    # the log reads worst -> best and the run is reproducible (no dict-order or
+    # clock dependence).
+    def _raw_of(item: tuple[str, dict]) -> float:
+        bucket = item[1].get(time_bucket) if isinstance(item[1], dict) else None
+        raw = bucket.get("congestion_impact") if isinstance(bucket, dict) else None
+        return float(raw) if isinstance(raw, (int, float)) and not isinstance(raw, bool) else -1.0
+
+    ordered = sorted(artifact.items(), key=lambda kv: (-_raw_of(kv), kv[0]))
+
+    for h3_id, buckets in ordered:
+        bucket = buckets.get(time_bucket) if isinstance(buckets, dict) else None
+        if not isinstance(bucket, dict):
+            no_data_count += 1
+            continue
+
+        raw_score = bucket.get("congestion_impact")
+        actual_ratio = bucket.get("mappls_travel_time_ratio")
+        defaulted = bucket.get("is_traffic_degradation_defaulted", True)
+        station = bucket.get("station") or "Unknown PS"
+        junction = bucket.get("junction")
+        where = junction or station or h3_id
+
+        # ── GUARD: only genuine measurements are calibrated ────────────────
+        valid_raw = isinstance(raw_score, (int, float)) and not isinstance(raw_score, bool)
+        if defaulted is not False or not _is_valid_ratio(actual_ratio) or not valid_raw:
+            # no_data → classified but DELIBERATELY OMITTED from `calibrated`.
+            no_data_count += 1
+            continue
+
+        # ── Calibration maths (single shared formula — see _calibrate_one) ──
+        raw_score = float(raw_score)
+        actual_ratio = float(actual_ratio)
+        calc = _calibrate_one(raw_score, actual_ratio)
+        expected_ratio = calc["expected_ratio"]
+        discrepancy = calc["discrepancy"]
+        adjustment = calc["adjustment"]
+        calibrated_score = calc["calibrated_score"]
+        status = calc["status"]
+
+        # ── Reasoning text (location-centric) for the categorisation above ──
+        if status == "adjusted_up":
+            reasoning = (
+                f"⬆️ Adjusted UP {raw_score:.0f}→{calibrated_score:.0f}: Mappls "
+                f"shows {actual_ratio:.2f}x travel time near {where}, worse than the "
+                f"{expected_ratio:.2f}x our CIS implied. Parking impact was "
+                f"UNDERESTIMATED."
+            )
+        elif status == "adjusted_down":
+            reasoning = (
+                f"⬇️ Adjusted DOWN {raw_score:.0f}→{calibrated_score:.0f}: Mappls "
+                f"shows only {actual_ratio:.2f}x travel time near {where} vs the "
+                f"{expected_ratio:.2f}x our CIS implied. The corridor absorbs the "
+                f"parking load better than violations alone suggest."
+            )
+        else:
+            reasoning = (
+                f"✅ Validated: CIS {raw_score:.0f}/100 matches Mappls near {where} "
+                f"({actual_ratio:.2f}x travel time, within tolerance of the "
+                f"{expected_ratio:.2f}x implied). Model accurate — no change."
+            )
+
+        record = {
+            "zone_id": h3_id,
+            "h3_id": h3_id,
+            "station": station,
+            "raw_score": round(raw_score, 1),       # = CIS (congestion_impact)
+            "calibrated_score": round(calibrated_score, 1),
+            "impact_band": _impact_band(calibrated_score),
+            "validated": True,
+            "mappls_ratio": round(actual_ratio, 3),
+            "expected_ratio": round(expected_ratio, 3),
+            "discrepancy": round(discrepancy, 3),
+            "adjustment": round(adjustment, 4),
+            "status": status,
+            "reasoning": reasoning,
+        }
+        calibrated[h3_id] = record
+        agent_log.append({
+            "zone_id": h3_id, "h3_id": h3_id, "station": station,
+            "raw_score": record["raw_score"],
+            "calibrated_score": record["calibrated_score"],
+            "mappls_ratio": record["mappls_ratio"], "status": status,
+            "reasoning": reasoning,
+        })
+
+    adjustments = [abs(v["adjustment"]) for v in calibrated.values()]
+    summary = {
+        "total_zones": len(artifact),
+        "calibrated": len(calibrated),
+        "no_data": no_data_count,
+        # `validated` mirrors `calibrated` so the existing /health agent panel and
+        # the legacy summary shape keep working.
+        "validated": len(calibrated),
+        "accurate": sum(1 for v in calibrated.values() if v["status"] == "validated_accurate"),
+        "adjusted_up": sum(1 for v in calibrated.values() if v["status"] == "adjusted_up"),
+        "adjusted_down": sum(1 for v in calibrated.values() if v["status"] == "adjusted_down"),
+        "mean_abs_adjustment_pct": round(100 * (sum(adjustments) / len(adjustments)), 1) if adjustments else 0.0,
+        "max_abs_adjustment_pct": round(100 * max(adjustments), 1) if adjustments else 0.0,
+        "time_bucket": time_bucket,
+        "source": "data/processed/zone_congestion_impact.json",
+        "log": agent_log,
+    }
+    return calibrated, summary
+
+
+def run_from_artifact(
+    artifact_path: Path = ARTIFACT_PATH,
+    calibrated_out: Path = CALIBRATED_OUT,
+    log_out: Path = AGENT_LOG_OUT,
+    time_bucket: str = "all_day",
+    verbose: bool = True,
+) -> tuple[dict, dict]:
+    """Production run: load the REAL CIS artifact, calibrate, persist, report.
+
+    Writes ``calibrated_scores.json`` keyed by ``h3_id`` (only the calibrated
+    zones) and ``agent_log.json`` (summary counts + the per-calibrated-zone log).
+    """
+    artifact = load_congestion_artifact(artifact_path)
+    calibrated, summary = calibrate_artifact_zones(artifact, time_bucket=time_bucket)
+
+    calibrated_out.parent.mkdir(parents=True, exist_ok=True)
+    with open(calibrated_out, "w") as f:
+        json.dump(calibrated, f, indent=2, ensure_ascii=False)
+    with open(log_out, "w") as f:
+        json.dump(summary, f, indent=2, ensure_ascii=False)
+
+    if verbose:
+        _print_artifact_report(calibrated, summary, calibrated_out, log_out)
+
+    return calibrated, summary
+
+
+def _print_artifact_report(calibrated: dict, summary: dict, calibrated_out: Path, log_out: Path) -> None:
+    """Pretty-print the REAL calibration run, leading with the headline counts."""
+    print("\n" + "=" * 74)
+    print("  SELF-VALIDATING CONGESTION AGENT — REAL artifact calibration run")
+    print("=" * 74)
+    print(
+        f"  {summary['total_zones']} H3 zones scanned  →  "
+        f"{summary['calibrated']} REAL calibration, "
+        f"{summary['no_data']} no_data (omitted)"
+    )
+    print("  " + "-" * 70)
+    print(f"  {'H3 ZONE / STATION':<40} {'CIS':>5} {'→':^3} {'CAL':>5} {'RATIO':>6}  STATUS")
+    print("  " + "-" * 70)
+    icon = {
+        "adjusted_up": "⬆️", "adjusted_down": "⬇️", "validated_accurate": "✅",
+    }
+    for rec in calibrated.values():
+        label = f"{rec['h3_id']} {rec['station']}"[:38]
+        ratio = f"{rec['mappls_ratio']:.2f}x" if rec["mappls_ratio"] else "  n/a"
+        print(
+            f"  {label:<40} {rec['raw_score']:>5.0f}  →  {rec['calibrated_score']:>5.0f} "
+            f"{ratio:>6}  {icon.get(rec['status'], '')} {rec['status']}"
+        )
+    print("  " + "-" * 70)
+    print(
+        f"  calibrated={summary['calibrated']} "
+        f"(accurate={summary['accurate']}, up={summary['adjusted_up']}, "
+        f"down={summary['adjusted_down']})  |  no_data={summary['no_data']}"
+    )
+    print(
+        f"  mean |adjustment| = {summary['mean_abs_adjustment_pct']}% | "
+        f"max |adjustment| = {summary['max_abs_adjustment_pct']}%"
+    )
+    print("=" * 74)
+    print(f"  ✓ wrote {calibrated_out.relative_to(PROJECT_ROOT)}")
+    print(f"  ✓ wrote {log_out.relative_to(PROJECT_ROOT)}")
+    print("=" * 74 + "\n")
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
-    run()
+    # Production run: calibrate the REAL CIS artifact (no mocks).
+    run_from_artifact()

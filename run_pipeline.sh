@@ -1,78 +1,53 @@
 #!/bin/bash
 # ==============================================================================
-# ParkVisionSaathi - Pipeline & Server Startup Script
+# ParkVision-Saathi — local setup & run (backend, JSON + in-memory, NO database)
+# ==============================================================================
+# This sets up a venv, installs deps, OPTIONALLY regenerates the data artifacts
+# from the raw CSV, then starts the FastAPI backend. Deployment does NOT use this
+# script — see the README "Deploy on Render" section.
 # ==============================================================================
 
 set -e
 
-# Colors for output
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
+GREEN='\033[0;32m'; BLUE='\033[0;34m'; YELLOW='\033[1;33m'; NC='\033[0m'
 
-echo -e "${BLUE}🚔 Starting ParkVisionSaathi Setup and Run Script...${NC}"
+echo -e "${BLUE}🚦 ParkVision-Saathi — setup & run${NC}"
 
-# 1. Setup Virtual Environment
-if [ ! -d ".venv" ]; then
-    echo -e "${YELLOW}📦 Creating Python virtual environment (.venv)...${NC}"
-    python3 -m venv .venv
+# 1. Virtual environment (repo standard: ./venv)
+if [ ! -d "venv" ]; then
+    echo -e "${YELLOW}📦 Creating virtual environment (venv)...${NC}"
+    python3 -m venv venv
 else
-    echo -e "${GREEN}✓ Virtual environment .venv already exists.${NC}"
+    echo -e "${GREEN}✓ venv already exists.${NC}"
 fi
-
-# Activate virtual environment
-echo -e "${YELLOW}🔌 Activating virtual environment...${NC}"
-source .venv/bin/activate
-
-# 2. Install Dependencies
-echo -e "${YELLOW}📥 Installing dependencies from requirements.txt...${NC}"
-pip install --upgrade pip
-pip install -r requirements.txt
-echo -e "${GREEN}✓ Dependencies installed successfully.${NC}"
-
-# Disable user-site packages to prevent sandbox or system permission errors
+# shellcheck disable=SC1091
+source venv/bin/activate
 export PYTHONNOUSERSITE=1
 
-# 3. Ask user about running ETL and ML models
-echo -e "${BLUE}⚙️ Do you want to process the raw data and train/run the ML models? (y/n)${NC}"
-read -p "Select choice [y]: " run_ml
-run_ml=${run_ml:-y}
+# 2. Dependencies
+#    Full requirements (pandas/h3/ml) are only needed to REGENERATE artifacts.
+#    To just serve the API you can instead: pip install -r requirements-backend.txt
+echo -e "${YELLOW}📥 Installing dependencies (requirements.txt)...${NC}"
+pip install --upgrade pip >/dev/null
+pip install -r requirements.txt
 
-if [ "$run_ml" = "y" ] || [ "$run_ml" = "Y" ]; then
-    echo -e "${YELLOW}📁 Running Data ETL / Cleaning Pipeline...${NC}"
-    python -m data.load_and_clean
-
-    echo -e "${YELLOW}🗺️ Running Hotspot DBSCAN Clustering...${NC}"
-    python -m ml.hotspot_dbscan
-
-    echo -e "${YELLOW}⚠️ Computing Risk Scores...${NC}"
-    python -m ml.risk_score
-
-    echo -e "${YELLOW}♟️ Running Stackelberg Mixed-Strategy Patrol Optimization...${NC}"
-    python -m ml.game.stackelberg
-
-    echo -e "${YELLOW}🌊 Simulating Spillover (Waterbed) Effect...${NC}"
-    python -m ml.game.spillover
-
-    echo -e "${YELLOW}🎯 Modeling Violator Expected Utility & Adaptation...${NC}"
-    python -m ml.game.expected_utility
-
-    echo -e "${YELLOW}📈 Generating Forecasting Features...${NC}"
-    python -m ml.forecast.feature_engineering
-
-    echo -e "${YELLOW}🤖 Training LightGBM Forecasting Model...${NC}"
-    python -m ml.forecast.train_model
-
-    echo -e "${GREEN}✓ ML Ingestion and Training Complete!${NC}"
+# 3. Optionally (re)generate the data artifacts the backend serves.
+#    Needs the raw violations CSV (git-ignored, local only); run_pipeline.py
+#    exits cleanly with guidance if it's missing.
+echo -e "${BLUE}⚙️  Regenerate data artifacts from the raw CSV? (needs dataset/*.csv) [y/N]${NC}"
+read -p "Select choice [N]: " regen
+regen=${regen:-N}
+if [ "$regen" = "y" ] || [ "$regen" = "Y" ]; then
+    echo -e "${YELLOW}🧮 Running data artifact pipeline (rekey → CIS artifact → agent)...${NC}"
+    python run_pipeline.py
 else
-    echo -e "${YELLOW}⏭️ Skipping ML/ETL pipeline step (using pre-existing database).${NC}"
+    echo -e "${YELLOW}⏭️  Using the committed JSON artifacts (no regeneration).${NC}"
 fi
 
-# 4. Start FastAPI Backend Server
-echo -e "${GREEN}🚀 Starting ParkVisionSaathi FastAPI Backend Server on port 8000...${NC}"
-echo -e "${BLUE}💡 Open http://localhost:8000/dashboard/ in your browser to view the application.${NC}"
-echo -e "${YELLOW}Press Ctrl+C to stop the server.${NC}"
-
-uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+# 4. Start the FastAPI backend. Honors $PORT (Render-style) and defaults to 8000.
+PORT="${PORT:-8000}"
+echo -e "${GREEN}🚀 Starting FastAPI backend on port ${PORT}...${NC}"
+echo -e "${BLUE}   API docs:  http://localhost:${PORT}/docs${NC}"
+echo -e "${BLUE}   Health:    http://localhost:${PORT}/health${NC}"
+echo -e "${BLUE}   Dashboard: http://localhost:${PORT}/dashboard/${NC}"
+exec uvicorn backend.app.main:app --host 0.0.0.0 --port "${PORT}" --reload

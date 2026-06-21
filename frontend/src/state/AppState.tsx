@@ -6,7 +6,7 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import type { MapLayer, PriorityArea, StationSummaryItem, Zone } from '@/types/api';
 
-export type PanelTab = 'details' | 'sim' | 'forecast' | 'game' | 'chat';
+export type PanelTab = 'details' | 'sim' | 'forecast' | 'game' | 'agent' | 'chat';
 
 interface AppStateValue {
   station: StationSummaryItem | null;
@@ -19,6 +19,8 @@ interface AppStateValue {
   setSelectedZone: (z: (Zone | PriorityArea) | null) => void;
   panel: PanelTab;
   setPanel: (p: PanelTab) => void;
+  panelOpen: boolean;
+  setPanelOpen: (open: boolean) => void;
 }
 
 const Ctx = createContext<AppStateValue | null>(null);
@@ -29,10 +31,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [layer, setLayer] = useState<MapLayer>('violation_density');
   const [selectedZone, setSelectedZone] = useState<(Zone | PriorityArea) | null>(null);
   const [panel, setPanel] = useState<PanelTab>('details');
+  const [panelOpen, setPanelOpen] = useState(false);
 
   const value = useMemo<AppStateValue>(
-    () => ({ station, setStation, hour, setHour, layer, setLayer, selectedZone, setSelectedZone, panel, setPanel }),
-    [station, hour, layer, selectedZone, panel],
+    () => ({ station, setStation, hour, setHour, layer, setLayer, selectedZone, setSelectedZone, panel, setPanel, panelOpen, setPanelOpen }),
+    [station, hour, layer, selectedZone, panel, panelOpen],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

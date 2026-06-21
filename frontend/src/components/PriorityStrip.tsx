@@ -6,13 +6,14 @@ import { Skeleton } from './Skeleton';
 import type { PriorityArea } from '@/types/api';
 
 export function PriorityStrip() {
-  const { station, hour, selectedZone, setSelectedZone, setPanel } = useAppState();
+  const { station, hour, selectedZone, setSelectedZone, setPanel, setPanelOpen } = useAppState();
   const { setRouteTarget } = useMapOverlay();
   const { data, isLoading } = usePriorityAreas(station?.name ?? null, hour);
 
   const pick = (a: PriorityArea) => {
     setSelectedZone(a);
     setPanel('details');
+    setPanelOpen(true);
   };
 
   return (

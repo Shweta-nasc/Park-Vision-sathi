@@ -35,6 +35,12 @@ const ICONS: Record<string, JSX.Element> = {
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
   ),
+  agent: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="4" y="7" width="16" height="12" rx="2" />
+      <path d="M12 3v4M9 13h.01M15 13h.01M8 7V5M16 7V5" />
+    </svg>
+  ),
 };
 
 const ITEMS: { tab: PanelTab; label: string; icon: keyof typeof ICONS }[] = [
@@ -42,6 +48,7 @@ const ITEMS: { tab: PanelTab; label: string; icon: keyof typeof ICONS }[] = [
   { tab: 'sim', label: 'Sim', icon: 'sim' },
   { tab: 'forecast', label: 'Forecast', icon: 'forecast' },
   { tab: 'game', label: 'Game', icon: 'game' },
+  { tab: 'agent', label: 'Agent', icon: 'agent' },
   { tab: 'chat', label: 'Assist', icon: 'chat' },
 ];
 

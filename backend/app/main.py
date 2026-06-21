@@ -14,6 +14,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+# Load a local .env (if present) so GEMINI_API_KEY etc. are available for the
+# optional live-LLM tier during local runs. On Render, env vars come from the
+# dashboard, so this is a no-op there. Guarded: python-dotenv is optional.
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
+
 from backend.app.data_loader import store
 from backend.app.routers import (risk, forecast, game, simulate, heatmap,
                                  stations, explain, traffic, agent)
