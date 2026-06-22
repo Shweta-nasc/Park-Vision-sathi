@@ -305,6 +305,35 @@ def degradation_lookup(report: Mapping) -> dict[str, float]:
     return {h3: float(v["degradation"]) for h3, v in zones.items() if isinstance(v, Mapping)}
 
 
+def fit_degradation_model(
+    cis_artifact: Mapping[str, Mapping],
+    observations: Mapping[str, Mapping],
+    *,
+    alpha: float = DEFAULT_RIDGE_ALPHA,
+    time_bucket: str = DEFAULT_TIME_BUCKET,
+):
+    """Fit the Task 4 Ridge degradation model on ALL measured zones.
+
+    Returns ``(model_or_None, measured_rows)``. ``model`` is the fitted
+    components+context -> degradation pipeline (``None`` when there are fewer than
+    :data:`MIN_TRAIN_FOR_MODEL` measured zones, so callers can report a pending
+    state instead of fitting on too little data). The model maps the
+    :data:`FEATURE_NAMES` vector to a degradation value in roughly [0, 1]; it is
+    the CIS-independent attribution model the throughput "real minutes" estimate
+    relies on (using the full CIS there would be circular).
+    """
+    import numpy as np
+
+    measured, _ = build_feature_tables(cis_artifact, observations, time_bucket=time_bucket)
+    if len(measured) < MIN_TRAIN_FOR_MODEL:
+        return None, measured
+    X = np.array([r["features"] for r in measured], dtype=float)
+    y = np.array([r["label"] for r in measured], dtype=float)
+    model = _make_model(alpha)
+    model.fit(X, y)
+    return model, measured
+
+
 def run(
     cis_artifact_path: Path = DEFAULT_CIS_ARTIFACT_PATH,
     observations_path: Path = DEFAULT_OBSERVATIONS_PATH,

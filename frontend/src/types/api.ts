@@ -130,6 +130,28 @@ export interface ForecastAccuracy {
   target?: string;
 }
 
+export interface ForecastContributor {
+  feature: string;
+  value: number;
+  contribution: number;
+}
+
+export interface ForecastExplanationZone {
+  zone_id?: string;
+  h3_id?: string;
+  base_value: number;
+  predicted_count?: number | null;
+  top_contributors: ForecastContributor[];
+}
+
+export interface ForecastExplanations {
+  available: boolean;
+  feature_names?: string[];
+  top_k?: number;
+  note?: string;
+  zones: ForecastExplanationZone[];
+}
+
 export interface PatrolAllocation {
   team_id: number;
   h3_id: string;

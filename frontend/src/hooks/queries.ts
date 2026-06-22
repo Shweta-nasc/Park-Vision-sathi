@@ -76,6 +76,15 @@ export function useForecastAccuracy() {
   return useQuery({ queryKey: ['forecastAccuracy'], queryFn: api.forecastAccuracy, staleTime: Infinity });
 }
 
+export function useForecastExplanations(enabled: boolean) {
+  return useQuery({
+    queryKey: ['forecastExplanations'],
+    queryFn: () => api.forecastExplanations(),
+    enabled,
+    staleTime: Infinity,
+  });
+}
+
 export function useViolators(hour: number, enabled: boolean) {
   return useQuery({
     queryKey: ['violators', hour],

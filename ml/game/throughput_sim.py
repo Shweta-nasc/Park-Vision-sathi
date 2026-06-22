@@ -210,6 +210,254 @@ def select_top_cis(
     return [cis for _, cis in rows]
 
 
+# ─── Real minutes saved on MEASURED corridors (Task 7 extension) ─────────────
+#
+# An additive, MapMyIndia-grounded estimate of minutes of delay relieved on the
+# zones we actually measured — separate from (and never replacing) the modeled
+# %-reduction headline above. It uses the measured travel-time excess and the
+# **Task 4 degradation model** (components -> degradation) to attribute how much
+# of that excess a patrol-driven blockage reduction would relieve. The full CIS
+# is deliberately NOT used here: the CIS already contains traffic_degradation (the
+# measured target), so attributing with it would be circular.
+
+from dataclasses import dataclass
+from statistics import median as _median
+
+# Caveats every consumer of the measured-minutes block must display.
+MEASURED_MINUTES_CAVEATS = [
+    "Measured on ~350 m local road segments around each zone centroid — not full "
+    "commutes or citywide travel.",
+    "Attributable saving uses the calibrated Task 4 degradation model fit on the "
+    "measured zones (small sample); treat as indicative, not exact.",
+    "enforcement_effectiveness is a documented modeling assumption, not a measured "
+    "quantity.",
+]
+
+# Index of the three enforcement-reducible components within COMPONENTS_4
+# (lane_blockage, intersection_impact, access_blockage); vehicle_size (index 3) is
+# the physical vehicle-size mix and is NOT changed by patrols.
+_REDUCIBLE_COMPONENT_INDICES = (0, 1, 2)
+
+
+@dataclass(frozen=True)
+class MeasuredZone:
+    """One MapMyIndia-measured corridor used by the real-minutes estimate."""
+
+    zone_id: str
+    t_ff_s: float                       # median free-flow baseline_s over legs
+    ratio_measured: float               # measured congestion_ratio (eta/baseline)
+    components: tuple[float, float, float, float]  # COMPONENTS_4 order
+    poi_count: float
+    free_flow_speed_kmph: float         # may be NaN -> the model imputes
+    cis: float                          # used ONLY for the patrol-allocation weight
+
+
+def _feature_vector(components: Sequence[float], poi_count: float, ffs: float) -> list[float]:
+    """Build the model feature vector in FEATURE_NAMES order (components + poi + ffs)."""
+    return [components[0], components[1], components[2], components[3], poi_count, ffs]
+
+
+def _pending_measured_block(reason: str) -> dict:
+    """The honest 'no real number yet' block (pending live collector + Task 4 model)."""
+    return {
+        "scope": "measured_corridors",
+        "available": False,
+        "reason": reason,
+        "caveats": list(MEASURED_MINUTES_CAVEATS),
+    }
+
+
+def estimate_measured_minutes_saved(
+    zones: Sequence[MeasuredZone],
+    model,
+    *,
+    n_teams: int,
+    effectiveness: float = ENFORCEMENT_EFFECTIVENESS,
+    alpha: float = PATROL_ALPHA,
+    patrol_probs: Optional[Sequence[float]] = None,
+) -> dict:
+    """Estimate real minutes of delay relieved on the measured corridors (pure).
+
+    Per measured zone ``i`` (all documented in the module header)::
+
+        E_i        = t_ff_i · (ratio_measured_i − 1)            # excess delay (s)
+        coverage_i = 1 − (1 − p_i)^N
+        c_after_i  = reduce lane/intersection/access by (1 − eff·coverage_i)
+        d_deg_i    = max(0, model(c_i) − model(c_after_i))       # Task 4 model
+        minutes_i  = t_ff_i · min(2·d_deg_i, ratio_measured_i − 1) / 60
+
+    The ``min`` clamp guarantees ``minutes_i ≤ E_i/60`` (a zone can never save more
+    than its measured excess), so ``D = Σ minutes_i ≤ M = Σ E_i/60`` and
+    ``D/M ≤ 100%``. ``model`` is any object with ``predict(list_of_rows)``; the CIS
+    is intentionally not used (it embeds the measured target). Deterministic.
+    """
+    n = len(zones)
+    if n == 0 or model is None:
+        return _pending_measured_block(
+            "No measured corridors or no fitted degradation model "
+            "(pending a live MapMyIndia collector run + Task 4 model)."
+        )
+
+    if patrol_probs is None:
+        patrol_probs = stackelberg_probabilities([z.cis for z in zones], alpha=alpha)
+
+    # Batch the model calls (before/after) for efficiency.
+    vecs_before = [_feature_vector(z.components, z.poi_count, z.free_flow_speed_kmph) for z in zones]
+    coverages = [zone_coverage_probability(p, n_teams) for p in patrol_probs]
+    vecs_after = []
+    for z, cov in zip(zones, coverages):
+        factor = 1.0 - effectiveness * cov
+        comp = z.components
+        comp_after = [
+            comp[i] * factor if i in _REDUCIBLE_COMPONENT_INDICES else comp[i]
+            for i in range(4)
+        ]
+        vecs_after.append(_feature_vector(comp_after, z.poi_count, z.free_flow_speed_kmph))
+
+    preds_before = list(model.predict(vecs_before))
+    preds_after = list(model.predict(vecs_after))
+
+    total_excess_s = 0.0
+    total_saved_min = 0.0
+    for z, pb, pa in zip(zones, preds_before, preds_after):
+        excess_ratio = max(0.0, z.ratio_measured - 1.0)
+        total_excess_s += z.t_ff_s * excess_ratio
+        d_deg = max(0.0, float(pb) - float(pa))
+        d_ratio = 2.0 * d_deg
+        total_saved_min += z.t_ff_s * min(d_ratio, excess_ratio) / 60.0
+
+    m_minutes = total_excess_s / 60.0
+    pct = (total_saved_min / m_minutes * 100.0) if m_minutes > 0 else 0.0
+    return {
+        "scope": "measured_corridors",
+        "available": True,
+        "n_zones": n,
+        "teams": int(n_teams),
+        "effectiveness": effectiveness,
+        "total_excess_delay_min": round(m_minutes, 1),
+        "estimated_minutes_saved": round(total_saved_min, 1),
+        "pct_of_measured_delay": round(pct, 2),
+        "caveats": list(MEASURED_MINUTES_CAVEATS),
+    }
+
+
+def build_measured_zones(
+    cis_artifact: Mapping[str, Mapping],
+    observations: Mapping[str, Mapping],
+    *,
+    time_bucket: str = DEFAULT_TIME_BUCKET,
+) -> list[MeasuredZone]:
+    """Assemble :class:`MeasuredZone` rows from the CIS artifact + Task 1 observations.
+
+    A zone qualifies when its observation has a valid ``congestion_ratio`` and at
+    least one leg ``baseline_s`` (for the free-flow time), and the CIS artifact
+    carries its four components. Sorted by ``zone_id`` for determinism.
+    """
+    from ml.congestion.calibrate_weights import COMPONENTS_4
+
+    zones: list[MeasuredZone] = []
+    for h3_id, obs in observations.items():
+        if not isinstance(obs, Mapping):
+            continue
+        ratio = obs.get("congestion_ratio")
+        if isinstance(ratio, bool) or not isinstance(ratio, (int, float)) or ratio != ratio or ratio <= 0:
+            continue
+        raw_legs = obs.get("raw_legs") or []
+        baselines = [
+            float(leg["baseline_s"]) for leg in raw_legs
+            if isinstance(leg, Mapping) and isinstance(leg.get("baseline_s"), (int, float))
+            and not isinstance(leg.get("baseline_s"), bool) and leg["baseline_s"] > 0
+        ]
+        if not baselines:
+            continue
+        buckets = cis_artifact.get(h3_id)
+        bd = buckets.get(time_bucket) if isinstance(buckets, Mapping) else None
+        if not isinstance(bd, Mapping):
+            bd = buckets.get("all_day") if isinstance(buckets, Mapping) else None
+        comps = bd.get("components") if isinstance(bd, Mapping) else None
+        if not isinstance(comps, Mapping):
+            continue
+        try:
+            comp4 = tuple(float(comps[c]) for c in COMPONENTS_4)
+        except (KeyError, TypeError, ValueError):
+            continue
+
+        pois = obs.get("pois")
+        poi_count = float(len(pois)) if isinstance(pois, (list, tuple)) else float("nan")
+        ffs = obs.get("free_flow_speed_kmph")
+        ffs = float(ffs) if isinstance(ffs, (int, float)) and not isinstance(ffs, bool) else float("nan")
+        cis = bd.get("congestion_impact")
+        cis = float(cis) if isinstance(cis, (int, float)) and not isinstance(cis, bool) else 0.0
+
+        zones.append(MeasuredZone(
+            zone_id=str(h3_id), t_ff_s=float(_median(baselines)), ratio_measured=float(ratio),
+            components=comp4, poi_count=poi_count, free_flow_speed_kmph=ffs, cis=cis,
+        ))
+    zones.sort(key=lambda z: z.zone_id)
+    return zones
+
+
+def compute_measured_minutes(
+    cis_artifact: Mapping[str, Mapping],
+    observations: Mapping[str, Mapping],
+    *,
+    n_teams: int = MAX_TEAMS,
+    effectiveness: float = ENFORCEMENT_EFFECTIVENESS,
+    alpha: float = PATROL_ALPHA,
+    time_bucket: str = DEFAULT_TIME_BUCKET,
+) -> dict:
+    """Fit the Task 4 model on the observations and estimate real minutes saved.
+
+    Returns the honest pending block when there are no observations or too few
+    measured zones to fit the degradation model (DATA BOUNDARY: a real number is
+    only produced once a live collector run + Task 4 model exist).
+    """
+    if not observations:
+        return _pending_measured_block(
+            "No measured corridors yet — pending a live MapMyIndia collector run."
+        )
+    from ml.congestion.predict_degradation import fit_degradation_model
+
+    model, _ = fit_degradation_model(cis_artifact, observations, alpha=alpha, time_bucket=time_bucket)
+    if model is None:
+        return _pending_measured_block(
+            "Too few measured zones to fit the Task 4 degradation model — pending "
+            "a fuller live MapMyIndia collector run."
+        )
+    zones = build_measured_zones(cis_artifact, observations, time_bucket=time_bucket)
+    return estimate_measured_minutes_saved(
+        zones, model, n_teams=n_teams, effectiveness=effectiveness, alpha=alpha,
+    )
+
+
+def run_measured_minutes(
+    cis_artifact_path: Optional[Path] = None,
+    observations_path: Optional[Path] = None,
+    *,
+    n_teams: int = MAX_TEAMS,
+    effectiveness: float = ENFORCEMENT_EFFECTIVENESS,
+    alpha: float = PATROL_ALPHA,
+    time_bucket: str = DEFAULT_TIME_BUCKET,
+) -> dict:
+    """File wrapper: load the CIS artifact + observations JSON, then estimate."""
+    cis_path = Path(cis_artifact_path) if cis_artifact_path else _resolve_cis_path()
+    obs_path = Path(observations_path) if observations_path else (
+        PROJECT_ROOT / "data" / "enriched" / "congestion_observations.json"
+    )
+    if not obs_path.exists():
+        return _pending_measured_block(
+            "No measured corridors yet — pending a live MapMyIndia collector run."
+        )
+    with cis_path.open("r", encoding="utf-8") as handle:
+        cis_artifact = json.load(handle)
+    with obs_path.open("r", encoding="utf-8") as handle:
+        observations = json.load(handle)
+    return compute_measured_minutes(
+        cis_artifact, observations, n_teams=n_teams,
+        effectiveness=effectiveness, alpha=alpha, time_bucket=time_bucket,
+    )
+
+
 # ─── Runner ──────────────────────────────────────────────────────────────────
 
 def run(

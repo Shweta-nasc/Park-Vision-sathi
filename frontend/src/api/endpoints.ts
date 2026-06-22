@@ -16,6 +16,7 @@ import {
 import type {
   AgentReport,
   ForecastAccuracy,
+  ForecastExplanations,
   ForecastPoint,
   HeatmapPoint,
   HeatmapResponse,
@@ -134,4 +135,17 @@ export const api = {
         calibration_run: r?.calibration_run ?? null,
       }))
       .catch(() => ({ available: false, summary: null, zones: [], calibration_run: null })),
+
+  /** /forecast/explanations → per-zone SHAP top contributors (Task 9). */
+  forecastExplanations: (): Promise<ForecastExplanations> =>
+    http
+      .get<any>('/forecast/explanations')
+      .then((r) => ({
+        available: !!(r && r.available),
+        feature_names: Array.isArray(r?.feature_names) ? r.feature_names : undefined,
+        top_k: r?.top_k,
+        note: r?.note,
+        zones: Array.isArray(r?.zones) ? r.zones : [],
+      }))
+      .catch(() => ({ available: false, zones: [] })),
 };

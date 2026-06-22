@@ -155,7 +155,7 @@ def _daily_precision_at_k(test: pd.DataFrame, k: int = PRECISION_K) -> float:
     return float(np.mean(scores)) if scores else 0.0
 
 
-def _train(panel: pd.DataFrame):
+def _train(panel: pd.DataFrame, features: list[str] = FEATURES):
     import lightgbm as lgb
 
     train = panel[panel["__date_only"] < VAL_START]
@@ -169,8 +169,8 @@ def _train(panel: pd.DataFrame):
         bagging_fraction=0.8, bagging_freq=1, seed=SEED, num_threads=1,
         deterministic=True, verbose=-1,
     )
-    dtrain = lgb.Dataset(train[FEATURES], label=train["violation_count"])
-    dval = lgb.Dataset(val[FEATURES], label=val["violation_count"], reference=dtrain)
+    dtrain = lgb.Dataset(train[features], label=train["violation_count"])
+    dval = lgb.Dataset(val[features], label=val["violation_count"], reference=dtrain)
     booster = lgb.train(
         params, dtrain, num_boost_round=1500, valid_sets=[dval],
         callbacks=[lgb.early_stopping(50, verbose=False), lgb.log_evaluation(0)],
@@ -178,12 +178,12 @@ def _train(panel: pd.DataFrame):
 
     # Refit on train+val through the chosen iteration, then evaluate once on test.
     fit = panel[panel["__date_only"] < TEST_START]
-    dfit = lgb.Dataset(fit[FEATURES], label=fit["violation_count"])
+    dfit = lgb.Dataset(fit[features], label=fit["violation_count"])
     final = lgb.train(params, dfit, num_boost_round=booster.best_iteration or 300,
                       callbacks=[lgb.log_evaluation(0)])
 
     test = test.copy()
-    test["pred"] = np.clip(final.predict(test[FEATURES]), 0, None)
+    test["pred"] = np.clip(final.predict(test[features]), 0, None)
     mae = float(np.mean(np.abs(test["pred"] - test["violation_count"])))
     rmse = float(np.sqrt(np.mean((test["pred"] - test["violation_count"]) ** 2)))
     p_at_10 = _daily_precision_at_k(test, PRECISION_K)

@@ -79,6 +79,23 @@ def _ensemble_config() -> dict:
         return {}
 
 
+@router.get("/forecast/explanations")
+def get_forecast_explanations(
+    zone_id: str = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=2000),
+):
+    """Per-zone SHAP (TreeSHAP) explanations for the forecast (Task 9).
+
+    With ``zone_id``, returns that zone's top contributors; otherwise a list.
+    When the explanations sidecar is absent, ``available`` is False (the panel
+    shows the honest-limitations note without a SHAP breakdown).
+    """
+    if zone_id:
+        rec = store.forecast_explanation_for(zone_id)
+        return {"available": rec is not None, "zone": rec}
+    return store.forecast_explanations_list(limit)
+
+
 @router.get("/forecast/accuracy")
 def get_forecast_accuracy():
     """Real held-out accuracy of the forecast model.

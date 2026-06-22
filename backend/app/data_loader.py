@@ -192,6 +192,10 @@ class DataStore:
         # the artifact is absent (graceful — endpoints fall back to a proxy).
         self.forecasts: dict[str, dict] = {}
         self.forecast_meta: dict = {}
+        # Per-zone SHAP explanations for the forecast (Task 9 sidecar). Empty when
+        # the sidecar is absent (pending the v2 forecast build).
+        self.forecast_explanations: dict = {}
+        self.forecast_explanations_meta: dict = {}
         self.traffic_raw: dict = {}
         self.explanations: dict = {}
         self.calibrated: dict = {}
@@ -249,6 +253,15 @@ class DataStore:
             self.forecast_meta = {k: v for k, v in forecasts_raw.items() if k != "zones"}
         else:
             self.forecasts, self.forecast_meta = {}, {}
+
+        # Forecast SHAP explanations sidecar (Task 9). Absent -> empty (the panel
+        # shows the honest-limitations note without a SHAP breakdown).
+        fexpl = _load(self.data_dir / "processed" / "forecast_explanations.json", {})
+        if isinstance(fexpl, dict):
+            self.forecast_explanations = fexpl.get("zones", {}) if isinstance(fexpl.get("zones"), dict) else {}
+            self.forecast_explanations_meta = {k: v for k, v in fexpl.items() if k != "zones"}
+        else:
+            self.forecast_explanations, self.forecast_explanations_meta = {}, {}
 
         self.traffic_raw = traffic
         self.calibrated = calibrated
@@ -785,6 +798,107 @@ class DataStore:
             out[str(n)] = {"num_teams": n, "coverage_pct": sim["coverage_pct"],
                            "uncovered_high_risk": len(sim["uncovered_high_risk"])}
         return out
+
+    def patrol_allocation_with_exploration(self, epsilon: float = 0.10) -> dict:
+        """ε-greedy patrol allocation: 90% exploit (risk^1.5) + 10% explore (Task 9).
+
+        Bias mitigation for the predictive-policing feedback loop: ``epsilon`` of
+        the patrol mass is directed at under-observed (low violation-count) zones
+        so the system can discover violations the enforcement record misses. The
+        allocation sums to 1.0; the exploit-only ``patrol_probability`` field is
+        left unchanged for backward compatibility.
+        """
+        self.ensure()
+        from ml.game.exploration import HONEST_LIMITATION, epsilon_greedy_allocation
+
+        zones = self.zones
+        if not zones:
+            return {"epsilon": epsilon, "exploration_pct": round(epsilon * 100, 1),
+                    "n_zones": 0, "zones": [], "honest_limitation": HONEST_LIMITATION}
+
+        risk = [z["risk_score"] for z in zones]
+        counts = [z["violation_count"] for z in zones]
+        alloc = epsilon_greedy_allocation(risk, counts, epsilon=epsilon)
+
+        rows = []
+        for z, p in zip(zones, alloc):
+            rows.append({
+                "grid_cell_id": z["grid_cell_id"],
+                "h3_id": z["h3_id"],
+                "lat": z["grid_lat"],
+                "lon": z["grid_lon"],
+                "risk_score": z["risk_score"],
+                "violation_count": z["violation_count"],
+                "patrol_probability": z["patrol_probability"],          # exploit-only (unchanged)
+                "patrol_probability_explore": round(float(p), 6),       # ε-greedy (bias-mitigated)
+            })
+        rows.sort(key=lambda r: (-r["patrol_probability_explore"], r["grid_cell_id"]))
+        return {
+            "epsilon": epsilon,
+            "exploration_pct": round(epsilon * 100, 1),
+            "n_zones": len(rows),
+            "zones": rows,
+            "honest_limitation": HONEST_LIMITATION,
+        }
+
+    def forecast_explanation_for(self, zone_id: str) -> Optional[dict]:
+        """Per-zone SHAP explanation for the forecast (Task 9), or ``None``."""
+        self.ensure()
+        rec = self.forecast_explanations.get(zone_id)
+        return {**rec, "zone_id": zone_id, "h3_id": zone_id} if isinstance(rec, dict) else None
+
+    def forecast_explanations_list(self, limit: int = 50) -> dict:
+        """Forecast SHAP explanations: metadata + the first ``limit`` zones."""
+        self.ensure()
+        zones = self.forecast_explanations
+        available = bool(zones)
+        items = [{**rec, "zone_id": z, "h3_id": z} for z, rec in list(zones.items())[:limit]]
+        return {
+            "available": available,
+            **self.forecast_explanations_meta,
+            "zones": items,
+        }
+
+    def throughput_simulation(self, max_teams: int = 20,
+                              top_n: Optional[int] = None,
+                              time_bucket: str = "all_day") -> dict:
+        """Before/after city congestion index across team counts (Task 7).
+
+        Grounded in the **calibrated** CIS served by this store: selects the
+        top-``top_n`` zones by congestion impact (defaults to the operational
+        ``HOTSPOT_UNIVERSE_SIZE``) and runs the transparent, documented throughput
+        model in ``ml.game.throughput_sim``. Offline and deterministic — every
+        constant is returned in the ``constants`` block and the minutes figure is
+        an explicitly illustrative modeled estimate.
+        """
+        self.ensure()
+        from ml.game.throughput_sim import (
+            compute_measured_minutes, select_top_cis, simulate_throughput,
+        )
+
+        if top_n is None:
+            top_n = HOTSPOT_UNIVERSE_SIZE
+        cis_values = select_top_cis(self.congestion, top_n=top_n, time_bucket=time_bucket)
+        result = simulate_throughput(cis_values, max_teams=max_teams)
+        result["cis_artifact"] = self.cis_artifact_path.name if self.cis_artifact_path else None
+        result["cis_version"] = self.calibration_meta.get("cis_version", "v1")
+        result["top_n"] = top_n
+        # Additive (never changes the %-reduction headline above): the real,
+        # MapMyIndia-grounded minutes-saved estimate on the MEASURED corridors.
+        # Reports a pending block until a live collection + Task 4 model exist.
+        obs_path = self.data_dir / "enriched" / "congestion_observations.json"
+        if obs_path.exists():
+            observations = _load(obs_path, {})
+            result["measured_minutes"] = compute_measured_minutes(
+                self.congestion, observations if isinstance(observations, dict) else {},
+                n_teams=max_teams, time_bucket=time_bucket,
+            )
+        else:
+            from ml.game.throughput_sim import _pending_measured_block
+            result["measured_minutes"] = _pending_measured_block(
+                "No measured corridors yet — pending a live MapMyIndia collector run."
+            )
+        return result
 
     def agent_report(self) -> dict:
         """Self-validating agent: summary + per-zone calibration log + calibration run.
