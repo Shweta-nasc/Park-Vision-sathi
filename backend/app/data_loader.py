@@ -830,7 +830,7 @@ class DataStore:
                 "risk_score": z["risk_score"],
                 "violation_count": z["violation_count"],
                 "patrol_probability": z["patrol_probability"],          # exploit-only (unchanged)
-                "patrol_probability_explore": round(float(p), 6),       # ε-greedy (bias-mitigated)
+                "patrol_probability_explore": float(p),                 # ε-greedy (unrounded: exact sum 1.0)
             })
         rows.sort(key=lambda r: (-r["patrol_probability_explore"], r["grid_cell_id"]))
         return {
