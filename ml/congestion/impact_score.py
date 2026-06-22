@@ -254,31 +254,33 @@ def compute_components(z: ZoneAggregate, m: CorpusMaxima) -> dict:
 
 # ─── Score aggregation and banding ───────────────────────────────────────────
 
-def compute_score(components: dict) -> float:
+def compute_score(components: dict, weights: Optional[dict] = None) -> float:
     """Combine the five weighted components into the 0-100 CIS value.
 
-    CIS = ``clamp(SCORE_CAP * Σ WEIGHTS[c] · components[c], 0, SCORE_CAP)`` summed
-    over the **five scored components only** (the keys of :data:`WEIGHTS`):
-    ``lane_blockage``, ``intersection_impact``, ``traffic_degradation``,
-    ``access_blockage``, and ``vehicle_size``. The reported ``severity``
-    diagnostic and the ``defaulted`` flag carried in the same dict are
-    deliberately **not** read, keeping the weights a clean partition of unity and
-    the score a true convex combination scaled to 100 (Requirement 1.1).
+    CIS = ``clamp(SCORE_CAP * Σ weights[c] · components[c], 0, SCORE_CAP)`` summed
+    over the **five scored components only**: ``lane_blockage``,
+    ``intersection_impact``, ``traffic_degradation``, ``access_blockage``, and
+    ``vehicle_size``. The reported ``severity`` diagnostic and the ``defaulted``
+    flag carried in the same dict are deliberately **not** read, keeping the
+    weights a clean partition of unity and the score a true convex combination
+    scaled to 100 (Requirement 1.1).
 
-    Because each component is in [0, 1] and the weights sum to 1.0, the raw
-    weighted sum is itself in [0, 1] and the scaled value lands in [0, 100]; the
-    final clamp still floors the result at 0 (Requirement 1.4) and caps it at
-    :data:`SCORE_CAP` (Requirement 1.5), so the score stays bounded even if a
-    caller passes a component slightly outside [0, 1].
+    ``weights`` defaults to the canonical :data:`WEIGHTS` (the v1 path); passing a
+    calibrated weight vector (Task 3) re-weights the same components without
+    touching v1 behavior. Any vector summing to 1.0 over the five keys keeps the
+    raw sum in [0, 1] and the scaled value in [0, 100]; the final clamp floors at
+    0 (Requirement 1.4) and caps at :data:`SCORE_CAP` (Requirement 1.5).
 
-    Pure function: no I/O, randomness, clock, or network — identical ``components``
-    always yield an identical score.
+    Pure function: no I/O, randomness, clock, or network — identical inputs always
+    yield an identical score.
 
     :param components: the mapping returned by :func:`compute_components`; only the
-        five :data:`WEIGHTS` keys are read (``severity``/``defaulted`` are ignored).
+        five weight keys are read (``severity``/``defaulted`` are ignored).
+    :param weights: optional weight override (defaults to :data:`WEIGHTS`).
     :returns: the Congestion Impact Score in the closed interval ``[0, SCORE_CAP]``.
     """
-    raw = sum(weight * components[name] for name, weight in WEIGHTS.items())
+    effective_weights = WEIGHTS if weights is None else weights
+    raw = sum(weight * components[name] for name, weight in effective_weights.items())
     return _clamp(raw * SCORE_CAP, 0.0, SCORE_CAP)
 
 
@@ -372,71 +374,47 @@ def estimate_lane_hours(z: ZoneAggregate) -> float:
 
 # ─── Full per-zone breakdown ─────────────────────────────────────────────────
 
-def score_zone(z: ZoneAggregate, m: CorpusMaxima) -> CongestionBreakdown:
+def score_zone(
+    z: ZoneAggregate,
+    m: CorpusMaxima,
+    *,
+    weights: Optional[dict] = None,
+    degradation_override: Optional[float] = None,
+) -> CongestionBreakdown:
     """Assemble the complete Congestion Impact breakdown for one zone.
 
     This is the single entry point the offline artifact builder (task 5) calls
     per ``(h3_id, time_bucket)`` cell. It composes the already-tested scoring
     primitives — :func:`compute_components`, :func:`compute_score`,
-    :func:`impact_band`, and :func:`estimate_lane_hours` — into one breakdown and
-    performs no scoring math of its own, so the per-component contracts proven for
-    those helpers carry through unchanged.
+    :func:`impact_band`, and :func:`estimate_lane_hours` — into one breakdown.
 
-    Return shape (task 3.1): a typed
-    :class:`~backend.app.models.CongestionBreakdown` whose fields mirror the
-    design's contract. (Earlier tasks returned a plain dict with these same keys;
-    task 3.1 swaps the assembly to the model — the field names are identical, so
-    the change is mechanical and the scorer's value-based determinism is
-    preserved.) The populated fields are::
+    Calibration seams (additive — the v1 path is exactly the no-kwargs call):
 
-        zone_id:            str    # H3 res-9 id (== h3_id)
-        h3_id:              str
-        time_bucket:        str
-        congestion_impact:  float in [0, 100]
-        impact_band:        "MINIMAL" | "MODERATE" | "SEVERE" | "CRITICAL"
-        components:         ComponentBreakdown(
-            lane_blockage       float in [0, 1],
-            intersection_impact float in [0, 1],
-            traffic_degradation float in [0, 1],
-            access_blockage     float in [0, 1],
-            vehicle_size        float in [0, 1],
-            severity            float in [0, 1],   # diagnostic, NOT weighted
-        )
-        weights:                          dict[str, float]  # canonical WEIGHTS echo
-        estimated_lane_hours_blocked:     float >= 0
-        total_records:                    int
-        top_violations:                   list[str]
-        station:                          Optional[str]
-        mappls_travel_time_ratio:         Optional[float]
-        is_traffic_degradation_defaulted: bool
+    * ``weights`` — an optional fitted weight vector (Task 3). Defaults to the
+      canonical :data:`WEIGHTS`. The breakdown's ``weights`` echo reflects whatever
+      vector was used (still a partition of unity, so the contract holds).
+    * ``degradation_override`` — an optional measured/predicted traffic-degradation
+      value in [0, 1] (Task 4) that replaces the component computed from the raw
+      ratio. When supplied, ``is_traffic_degradation_defaulted`` is set to False
+      because the value is a real measured/predicted signal, not the blind 0.5
+      fallback. When omitted, the v1 behavior (compute from ratio, default to 0.5
+      with the flag set) is preserved bit-for-bit.
 
-    ``lat``/``lon`` are intentionally left at their ``None`` defaults here: they
-    are H3-cell-derived (the hexagon centroid) and are not carried on
-    :class:`ZoneAggregate`. The offline artifact builder (task 5) attaches them
-    when it materializes the artifact, so they are not this function's
-    responsibility. The ``junction`` and ``calibrated_impact`` contract fields are
-    likewise left at ``None`` — the former has no source on the aggregate and the
-    latter is filled later by the self-validating agent (task 9).
-
-    The ``defaulted`` flag from :func:`compute_components` is surfaced as
-    ``is_traffic_degradation_defaulted``, and ``mappls_travel_time_ratio`` echoes
-    the zone's raw ``travel_time_ratio`` (``None`` when MapMyIndia data was
-    missing) so consumers can tell a measured signal from the deterministic
-    fallback (Requirement 13.3). The ``weights`` echo is a fresh copy of
-    :data:`WEIGHTS` (sum == 1.0) for transparency; copying prevents a consumer
-    from mutating the module-level canonical vector.
-
-    Purity (Requirements 7.1, 7.2): every input is read straight off ``z``/``m``
-    and every value is derived only from the pure helpers, so there is no I/O,
-    randomness, clock, or network — identical ``(z, m)`` inputs always yield an
-    equal :class:`CongestionBreakdown` (the model provides value-based equality).
-
-    :param z: the pre-aggregated counts for one ``(h3_id, time_bucket)`` zone.
-    :param m: the per-corpus maxima used to normalize the count-based components.
-    :returns: the full per-zone :class:`CongestionBreakdown` described above.
+    Purity (Requirements 7.1, 7.2): every value is derived only from the pure
+    helpers and the explicit overrides, so there is no I/O, randomness, clock, or
+    network — identical inputs always yield an equal :class:`CongestionBreakdown`.
     """
     components = compute_components(z, m)
-    score = compute_score(components)
+    defaulted = components["defaulted"]
+
+    if degradation_override is not None:
+        # A real measured/predicted degradation replaces the from-ratio value, so
+        # this zone is no longer on the blind 0.5 fallback path.
+        components = {**components, "traffic_degradation": _clamp(float(degradation_override))}
+        defaulted = False
+
+    effective_weights = WEIGHTS if weights is None else weights
+    score = compute_score(components, effective_weights)
 
     return CongestionBreakdown(
         # Spatial identity — H3 res-9 is canonical; zone_id mirrors h3_id
@@ -456,9 +434,9 @@ def score_zone(z: ZoneAggregate, m: CorpusMaxima) -> CongestionBreakdown:
             vehicle_size=components["vehicle_size"],
             severity=components["severity"],
         ),
-        # Transparency echo of the canonical weights (copied so it stays immutable
-        # to callers); sums to 1.0 by the import-time invariant (Requirement 6.3).
-        weights=dict(WEIGHTS),
+        # Transparency echo of the weights actually used (copied so it stays
+        # immutable to callers); sums to 1.0 by construction (Requirement 6.3).
+        weights=dict(effective_weights),
         estimated_lane_hours_blocked=estimate_lane_hours(z),
         total_records=z.total_records,
         top_violations=list(z.top_violations),
@@ -467,5 +445,5 @@ def score_zone(z: ZoneAggregate, m: CorpusMaxima) -> CongestionBreakdown:
         # flag marking when traffic_degradation fell back to the default so
         # consumers never mistake the fallback for a measured value (Req 13.2/13.3).
         mappls_travel_time_ratio=z.travel_time_ratio,
-        is_traffic_degradation_defaulted=components["defaulted"],
+        is_traffic_degradation_defaulted=defaulted,
     )
