@@ -9,8 +9,8 @@ Produces the **v2** CIS artifact from:
 
 without touching the v1 path. The v1 builder
 (``ml.congestion.build_artifact.build_congestion_artifact``) is reused with its
-new ``weights`` / ``degradation_lookup`` seams; this module only orchestrates the
-inputs and attaches a self-describing ``_calibration`` metadata block.
+new ``weights`` / ``degradation_lookup`` seams; this module orchestrates the
+inputs and writes a **separate** calibration metadata sidecar.
 
 Additive-shadow guarantees
 ---------------------------
@@ -19,9 +19,16 @@ Additive-shadow guarantees
 * The backend (``data_loader``) defaults to v2 but **falls back to v1** when v2
   is absent, so removing/renaming v2 cleanly reverts to v1.
 * The per-zone schema is identical to v1 (additive only) — every entry still
-  validates against ``CongestionBreakdown``. The only extra top-level key is the
-  reserved ``_calibration`` metadata block, which the loader filters out before
-  iterating zones (its key starts with ``_``, which no H3 id ever does).
+  validates against ``CongestionBreakdown``.
+
+Metadata lives ONLY in a sidecar
+--------------------------------
+The v2 artifact is a **pure** ``{h3_id: {time_bucket: breakdown}}`` map — no
+extra top-level keys. Calibration metadata (``cis_version``, fitted weights,
+trust metric, …) is written to a separate
+``data/processed/cis_calibration_meta.json`` sidecar that ``/health`` reads. This
+keeps every ``len(artifact)`` / iteration consumer (the agent, the loader) from
+ever miscounting a phantom metadata "zone".
 
 HARD DATA BOUNDARY: this runner must be invoked on the **real** Task 1 collector
 output (``congestion_observations.json``) plus the real CSV. It is intentionally
@@ -54,11 +61,10 @@ DEFAULT_VALIDATION_PATH = PROJECT_ROOT / "data" / "processed" / "cis_validation_
 DEFAULT_TRAFFIC_CONTEXT_PATH = PROJECT_ROOT / "data" / "enriched" / "traffic_context.json"
 DEFAULT_OBSERVATIONS_PATH = PROJECT_ROOT / "data" / "enriched" / "congestion_observations.json"
 DEFAULT_V2_PATH = PROJECT_ROOT / "data" / "processed" / "zone_congestion_impact_v2.json"
+# Calibration metadata sidecar (Option A): metadata is NEVER embedded in the
+# artifact, so no consumer can miscount a phantom "_calibration" zone.
+DEFAULT_META_PATH = PROJECT_ROOT / "data" / "processed" / "cis_calibration_meta.json"
 
-# Reserved top-level key carrying calibration metadata inside the artifact. It
-# starts with "_" so the loader can distinguish it from H3-id zone keys (which
-# are 15-char hex strings, never beginning with "_").
-CALIBRATION_META_KEY = "_calibration"
 CIS_VERSION = "v2"
 
 
@@ -98,7 +104,7 @@ def build_calibration_metadata(
     collection_date: Optional[str],
     generated_at: str,
 ) -> dict:
-    """Assemble the self-describing ``_calibration`` block (Task 5 metadata)."""
+    """Assemble the self-describing calibration metadata block (sidecar contents)."""
     n_measured = (
         validation_report.get("n_measured")
         or degradation_report.get("n")
@@ -132,15 +138,17 @@ def build_calibrated_artifact(
     traffic_context_path: Union[str, Path] = DEFAULT_TRAFFIC_CONTEXT_PATH,
     observations_path: Union[str, Path] = DEFAULT_OBSERVATIONS_PATH,
     out_path: Union[str, Path] = DEFAULT_V2_PATH,
+    meta_path: Union[str, Path] = DEFAULT_META_PATH,
     resolution: int = 9,
     travel_time_ratios: Optional[Mapping[str, float]] = None,
     collection_date: Optional[str] = None,
     generated_at: Optional[str] = None,
 ) -> dict:
-    """Build the v2 artifact (fitted weights + predicted degradation + metadata).
+    """Build the v2 artifact (fitted weights + predicted degradation).
 
-    Returns the in-memory artifact (``{h3_id: {bucket: breakdown}}`` plus the
-    reserved ``_calibration`` key) and writes it to ``out_path``.
+    Writes a **pure** ``{h3_id: {bucket: breakdown}}`` artifact to ``out_path`` and
+    a **separate** calibration metadata sidecar to ``meta_path``. Returns the
+    in-memory artifact dict (pure — no metadata key).
     """
     weights, calibration_report = load_calibrated_weights(calibration_path)
     if weights is None:
@@ -161,7 +169,8 @@ def build_calibrated_artifact(
     validation_report = _load_json(validation_path)
 
     # Build per-zone breakdowns through the v1 builder's calibration seams. The v1
-    # builder writes the pure artifact to out_path and returns it in-memory.
+    # builder writes the PURE artifact to out_path and returns it in-memory — no
+    # metadata key is ever added to the artifact (Option A).
     artifact = build_congestion_artifact(
         violations,
         traffic_context_path=traffic_context_path,
@@ -181,7 +190,7 @@ def build_calibrated_artifact(
                 break
 
     gen = generated_at or datetime.now(timezone.utc).isoformat()
-    artifact[CALIBRATION_META_KEY] = build_calibration_metadata(
+    metadata = build_calibration_metadata(
         weights=weights,
         calibration_report=calibration_report,
         degradation_report=degradation_report,
@@ -190,15 +199,16 @@ def build_calibrated_artifact(
         generated_at=gen,
     )
 
-    # Re-write with the metadata block included (the v1 builder wrote the pure
-    # artifact a moment ago; this overwrites it with the metadata-carrying version).
-    out_path = Path(out_path)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    with out_path.open("w", encoding="utf-8") as handle:
-        json.dump(artifact, handle, indent=2, ensure_ascii=False)
+    # Write the metadata to a SEPARATE sidecar (never embedded in the artifact).
+    meta_path = Path(meta_path)
+    meta_path.parent.mkdir(parents=True, exist_ok=True)
+    with meta_path.open("w", encoding="utf-8") as handle:
+        json.dump(metadata, handle, indent=2, ensure_ascii=False)
 
-    n_zones = sum(1 for k in artifact if k != CALIBRATION_META_KEY)
-    logger.info("Wrote calibrated v2 CIS artifact to %s: %d zone(s).", out_path, n_zones)
+    logger.info(
+        "Wrote calibrated v2 CIS artifact to %s: %d zone(s); metadata -> %s.",
+        out_path, len(artifact), meta_path,
+    )
     return artifact
 
 
@@ -212,6 +222,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--traffic-context", default=str(DEFAULT_TRAFFIC_CONTEXT_PATH))
     parser.add_argument("--observations", default=str(DEFAULT_OBSERVATIONS_PATH))
     parser.add_argument("--out", default=str(DEFAULT_V2_PATH))
+    parser.add_argument("--meta", default=str(DEFAULT_META_PATH))
     args = parser.parse_args(argv)
 
     from ml.congestion.build_artifact import _resolve_real_csv
@@ -226,6 +237,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         traffic_context_path=Path(args.traffic_context),
         observations_path=Path(args.observations),
         out_path=Path(args.out),
+        meta_path=Path(args.meta),
     )
     return 0
 

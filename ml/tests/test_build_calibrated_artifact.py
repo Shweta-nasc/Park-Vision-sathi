@@ -22,7 +22,11 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from backend.app.data_loader import CALIBRATION_META_KEY, DataStore, _resolve_cis_artifact_path
+from backend.app.data_loader import (
+    CIS_CALIBRATION_META_FILENAME,
+    DataStore,
+    _resolve_cis_artifact_path,
+)
 from backend.app.models import CongestionBreakdown
 from ml.congestion.build_artifact import h3_id_for
 from ml.congestion.build_calibrated_artifact import (
@@ -117,23 +121,30 @@ def test_load_calibrated_weights_missing_returns_none(tmp_path):
 
 # ─── build_calibrated_artifact ───────────────────────────────────────────────
 
-def test_v2_artifact_uses_fitted_weights_and_degradation_override(tmp_path):
+def test_v2_artifact_is_pure_and_uses_fitted_weights_and_degradation(tmp_path):
     zone_ids = [h3_id_for(*PT_A), h3_id_for(*PT_B), h3_id_for(*PT_C)]
     calib, deg, val = _write_sidecars(tmp_path, zone_ids)
     ctx = tmp_path / "traffic_context.json"
     ctx.write_text("{}", encoding="utf-8")
     out = tmp_path / "zone_congestion_impact_v2.json"
+    meta_path = tmp_path / "cis_calibration_meta.json"
 
     artifact = build_calibrated_artifact(
         _violations_df(),
         calibration_path=calib, degradation_path=deg, validation_path=val,
         traffic_context_path=ctx, observations_path=tmp_path / "none.json",
-        out_path=out, generated_at="2024-03-15T09:30:00+00:00",
+        out_path=out, meta_path=meta_path, generated_at="2024-03-15T09:30:00+00:00",
     )
 
     assert out.exists()
-    assert CALIBRATION_META_KEY in artifact
-    meta = artifact[CALIBRATION_META_KEY]
+    # The artifact is PURE: no "_"-prefixed metadata key, in-memory and on-disk.
+    assert all(not k.startswith("_") for k in artifact)
+    on_disk = json.loads(out.read_text(encoding="utf-8"))
+    assert all(not k.startswith("_") for k in on_disk)
+
+    # Metadata lives ONLY in the sidecar.
+    assert meta_path.exists()
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
     assert meta["cis_version"] == CIS_VERSION
     assert abs(sum(meta["weights"].values()) - 1.0) < 1e-9
     assert meta["spearman_test"] == 0.61
@@ -142,8 +153,6 @@ def test_v2_artifact_uses_fitted_weights_and_degradation_override(tmp_path):
     # Every per-zone entry validates against the contract, with the fitted weights
     # echoed and the degradation override applied.
     for zone_id, buckets in artifact.items():
-        if zone_id == CALIBRATION_META_KEY:
-            continue
         for breakdown in buckets.values():
             model = CongestionBreakdown.model_validate(breakdown)
             assert abs(sum(model.weights.values()) - 1.0) < 1e-9
@@ -157,15 +166,16 @@ def test_v2_falls_back_to_canonical_weights_without_calibration(tmp_path):
     ctx = tmp_path / "traffic_context.json"
     ctx.write_text("{}", encoding="utf-8")
     out = tmp_path / "v2.json"
-    artifact = build_calibrated_artifact(
+    meta_path = tmp_path / "meta.json"
+    build_calibrated_artifact(
         _violations_df(),
         calibration_path=tmp_path / "absent.json",
         degradation_path=tmp_path / "absent2.json",
         validation_path=tmp_path / "absent3.json",
         traffic_context_path=ctx, observations_path=tmp_path / "absent4.json",
-        out_path=out, generated_at="x",
+        out_path=out, meta_path=meta_path, generated_at="x",
     )
-    meta = artifact[CALIBRATION_META_KEY]
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
     assert meta["weights"] == WEIGHTS  # canonical fallback
 
 
@@ -184,7 +194,7 @@ def test_resolve_prefers_v2_then_v1(tmp_path, monkeypatch):
     assert _resolve_cis_artifact_path(tmp_path).name == "zone_congestion_impact_v2.json"
 
 
-def test_datastore_loads_v2_and_strips_metadata(tmp_path, monkeypatch):
+def test_datastore_loads_v2_and_reads_metadata_sidecar(tmp_path, monkeypatch):
     monkeypatch.delenv("CIS_ARTIFACT_PATH", raising=False)
     zone_ids = [h3_id_for(*PT_A), h3_id_for(*PT_B), h3_id_for(*PT_C)]
     calib, deg, val = _write_sidecars(tmp_path, zone_ids)
@@ -194,22 +204,51 @@ def test_datastore_loads_v2_and_strips_metadata(tmp_path, monkeypatch):
     data_dir = tmp_path / "data"
     processed = data_dir / "processed"
     processed.mkdir(parents=True)
-    # Build v2 directly into the DataStore's processed dir.
+    # Build v2 + its metadata sidecar directly into the DataStore's processed dir.
     build_calibrated_artifact(
         _violations_df(),
         calibration_path=calib, degradation_path=deg, validation_path=val,
         traffic_context_path=ctx, observations_path=tmp_path / "none.json",
-        out_path=processed / "zone_congestion_impact_v2.json", generated_at="x",
+        out_path=processed / "zone_congestion_impact_v2.json",
+        meta_path=processed / CIS_CALIBRATION_META_FILENAME,
+        generated_at="x",
     )
 
     store = DataStore(data_dir=data_dir).load()
-    # The reserved metadata key is never a zone.
-    assert CALIBRATION_META_KEY not in store.congestion
+    # The artifact universe is pure — no "_"-prefixed phantom zone.
     assert all(not k.startswith("_") for k in store.congestion)
-    # Calibration metadata is surfaced.
+    # Calibration metadata comes from the SIDECAR, not the artifact.
     assert store.calibration_meta["cis_version"] == "v2"
+    assert store.calibration_meta["spearman_test"] == 0.61
     assert store.sources["cis_version"] == "v2"
     assert store.sources["cis_artifact"] == "zone_congestion_impact_v2.json"
+    # The agent's per-zone counter would see exactly the real zones (no phantom +1).
+    raw_artifact = json.loads(
+        (processed / "zone_congestion_impact_v2.json").read_text(encoding="utf-8")
+    )
+    assert len(raw_artifact) == len(store.congestion)
+
+
+def test_v2_served_without_sidecar_is_marked_uncalibrated(tmp_path, monkeypatch):
+    """A v2 artifact present but its metadata sidecar absent -> honest uncalibrated."""
+    monkeypatch.delenv("CIS_ARTIFACT_PATH", raising=False)
+    zone_ids = [h3_id_for(*PT_A), h3_id_for(*PT_B), h3_id_for(*PT_C)]
+    calib, deg, val = _write_sidecars(tmp_path, zone_ids)
+    ctx = tmp_path / "traffic_context.json"
+    ctx.write_text("{}", encoding="utf-8")
+    data_dir = tmp_path / "data"
+    processed = data_dir / "processed"
+    processed.mkdir(parents=True)
+    # Build only the artifact; write its metadata sidecar somewhere ELSE (tmp_path).
+    build_calibrated_artifact(
+        _violations_df(),
+        calibration_path=calib, degradation_path=deg, validation_path=val,
+        traffic_context_path=ctx, observations_path=tmp_path / "none.json",
+        out_path=processed / "zone_congestion_impact_v2.json",
+        meta_path=tmp_path / "elsewhere_meta.json", generated_at="x",
+    )
+    store = DataStore(data_dir=data_dir).load()
+    assert store.calibration_meta == {"cis_version": "v2", "calibrated": False}
 
 
 def test_datastore_falls_back_to_v1_when_v2_absent(tmp_path, monkeypatch):

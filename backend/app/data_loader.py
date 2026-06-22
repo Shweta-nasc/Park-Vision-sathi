@@ -55,7 +55,11 @@ DATA = PROJECT_ROOT / "data"
 # rename/removal away. An explicit CIS_ARTIFACT_PATH env var overrides both.
 CIS_V1_FILENAME = "zone_congestion_impact.json"
 CIS_V2_FILENAME = "zone_congestion_impact_v2.json"
-# Reserved metadata key inside the artifact (starts with "_", never an H3 id).
+# Calibration metadata sidecar (Option A): metadata is NEVER embedded in the
+# artifact, so no consumer can miscount a phantom metadata "zone".
+CIS_CALIBRATION_META_FILENAME = "cis_calibration_meta.json"
+# Defensive only: a key that could never be a real H3 id. The v2 artifact is pure
+# (metadata lives in the sidecar), so this filter is a no-op safety net.
 CALIBRATION_META_KEY = "_calibration"
 
 
@@ -211,23 +215,28 @@ class DataStore:
         # The path resolves to the calibrated v2 artifact when present, else the v1
         # artifact (additive-shadow, Task 5). A missing file is non-fatal: `_load`
         # logs a warning and returns {}, so the backend starts with an empty
-        # congestion universe rather than crashing (Requirement 14.3). The artifact
-        # is keyed {h3_id: {time_bucket: breakdown}} plus an optional reserved
-        # `_calibration` metadata block (filtered out of the zone universe below).
+        # congestion universe rather than crashing (Requirement 14.3).
+        # The artifact is keyed {h3_id: {time_bucket: breakdown}} and is PURE —
+        # calibration metadata lives in a separate sidecar (Option A), so no
+        # consumer can miscount a phantom metadata "zone".
         cis_path = _resolve_cis_artifact_path(self.data_dir)
         self.cis_artifact_path = cis_path
+        serving_v2 = cis_path.name == CIS_V2_FILENAME
         congestion = _load(cis_path, {})
         congestion = congestion if isinstance(congestion, dict) else {}
-        # Split the reserved metadata block(s) (keys starting with "_") out of the
-        # zone universe so every downstream iterator sees only real H3 zones.
-        meta_block = congestion.get(CALIBRATION_META_KEY)
+        # Defensive only (the artifact is pure): drop any "_"-prefixed key so a
+        # stray/legacy embedded block can never become a phantom zone.
         self.congestion = {k: v for k, v in congestion.items() if not k.startswith("_")}
-        if isinstance(meta_block, dict):
+
+        # Calibration metadata from the sidecar. It is trusted only when the v2
+        # artifact is actually being served; otherwise we surface an honest
+        # uncalibrated marker (never fabricated trust numbers).
+        meta_block = _load(self.data_dir / "processed" / CIS_CALIBRATION_META_FILENAME, {})
+        if serving_v2 and isinstance(meta_block, dict) and meta_block:
             self.calibration_meta = dict(meta_block)
         else:
-            # v1 / uncalibrated: an honest marker (no fabricated trust numbers).
             self.calibration_meta = {
-                "cis_version": "v2" if cis_path.name == CIS_V2_FILENAME else "v1",
+                "cis_version": "v2" if serving_v2 else "v1",
                 "calibrated": False,
             }
 
@@ -778,10 +787,18 @@ class DataStore:
         return out
 
     def agent_report(self) -> dict:
-        """Self-validating agent: summary + per-zone calibration log."""
+        """Self-validating agent: summary + per-zone calibration log + calibration run.
+
+        ``calibration_run`` is the agent's offline before/after weight + trust block
+        (Task 6), baked into ``agent_log.json`` by the agent run and surfaced here
+        additively. When absent (no calibration run yet) it degrades to an honest
+        ``{"available": False}`` so the panel can render a "pending" state.
+        """
         self.ensure()
+        calibration_run = self.agent_summary.get("calibration_run") or {"available": False}
         return {"summary": self.agent_summary,
-                "zones": list(self.calibrated.values())}
+                "zones": list(self.calibrated.values()),
+                "calibration_run": calibration_run}
 
 
 # Module-level singleton (loaded at app startup in main.py).

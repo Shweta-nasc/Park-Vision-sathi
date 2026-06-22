@@ -106,6 +106,13 @@ TRAFFIC_PATH = PROJECT_ROOT / "data" / "enriched" / "traffic_context.json"
 CALIBRATED_OUT = PROJECT_ROOT / "data" / "processed" / "calibrated_scores.json"
 AGENT_LOG_OUT = PROJECT_ROOT / "data" / "processed" / "agent_log.json"
 
+# Calibration-loop sidecar reports (Tasks 2-4). The agent reads these cached JSON
+# files to assemble the offline `calibration_run` block — NO network, NO refit at
+# serve time. Absent files yield an honest "not available" block.
+VALIDATION_REPORT_PATH = PROJECT_ROOT / "data" / "processed" / "cis_validation_report.json"
+CALIBRATION_REPORT_PATH = PROJECT_ROOT / "data" / "processed" / "cis_calibration.json"
+DEGRADATION_REPORT_PATH = PROJECT_ROOT / "data" / "processed" / "predicted_degradation.json"
+
 # The canonical Congestion Impact Score (CIS) artifact — the REAL production
 # input for the calibration run: ``{h3_id: {time_bucket: breakdown}}`` produced
 # by ``ml.congestion.build_artifact``. Each zone's ``all_day`` bucket carries the
@@ -405,6 +412,89 @@ def load_mappls_data(path: Path = TRAFFIC_PATH) -> dict:
     return data if isinstance(data, dict) else {}
 
 
+# ─── Calibration-loop report (offline, sourced from Tasks 2-4) ───────────────
+#
+# The agent's evolution (Task 6): beyond nudging individual zones, it reports its
+# own trustworthiness — the before/after fitted weights and the rank-correlation
+# with reality on the held-out real-traffic zones. This is assembled ENTIRELY
+# from cached JSON sidecars (the Task 2 validation report, the Task 3 weight
+# calibration, and the Task 4 degradation model). No network, no refit at serve
+# time, and no timestamp — so the block is deterministic and offline-replayable.
+
+
+def _read_json_safe(path: Path) -> dict:
+    """Load a JSON dict, returning {} when absent or unreadable (offline-safe)."""
+    path = Path(path)
+    if not path.exists():
+        return {}
+    try:
+        with open(path) as handle:
+            data = json.load(handle)
+        return data if isinstance(data, dict) else {}
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def build_calibration_run(
+    validation_report: dict,
+    calibration_report: dict,
+    degradation_report: dict,
+) -> dict:
+    """Assemble the ``calibration_run`` block from the three cached reports (pure).
+
+    Sources (all CIS-independent measured signals):
+      * ``calibration_report`` (Task 3 ``cis_calibration.json``) — old/new weights
+        and the held-out Spearman before/after re-fitting;
+      * ``validation_report`` (Task 2 ``cis_validation_report.json``) — the count
+        of measured / exploration zones;
+      * ``degradation_report`` (Task 4 ``predicted_degradation.json``) — the
+        leave-one-zone-out generalization metrics for the degradation model.
+
+    ``available`` is False (with null fields) when none of the reports exist yet —
+    an honest "no calibration run" state, never fabricated numbers. Deterministic:
+    no clock, randomness, or network.
+    """
+    n_from_calib = None
+    if calibration_report:
+        n_train = calibration_report.get("n_train")
+        n_test = calibration_report.get("n_test")
+        if isinstance(n_train, int) and isinstance(n_test, int):
+            n_from_calib = n_train + n_test
+
+    return {
+        "available": bool(validation_report or calibration_report or degradation_report),
+        "weights_old": calibration_report.get("old_weights"),
+        "weights_new": calibration_report.get("new_weights"),
+        "weights_method": calibration_report.get("method"),
+        "spearman_old": calibration_report.get("spearman_old_test"),
+        "spearman_new": calibration_report.get("spearman_new_test"),
+        "n_zones_measured": (
+            validation_report.get("n_measured")
+            or degradation_report.get("n")
+            or n_from_calib
+        ),
+        "n_exploration": validation_report.get("n_exploration"),
+        "lozo_metrics": {
+            "model": degradation_report.get("model"),
+            "lozo_r2": degradation_report.get("lozo_r2"),
+            "lozo_spearman": degradation_report.get("lozo_spearman"),
+        },
+    }
+
+
+def load_calibration_run(
+    validation_path: Path = VALIDATION_REPORT_PATH,
+    calibration_path: Path = CALIBRATION_REPORT_PATH,
+    degradation_path: Path = DEGRADATION_REPORT_PATH,
+) -> dict:
+    """Read the three sidecar reports and assemble the ``calibration_run`` block."""
+    return build_calibration_run(
+        _read_json_safe(validation_path),
+        _read_json_safe(calibration_path),
+        _read_json_safe(degradation_path),
+    )
+
+
 # ─── Runner ──────────────────────────────────────────────────────────────────
 
 def run(
@@ -684,14 +774,24 @@ def run_from_artifact(
     log_out: Path = AGENT_LOG_OUT,
     time_bucket: str = "all_day",
     verbose: bool = True,
+    *,
+    validation_path: Path = VALIDATION_REPORT_PATH,
+    calibration_path: Path = CALIBRATION_REPORT_PATH,
+    degradation_path: Path = DEGRADATION_REPORT_PATH,
 ) -> tuple[dict, dict]:
     """Production run: load the REAL CIS artifact, calibrate, persist, report.
 
     Writes ``calibrated_scores.json`` keyed by ``h3_id`` (only the calibrated
     zones) and ``agent_log.json`` (summary counts + the per-calibrated-zone log).
+    The summary now also carries an offline ``calibration_run`` block (Task 6),
+    assembled from the cached Task 2-4 sidecar reports — the agent's before/after
+    weights and its agreement-with-reality metrics. No network is involved.
     """
     artifact = load_congestion_artifact(artifact_path)
     calibrated, summary = calibrate_artifact_zones(artifact, time_bucket=time_bucket)
+    summary["calibration_run"] = load_calibration_run(
+        validation_path, calibration_path, degradation_path
+    )
 
     calibrated_out.parent.mkdir(parents=True, exist_ok=True)
     with open(calibrated_out, "w") as f:

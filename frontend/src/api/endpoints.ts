@@ -123,7 +123,7 @@ export const api = {
   traffic: (h3_id: string): Promise<TrafficContext> =>
     http.get<any>(`/traffic/${encodeURIComponent(h3_id)}`).then(adaptTraffic),
 
-  /** /agent/validation-report → { summary, zones[] }. */
+  /** /agent/validation-report → { summary, zones[], calibration_run }. */
   agentReport: (): Promise<AgentReport> =>
     http
       .get<any>('/agent/validation-report')
@@ -131,6 +131,7 @@ export const api = {
         available: !!(r && r.summary),
         summary: r?.summary ?? null,
         zones: Array.isArray(r?.zones) ? r.zones : [],
+        calibration_run: r?.calibration_run ?? null,
       }))
-      .catch(() => ({ available: false, summary: null, zones: [] })),
+      .catch(() => ({ available: false, summary: null, zones: [], calibration_run: null })),
 };

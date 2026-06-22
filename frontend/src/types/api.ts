@@ -217,6 +217,22 @@ export interface AgentZone {
   reasoning: string;
 }
 
+export interface CalibrationRun {
+  available: boolean;
+  weights_old?: Record<string, number> | null;
+  weights_new?: Record<string, number> | null;
+  weights_method?: string | null;
+  spearman_old?: number | null;
+  spearman_new?: number | null;
+  n_zones_measured?: number | null;
+  n_exploration?: number | null;
+  lozo_metrics?: {
+    model?: string | null;
+    lozo_r2?: number | null;
+    lozo_spearman?: number | null;
+  } | null;
+}
+
 export interface AgentReport {
   available: boolean;
   summary: {
@@ -229,4 +245,6 @@ export interface AgentReport {
     mean_abs_adjustment_pct?: number;
   } | null;
   zones: AgentZone[];
+  /** Task 6: the agent's offline before/after weight + trust block. */
+  calibration_run?: CalibrationRun | null;
 }
