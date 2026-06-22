@@ -170,6 +170,10 @@ class BudgetExceededError(RuntimeError):
     """Raised when the estimated number of API calls exceeds the budget."""
 
 
+class SnapshotFrozenError(RuntimeError):
+    """Raised when a frozen observations snapshot would be overwritten without --force."""
+
+
 # ─── Typed zone selection ────────────────────────────────────────────────────
 
 @dataclass(frozen=True)
@@ -531,6 +535,70 @@ def load_existing_observations(path: Path) -> dict:
         return {}
 
 
+# ─── Immutable snapshot (frozen provenance, Task 11) ─────────────────────────
+
+def snapshot_meta_path(output_path: Path) -> Path:
+    """Sidecar path holding the frozen-snapshot metadata for an observations file."""
+    output_path = Path(output_path)
+    return output_path.with_name(output_path.name + ".meta.json")
+
+
+def read_snapshot_meta(output_path: Path) -> dict:
+    """Read the snapshot meta sidecar (``{}`` if absent/unreadable)."""
+    meta_path = snapshot_meta_path(output_path)
+    if not meta_path.exists():
+        return {}
+    try:
+        with meta_path.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+        return data if isinstance(data, dict) else {}
+    except (ValueError, OSError):
+        return {}
+
+
+def is_frozen(output_path: Path) -> bool:
+    """True when a frozen snapshot meta sidecar exists for ``output_path``."""
+    return bool(read_snapshot_meta(output_path).get("frozen"))
+
+
+def observations_content_sha256(observations: dict) -> str:
+    """Content hash of an observations dict (auditable provenance chain)."""
+    from ml.congestion.stats_utils import content_sha256
+    return content_sha256(observations)
+
+
+def write_snapshot_meta(output_path: Path, observations: dict, measured_at: str) -> dict:
+    """Freeze the snapshot: write ``{frozen, content_sha256, measured_at, n_zones}``."""
+    meta = {
+        "frozen": True,
+        "content_sha256": observations_content_sha256(observations),
+        "measured_at": measured_at,
+        "n_zones": len(observations),
+        "source": SOURCE_TAG,
+        "method": METHOD_TAG,
+    }
+    meta_path = snapshot_meta_path(output_path)
+    meta_path.parent.mkdir(parents=True, exist_ok=True)
+    with meta_path.open("w", encoding="utf-8") as handle:
+        json.dump(meta, handle, indent=2, ensure_ascii=False)
+    return meta
+
+
+def observations_provenance(observations_path: Path) -> Optional[str]:
+    """The frozen snapshot's ``content_sha256`` (sidecar first, else computed).
+
+    Downstream artifacts call this to record exactly which observations snapshot
+    they consumed. Returns ``None`` when no observations exist.
+    """
+    observations_path = Path(observations_path)
+    meta = read_snapshot_meta(observations_path)
+    if meta.get("content_sha256"):
+        return str(meta["content_sha256"])
+    if observations_path.exists():
+        return observations_content_sha256(load_existing_observations(observations_path))
+    return None
+
+
 def _require_token(token: Optional[str]) -> str:
     """Return the API token (explicit arg wins, else env). Never printed."""
     if token:
@@ -563,6 +631,7 @@ def collect(
     rupees_per_call: float = RUPEES_PER_CALL,
     dry_run: bool = False,
     refresh: bool = False,
+    force: bool = False,
     poi_keywords: str = DEFAULT_POI_KEYWORDS,
     poi_radius: int = DEFAULT_POI_RADIUS,
     get_json: Optional[GetJson] = None,
@@ -576,13 +645,22 @@ def collect(
 
     Returns the full observations dict (also written to ``output_path`` unless
     ``dry_run``). Raises :class:`BudgetExceededError` when the estimated call
-    count for the uncached zones exceeds ``budget``.
+    count for the uncached zones exceeds ``budget``. Raises
+    :class:`SnapshotFrozenError` when a frozen snapshot would be overwritten and
+    ``force`` is False.
     """
     artifact = load_artifact(artifact_path)
     zones = select_zones(artifact, top_n=top_n, explore_n=explore_n, seed=seed)
 
     existing = {} if refresh else load_existing_observations(output_path)
     todo = [z for z in zones if z.zone_id not in existing]
+
+    # Immutable snapshot guard: refuse to overwrite a frozen snapshot unless forced.
+    if not dry_run and not force and todo and is_frozen(output_path):
+        raise SnapshotFrozenError(
+            f"{output_path} is a frozen snapshot (see {snapshot_meta_path(output_path).name}). "
+            "Re-collecting would change a validated provenance hash. Pass --force to override."
+        )
 
     est_calls = estimate_calls(len(todo))
     est_rupees = estimate_rupees(est_calls, rupees_per_call)
@@ -659,6 +737,12 @@ def collect(
             print(f"   congestion_ratio  min={ratios[0]:.2f}  median={median(ratios):.2f}  max={ratios[-1]:.2f}")
         print(f"{'='*64}\n")
 
+    # Freeze the snapshot: write the provenance meta sidecar (content hash).
+    meta = write_snapshot_meta(output_path, results, measured_at)
+    if verbose:
+        print(f"   🔒 frozen snapshot — sha256 {meta['content_sha256'][:12]}… "
+              f"({snapshot_meta_path(output_path).name})\n")
+
     return results
 
 
@@ -675,6 +759,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--rupees-per-call", type=float, default=RUPEES_PER_CALL, help="₹ per call (⚠️ VERIFY)")
     parser.add_argument("--dry-run", action="store_true", help="print cost/plan, make no API calls")
     parser.add_argument("--refresh", action="store_true", help="ignore cache and re-collect every zone")
+    parser.add_argument("--force", action="store_true", help="overwrite a frozen snapshot")
     args = parser.parse_args(argv)
 
     try:
@@ -688,10 +773,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             rupees_per_call=args.rupees_per_call,
             dry_run=args.dry_run,
             refresh=args.refresh,
+            force=args.force,
         )
     except BudgetExceededError as exc:
         print(f"\n❌ {exc}\n", file=sys.stderr)
         return 2
+    except SnapshotFrozenError as exc:
+        print(f"\n❌ {exc}\n", file=sys.stderr)
+        return 3
     except RuntimeError as exc:
         print(f"\n❌ {exc}\n", file=sys.stderr)
         return 1

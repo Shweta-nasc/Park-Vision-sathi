@@ -267,6 +267,9 @@ def build_predictions(
     oof = lozo_oof_predictions(X, y, lambda: _make_model(alpha))
     lozo_r2 = _r2(y, oof)
     lozo_spear = spearman(list(oof), list(y))
+    from ml.congestion.stats_utils import bootstrap_spearman_ci, content_sha256
+    lozo_spear_ci = bootstrap_spearman_ci(list(oof), list(y))
+    obs_sha = content_sha256(dict(observations)) if observations else None
 
     # Final model refit on all measured zones, used for the unmeasured predictions.
     model = _make_model(alpha)
@@ -283,9 +286,11 @@ def build_predictions(
         "n_predicted": len(unmeasured),
         "lozo_r2": lozo_r2,
         "lozo_spearman": lozo_spear,
+        "lozo_spearman_ci": lozo_spear_ci,
         "alpha": alpha,
         "features": list(FEATURE_NAMES),
         "time_bucket": time_bucket,
+        "observations_sha256": obs_sha,
         "generated_at": generated_at or datetime.now(timezone.utc).isoformat(),
         "zones": dict(sorted(zones.items())),
     }
@@ -361,11 +366,15 @@ def run(
     if verbose:
         r2 = report["lozo_r2"]
         rho = report["lozo_spearman"]
+        ci = report.get("lozo_spearman_ci")
         r2s = f"{r2:.3f}" if isinstance(r2, (int, float)) else "n/a"
         rhos = f"{rho:.3f}" if isinstance(rho, (int, float)) else "n/a"
+        cis = ""
+        if isinstance(ci, dict) and ci.get("lo") is not None:
+            cis = f" [{ci['lo']:.3f}, {ci['hi']:.3f}]"
         print(
             f"Degradation model={report['model']} on {report['n']} measured zones; "
-            f"LOZO R²={r2s} Spearman={rhos}; predicted {report['n_predicted']} unmeasured zones."
+            f"LOZO R²={r2s} Spearman={rhos}{cis}; predicted {report['n_predicted']} unmeasured zones."
         )
     return report
 

@@ -57,6 +57,7 @@ from typing import Mapping, Optional, Sequence
 import numpy as np
 
 from ml.congestion.impact_score import WEIGHTS, WEIGHT_SUM_TOLERANCE
+from ml.congestion.stats_utils import bootstrap_spearman_ci, content_sha256, flat_variance_abort
 from ml.congestion.validate_cis import (
     DEFAULT_SPLIT_SEED,
     DEFAULT_TIME_BUCKET,
@@ -301,6 +302,35 @@ def build_calibration(
 
     a_old = old_normalized_weights()
     old_full = dict(WEIGHTS)
+    obs_sha = content_sha256(dict(observations)) if observations else None
+    gen = generated_at or datetime.now(timezone.utc).isoformat()
+
+    # Flat-variance abort: refuse to fit when the measured ratios are near-flat
+    # (off-peak), since any "calibration" would be fitting noise (Task 11).
+    abort = flat_variance_abort([r["y"] for r in rows]) if rows else None
+    if abort is not None:
+        logger.warning("Calibration aborted: %s", abort["reason"])
+        return {
+            "status": abort["status"],
+            "reason": abort["reason"],
+            "flat_variance": abort,
+            "old_weights": old_full,
+            "new_weights": old_full,  # unchanged — no fit performed
+            "w_td_fixed": W_TD_FIXED,
+            "fitted_components": list(COMPONENTS_4),
+            "spearman_old_test": None,
+            "spearman_new_test": None,
+            "spearman_old_test_ci": None,
+            "spearman_new_test_ci": None,
+            "n_train": len(train),
+            "n_test": len(test),
+            "split_seed": split_seed,
+            "seed": calib_seed,
+            "method": "aborted_flat_variance",
+            "calibration_strength": "aborted",
+            "observations_sha256": obs_sha,
+            "generated_at": gen,
+        }
 
     if len(train) < MIN_POINTS_FOR_CORR:
         logger.warning(
@@ -331,6 +361,8 @@ def build_calibration(
         "fitted_a_new": {c: round(float(a_new[i]), 6) for i, c in enumerate(COMPONENTS_4)},
         "spearman_old_test": spearman(old_pred_test, y_test),
         "spearman_new_test": spearman(new_pred_test, y_test),
+        "spearman_old_test_ci": bootstrap_spearman_ci(old_pred_test, y_test),
+        "spearman_new_test_ci": bootstrap_spearman_ci(new_pred_test, y_test),
         "spearman_old_train": spearman(old_pred_train, y_train_all),
         "spearman_new_train": spearman(new_pred_train, y_train_all),
         "n_train": len(train),
@@ -339,7 +371,8 @@ def build_calibration(
         "seed": calib_seed,
         "n_samples": n_samples,
         "method": method,
-        "generated_at": generated_at or datetime.now(timezone.utc).isoformat(),
+        "observations_sha256": obs_sha,
+        "generated_at": gen,
     }
 
 
@@ -389,11 +422,22 @@ def _fmt(value: Optional[float]) -> str:
     return f"{value:.3f}" if isinstance(value, (int, float)) else "n/a"
 
 
+def _fmt_ci(ci: Optional[dict]) -> str:
+    """Format a bootstrap CI as ``[lo, hi]`` (or empty when unavailable)."""
+    if not isinstance(ci, dict) or ci.get("lo") is None or ci.get("hi") is None:
+        return ""
+    return f" [{ci['lo']:.3f}, {ci['hi']:.3f}]"
+
+
 def _print_report(report: dict) -> None:
+    if report.get("method") == "aborted_flat_variance":
+        print(f"\nCIS weight calibration ABORTED — {report.get('reason')}")
+        print("  (weights unchanged; report any correlation as an off-peak lower bound)\n")
+        return
     print(f"\nCIS weight calibration ({report['method']})")
     print(f"  train zones: {report['n_train']}   test zones: {report['n_test']}")
-    print(f"  test Spearman   old ρ={_fmt(report['spearman_old_test'])}   "
-          f"new ρ={_fmt(report['spearman_new_test'])}")
+    print(f"  test Spearman   old ρ={_fmt(report['spearman_old_test'])}{_fmt_ci(report.get('spearman_old_test_ci'))}   "
+          f"new ρ={_fmt(report['spearman_new_test'])}{_fmt_ci(report.get('spearman_new_test_ci'))}")
     print("  weight table (old -> new):")
     old_w, new_w = report["old_weights"], report["new_weights"]
     for c in old_w:
