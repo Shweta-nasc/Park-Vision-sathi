@@ -85,6 +85,7 @@ def health():
         "data_layer": "json-in-memory",
         "zones_loaded": len(store.zones),
         "sources": store.sources,
+        "calibration": store.calibration_meta,
         "agent": store.agent_summary,
     }
 

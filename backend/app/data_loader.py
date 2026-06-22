@@ -40,6 +40,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -47,6 +48,26 @@ logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DATA = PROJECT_ROOT / "data"
+
+# ── Calibrated CIS artifact resolution (additive-shadow, Task 5) ─────────────
+# The backend serves the v2 (calibrated) artifact by default but FALLS BACK to v1
+# when v2 is absent, so the working demo never breaks and v1 stays one
+# rename/removal away. An explicit CIS_ARTIFACT_PATH env var overrides both.
+CIS_V1_FILENAME = "zone_congestion_impact.json"
+CIS_V2_FILENAME = "zone_congestion_impact_v2.json"
+# Reserved metadata key inside the artifact (starts with "_", never an H3 id).
+CALIBRATION_META_KEY = "_calibration"
+
+
+def _resolve_cis_artifact_path(data_dir: Path) -> Path:
+    """Return the CIS artifact path: env override, else v2, else v1 fallback."""
+    env = os.getenv("CIS_ARTIFACT_PATH")
+    if env:
+        return Path(env)
+    v2 = data_dir / "processed" / CIS_V2_FILENAME
+    if v2.exists():
+        return v2
+    return data_dir / "processed" / CIS_V1_FILENAME
 
 # Stackelberg emphasis exponent (docs/README: patrol_prob ∝ score^α, α=1.5).
 PATROL_ALPHA = 1.5
@@ -155,6 +176,12 @@ class DataStore:
         # absent (graceful empty zone universe — Requirement 14.3). The rich
         # serving accessors over this structure are added in task 6.2.
         self.congestion: dict[str, dict[str, dict]] = {}
+        # Calibration metadata (Task 5): the artifact's reserved `_calibration`
+        # block (cis_version, fitted weights, trust metric, …) when present, else a
+        # v1/uncalibrated marker. Surfaced at /health. Empty/marker is honest when
+        # no calibrated v2 artifact exists yet.
+        self.calibration_meta: dict = {}
+        self.cis_artifact_path: Optional[Path] = None
         # H3-native daily forecast (PREDICT pillar), keyed by the SAME h3_id as the
         # CIS map. `forecasts` = {h3_id: {predicted_count, predicted_band, ...}};
         # `forecast_meta` = model name + held-out metrics + target date. Empty when
@@ -181,11 +208,28 @@ class DataStore:
 
         # Canonical CIS artifact (the QUANTIFY pillar's single source of truth),
         # read as JSON only — no database, no network (Requirements 7.3, 7.4, 11.3).
-        # A missing file is non-fatal: `_load` logs a warning and returns {}, so the
-        # backend starts with an empty congestion universe rather than crashing
-        # (Requirement 14.3). The artifact is keyed {h3_id: {time_bucket: breakdown}}.
-        congestion = _load(self.data_dir / "processed" / "zone_congestion_impact.json", {})
-        self.congestion = congestion if isinstance(congestion, dict) else {}
+        # The path resolves to the calibrated v2 artifact when present, else the v1
+        # artifact (additive-shadow, Task 5). A missing file is non-fatal: `_load`
+        # logs a warning and returns {}, so the backend starts with an empty
+        # congestion universe rather than crashing (Requirement 14.3). The artifact
+        # is keyed {h3_id: {time_bucket: breakdown}} plus an optional reserved
+        # `_calibration` metadata block (filtered out of the zone universe below).
+        cis_path = _resolve_cis_artifact_path(self.data_dir)
+        self.cis_artifact_path = cis_path
+        congestion = _load(cis_path, {})
+        congestion = congestion if isinstance(congestion, dict) else {}
+        # Split the reserved metadata block(s) (keys starting with "_") out of the
+        # zone universe so every downstream iterator sees only real H3 zones.
+        meta_block = congestion.get(CALIBRATION_META_KEY)
+        self.congestion = {k: v for k, v in congestion.items() if not k.startswith("_")}
+        if isinstance(meta_block, dict):
+            self.calibration_meta = dict(meta_block)
+        else:
+            # v1 / uncalibrated: an honest marker (no fabricated trust numbers).
+            self.calibration_meta = {
+                "cis_version": "v2" if cis_path.name == CIS_V2_FILENAME else "v1",
+                "calibrated": False,
+            }
 
         # H3-native forecast artifact (map-aligned). Split into the per-zone map
         # (`zones`) and the model metadata/metrics (everything else).
@@ -212,6 +256,8 @@ class DataStore:
 
         self.sources = {
             "congestion_artifact_zones": len(self.congestion),
+            "cis_artifact": cis_path.name,
+            "cis_version": self.calibration_meta.get("cis_version", "v1"),
             "hotspot_universe": len(zones),
             "traffic_context_enriched": len(traffic),
             "calibrated_scores": len(calibrated),
