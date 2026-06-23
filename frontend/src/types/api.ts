@@ -52,6 +52,8 @@ export interface Zone {
   estimated_lane_hours_blocked: number;
   /** Real CIS component breakdown (only present after a /risk/{id} fetch). */
   components?: CongestionComponents;
+  /** Live CIS component weights (calibrated v2), present on /risk/{id} breakdowns. */
+  weights?: Record<string, number> | null;
   top_violations?: string[];
   mappls_ratio?: number | null;
   // Game-theory enrichment (present on /risk list, /game/* responses)
