@@ -13,6 +13,24 @@ Illegal parking doesn't just annoy — it chokes traffic. ParkVision-Saathi **qu
 
 ---
 
+> ### Current state — v2 (calibrated CIS) is live
+>
+> The Congestion Impact Score is no longer a pure expert heuristic. We collected **150 zones**
+> of real MapMyIndia local-segment congestion, **fitted** the CIS component weights to it,
+> **predicted** the missing traffic-degradation component for the other ~2,377 zones, and now
+> report a **non-circular, held-out trust metric** with confidence intervals. The backend serves
+> the calibrated **v2** artifact by default (`/health` → `cis_version: v2`, `calibrated: true`),
+> with the uncalibrated **v1** one flag away.
+>
+> **Honest verdict (served, midday window, n=48 held-out zones):** the non-circular honest-CIS
+> Spearman ρ = **0.380** `[0.131, 0.579]` vs the raw-violation-count baseline ρ = **0.412**
+> `[0.103, 0.658]` → `baseline_beaten: false`, `calibration_strength: weak`. The CIs overlap at
+> this sample size — this is reported as-is, not hidden. The contribution is the
+> **measure → calibrate → validate** loop; it tightens with more measurement. See
+> [Self-Validating Agent](#9-self-validating-agent) and `/validation/proof`.
+
+---
+
 ## Table of Contents
 
 1. [Problem Statement & Impact](#1-problem-statement--impact)
@@ -28,8 +46,9 @@ Illegal parking doesn't just annoy — it chokes traffic. ParkVision-Saathi **qu
 11. [API Reference](#11-api-reference)
 12. [Complete Implementation Guide](#12-complete-implementation-guide)
     - [Path A — Quick start (committed artifacts, no raw data needed)](#path-a--quick-start-committed-artifacts-no-raw-data-needed)
-    - [Path B — Run the full ML pipeline from raw data](#path-b--run-the-full-ml-pipeline-from-raw-data)
-    - [Path C — Retrain ML models from scratch](#path-c--retrain-ml-models-from-scratch)
+    - [Path B — Rebuild the v1 artifacts from raw data](#path-b--run-the-full-ml-pipeline-from-raw-data)
+    - [Path C — Calibrate the CIS against live MapMyIndia (v2)](#path-c--calibrate-the-cis-against-live-mapmyindia-produce-refresh-v2)
+    - [Path D — Retrain the forecast + game-theory models](#path-d--retrain-the-forecast--game-theory-models-from-scratch)
 13. [Frontend — UI Walkthrough](#13-frontend--ui-walkthrough)
 14. [Dataset Overview](#14-dataset-overview)
 15. [Honest Limitations](#15-honest-limitations)
@@ -58,14 +77,21 @@ Bengaluru generates ~2,000 parking violation records every day. Yet traffic poli
 | Metric | Value |
 |---|---|
 | Records in dataset | **298,450** (Nov 2023 – Apr 2024) |
-| Police stations | **55** |
+| Police stations in the served hotspot universe | **21** (`/stations`) — of 54 in the raw data |
 | H3 res-9 zones scored | **2,527** |
 | Hotspot / OPTIMIZE universe | Top **60** zones by violation volume |
 | Served from memory at request time | **60 hotspot zones + 2,527 CIS zones + 2,527 forecast zones** |
-| Top zone by enforcement priority | Subedar Chatram Road, Upparpet — 12,109 violations, risk 100/CRITICAL, **CIS only 15/MINIMAL** |
-| Top zone by congestion impact | HAL Old Airport — CIS **49.5/MODERATE** (agent calibrated 50→44 against live travel time) |
-| Highest MapMyIndia travel-time ratio | **1.63×** (Shivajinagar) |
-| Self-validating agent calibrations | 10 zones; mean abs adjustment **4.2%**; HAL Old Airport adjusted down **50→44** |
+| Calibrated CIS version served | **v2** (`cis_version: v2`, `calibrated: true`) |
+| Real MapMyIndia congestion samples | **150** zones (110 core + 40 exploration), frozen snapshot |
+| Fitted weights (old → new) | intersection_impact 0.25 → **0.604**, lane 0.30 → 0.015, access 0.10 → 0.131, traffic_degradation 0.25 (fixed), vehicle 0.10 → ~0.000 |
+| Honest held-out trust (non-circular) | CIS ρ **0.380** `[0.131, 0.579]` vs raw-count ρ **0.412** `[0.103, 0.658]` on n=48 → `weak`, baseline not beaten |
+| Self-validating agent (v2) | **report-only** — confirms the calibrated model, applies **0.0%** score nudge (coherence mode) |
+| Forecast (held-out April, H3) | Precision@10 **0.45**, MAE **0.83**, RMSE **4.43**, 8 test days |
+| Tests | **335** passing (`pytest`) |
+
+> The honest "weak" verdict is **expected** on a midday (off-peak) collection and is reported
+> transparently — see [Honest Limitations](#15-honest-limitations). Numbers above are read live
+> from `/health`, `/validation/proof`, `/risk/calibration`, and `/forecast/accuracy`.
 
 ### Who Cares
 
@@ -197,62 +223,80 @@ Zoom out → city-level 1 km blobs. Zoom in → street-level 100 m H3 cells. The
 
 ## 5. System Architecture
 
+ParkVision-Saathi has **two planes**: an **offline ML/data plane** that produces the calibrated
+artifacts (run rarely, may touch the network for MapMyIndia), and an **online serving plane**
+that is ML-free, database-free, and offline-safe (reads committed JSON once at startup).
+
+### Online serving plane (request-time — no DB, no network*)
+
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │                         BROWSER / JUDGE                              │
-│                                                                      │
 │   React + TypeScript (Vite, port 5173)                               │
-│   ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ │
-│   │ MapView  │ │ZoneDetail│ │Simulation│ │Forecast  │ │ Agent /  │ │
-│   │(Mappls / │ │  Panel   │ │  Panel   │ │  Panel   │ │ Chat     │ │
-│   │MapLibre) │ │          │ │          │ │          │ │  Panel   │ │
-│   └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ │
-│        │            │             │             │             │       │
-│        └────────────┴─────────────┴─────────────┴─────────────┘      │
-│                          @tanstack/react-query                        │
-│                        api/endpoints.ts + adapters.ts                 │
+│   MapView (Mappls SDK ↔ MapLibre fallback) · LayerToggle · TimeControls│
+│   panels/ ZoneDetail · Simulation · Forecast · GameTheory · Agent ·   │
+│           Chat · ProofScatter (density≠impact scatter)                │
+│                @tanstack/react-query → api/endpoints.ts → adapters.ts │
 └──────────────────────────┬───────────────────────────────────────────┘
-                           │  HTTP/REST  (bare paths + /api prefix)
+                           │  HTTP/REST  (every route mounted twice: bare + /api)
 ┌──────────────────────────▼───────────────────────────────────────────┐
 │              FastAPI Backend (port 8000 / $PORT)                     │
-│                                                                      │
-│  main.py — app factory, CORS, router mounting, startup load          │
-│  ┌─────────────────────────────────────────────────────────────────┐ │
-│  │  Routers (backend/app/routers/)                                 │ │
-│  │  risk.py  heatmap.py  forecast.py  game.py  simulate.py         │ │
-│  │  stations.py  traffic.py  explain.py  agent.py                  │ │
-│  └──────────────────────────┬────────────────────────────────────┘  │
-│                              │                                       │
-│  ┌───────────────────────────▼────────────────────────────────────┐  │
-│  │  DataStore — data_loader.py  (single in-memory source of truth) │  │
-│  │  Loaded ONCE at startup from pre-computed JSON artifacts        │  │
-│  └───────────────────────────┬────────────────────────────────────┘  │
-└──────────────────────────────┼───────────────────────────────────────┘
-                               │  reads JSON files
-┌──────────────────────────────▼───────────────────────────────────────┐
-│                        data/  (committed JSON artifacts)             │
-│                                                                      │
-│  processed/zone_congestion_impact.json  ← canonical CIS per H3 zone │
-│  processed/forecasts.json               ← LightGBM-Poisson forecast  │
-│  processed/calibrated_scores.json       ← agent calibration output   │
-│  processed/agent_log.json               ← agent reasoning log        │
-│  processed/explanations_cache.json      ← Gemini explanation cache   │
-│  mock/hotspots.json                     ← legacy ranked zones        │
-│  enriched/traffic_context.json          ← MapMyIndia enrichment      │
-│  spillover_arrows.json  violator_utility.json  whatif_coverage.json  │
+│  main.py — app factory, CORS, router mounting, startup load, /health  │
+│  routers/  risk · heatmap · forecast · game · simulate · stations ·   │
+│            traffic · explain · agent · validation · route             │
+│                              │                                        │
+│  DataStore (data_loader.py) — single in-memory source of truth        │
+│   • resolves CIS_ARTIFACT_PATH → v2 if present, else falls back to v1 │
+│   • reads the calibration sidecar; exposes headline/calibrated bucket │
+│   • /route is cache-first: routes.json → live Mappls → null (graceful)│
+└──────────────────────────┬───────────────────────────────────────────┘
+                           │  reads committed JSON
+┌──────────────────────────▼───────────────────────────────────────────┐
+│                     data/  (committed JSON artifacts)                 │
+│  processed/zone_congestion_impact_v2.json   ← SERVED calibrated CIS    │
+│  processed/zone_congestion_impact.json      ← v1 fallback (expert)     │
+│  processed/cis_calibration_meta.json        ← calibration sidecar      │
+│  processed/cis_validation_report.json       ← /validation/proof        │
+│  processed/calibrated_scores.json · agent_log.json                     │
+│  processed/forecasts_v2.json · forecast_explanations.json (SHAP)       │
+│  enriched/congestion_observations.json(+.meta) ← frozen MapMyIndia     │
+│  enriched/traffic_context_h3.json · routes.json ← cached road routes   │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-### Key Architecture Decisions
+\* The demo runs fully offline from committed JSON. `/route` and `/explain` are the only
+endpoints that *may* reach the network — both degrade gracefully to a cache/fallback on failure.
+
+### Offline ML / calibration plane (`run_pipeline.py --v2`, idempotent, deterministic)
+
+```
+ ml/enrichment/congestion_collector.py   (LIVE, manual, budget-guarded — separate step)
+        │  4 short legs/zone (≈350 m N/E/S/W) × distance_matrix vs distance_matrix_eta
+        ▼
+ data/enriched/congestion_observations.json   (frozen snapshot + .meta sha256)
+        │
+        ▼   python run_pipeline.py --v2   (OFFLINE, no network — consumes the snapshot)
+ 1 validate_cis (v1 baseline)      → cis_validation_report_baseline.json
+ 2 calibrate_weights               → cis_calibration.json   (fit 4 non-traffic weights to ρ)
+ 3 predict_degradation             → predicted_degradation.json  (Ridge, leave-one-zone-out CV)
+ 4 build_calibrated_artifact       → zone_congestion_impact_v2.json (+ cis_calibration_meta.json)
+ 5 validate_cis (v2, served)       → cis_validation_report.json  (honest non-circular trust)
+ 6 agent run_from_artifact (v2)    → calibrated_scores.json + agent_log.json (report-only)
+ 7 build_h3_forecast_v2            → forecasts_v2.json + forecast_explanations.json (SHAP)
+```
+
+### Key architecture decisions
 
 | Decision | Rationale |
 |---|---|
-| **JSON + in-memory, no database** | Demo survives offline, zero cold-start from DB, no infra dependencies |
-| **Routes at bare path AND `/api` prefix** | Frontend wire contract preserved while planner contract added cleanly |
-| **CIS separate from `risk_score`** | `congestion_impact` (CIS) ≠ `risk_score` (enforcement priority) — the two-layer map difference |
-| **MapLibre fallback** | Map renders without a Mappls key, so judges can run locally without API setup |
-| **Cache-first LLM** | Gemini explanations pre-generated; demo never depends on API quota or network |
-| **H3 res-9 everywhere** | CIS artifact, forecast model, and map all use the same spatial unit — predictions align |
+| **Additive-shadow v1 → v2** | The calibrated v2 artifact is served by default but v1 is one env var / rename away (`CIS_ARTIFACT_PATH`, with automatic fallback if v2 is absent). The working demo can never break. |
+| **JSON + in-memory, no database** | Demo survives offline, zero DB cold-start, no infra dependencies |
+| **Calibration metadata in a sidecar, never in the artifact** | The CIS artifact stays a pure `{h3_id: {bucket: breakdown}}` map, so no consumer (agent, /health) miscounts a phantom metadata "zone" |
+| **Non-circular trust metric** | `traffic_degradation` is derived *from* the measured ratio, so the honest trust score uses **only the 4 non-traffic components** — it cannot validate the score against itself |
+| **Calibrate exactly once** | When fitted weights exist, the self-validating agent runs **report-only** (0% nudge) instead of nudging scores a second time against the same signal |
+| **Cache-first `/route`** | Real Mappls Directions geometry is pre-computed into `routes.json`; at request time the key stays server-side and any failure falls back to `{geometry: null}` (frontend then draws a straight line) — never a 500 |
+| **Routes at bare path AND `/api` prefix** | Frontend wire contract preserved while the planner's `/api` contract is added cleanly |
+| **H3 res-9 everywhere** | CIS artifact, forecast model, and map all use the same spatial unit — predicted hotspots align exactly with the congestion layer |
 
 ---
 
@@ -267,15 +311,17 @@ Park-Vision-sathi/
 │       ├── models.py            # Pydantic response models (CIS contract, heatmap, simulation)
 │       ├── db.py                # SQLite utility (legacy; not used at request time)
 │       └── routers/
-│           ├── risk.py          # /hotspots, /risk, /risk/{zone_id} — CIS serving
-│           ├── heatmap.py       # /heatmap — two-layer toggle (risk/raw/spillover)
-│           ├── forecast.py      # /forecast/* — LightGBM-Poisson next-day predictions
-│           ├── game.py          # /game/* — Stackelberg, violator adaptation, spillover
-│           ├── simulate.py      # POST /simulate — team allocation + waterbed effect
-│           ├── stations.py      # /stations, /stations/{name}/priority_areas
+│           ├── risk.py          # /hotspots, /risk, /risk/{zone_id}, /risk/calibration — CIS serving
+│           ├── heatmap.py       # /heatmap — two-layer toggle (risk/raw/spillover) + patrol overlay
+│           ├── forecast.py      # /forecast/* — LightGBM-Poisson predictions + SHAP explanations
+│           ├── game.py          # /game/* — Stackelberg, violator adaptation, spillover, patrol alloc
+│           ├── simulate.py      # POST /simulate + /simulate/throughput — allocation + waterbed
+│           ├── stations.py      # /stations, /stations/{name}/priority_areas (bucket-aware)
 │           ├── traffic.py       # /traffic/{zone_id} — real MapMyIndia enrichment
 │           ├── explain.py       # POST /explain — cache → Gemini → grounded fallback
-│           └── agent.py         # /agent/validation-report — self-validating agent output
+│           ├── agent.py         # /agent/validation-report — self-validating agent + calibration_run
+│           ├── validation.py    # /validation/proof — density≠impact scatter + honest trust (NEW v2)
+│           └── route.py         # /route — cache-first Mappls Directions geometry (NEW)
 ├── frontend/
 │   └── src/
 │       ├── App.tsx              # Root component — station auto-select, layout shell
@@ -298,12 +344,13 @@ Park-Vision-sathi/
 │       │   ├── Skeleton.tsx     # Loading skeleton and empty-state components
 │       │   ├── Toast.tsx        # Notification toast component
 │       │   └── panels/
-│       │       ├── ZoneDetail.tsx      # Zone detail — CIS, lane-hours, breakdown bars
+│       │       ├── ZoneDetail.tsx      # Zone detail — CIS, lane-hours, LIVE calibrated weight bars
 │       │       ├── SimulationPanel.tsx # Team slider + coverage % + spillover table
-│       │       ├── ForecastPanel.tsx   # Tomorrow's predicted hotspots + accuracy
+│       │       ├── ForecastPanel.tsx   # Tomorrow's predicted hotspots + accuracy + SHAP
 │       │       ├── GameTheoryPanel.tsx # Stackelberg + violator adaptation view
-│       │       ├── AgentPanel.tsx      # Self-validating agent calibration log
-│       │       └── ChatPanel.tsx       # AI Explain — Gemini zone explanation
+│       │       ├── AgentPanel.tsx      # Self-validating agent: report-only calibration story
+│       │       ├── ChatPanel.tsx       # AI Explain — Gemini zone explanation
+│       │       └── ProofScatter.tsx    # density≠impact SVG scatter: CIS-honest vs count (NEW v2)
 │       ├── hooks/
 │       │   ├── queries.ts       # React Query hooks — caching, loading/error state
 │       │   └── useDebounce.ts   # Debounce hook (map zoom re-aggregation)
@@ -317,31 +364,74 @@ Park-Vision-sathi/
 │           ├── format.ts        # Display formatting helpers
 │           ├── loadMapplsSDK.ts # Mappls/MapLibre SDK loader + engine detection
 │           └── MapplsHeatLayer.ts # Heatmap layer abstraction (Mappls + MapLibre)
+├── ml/                          # ── OFFLINE ML / DATA PLANE (never imported at request time) ──
+│   ├── congestion/
+│   │   ├── impact_score.py          # Pure deterministic CIS formula (no I/O)
+│   │   ├── build_artifact.py        # Build the v1 (expert-weight) CIS artifact from the raw CSV
+│   │   ├── calibrate_weights.py     # (v2) Fit the 4 non-traffic weights to measured ratio (Spearman)
+│   │   ├── predict_degradation.py   # (v2) Ridge: predict traffic_degradation; leave-one-zone-out CV
+│   │   ├── build_calibrated_artifact.py # (v2) Build v2 CIS = fitted weights + degradation override
+│   │   ├── validate_cis.py          # (v2) Honest non-circular trust metric + bootstrap CIs + strength
+│   │   ├── stats_utils.py           # (v2) bootstrap_spearman_ci, flat-variance abort, content sha256
+│   │   └── diff_top_zones.py        # (v2) v1↔v2 top-N add / drop / rank-move diff
+│   ├── enrichment/
+│   │   ├── congestion_collector.py  # (v2) LIVE MapMyIndia local-segment collector (budget-guarded, frozen)
+│   │   ├── mapmyindia.py            # Legacy enrichment client (Distance Matrix, geocode, nearby)
+│   │   ├── rekey_traffic_context.py # Re-key enrichment to true H3 ids
+│   │   ├── road_geometry.py         # (v2) RoadGeometryProvider: free-flow speed → road_class proxy
+│   │   ├── adjacency.py             # (v2) k-NN road adjacency via Distance Matrix (budget-capped)
+│   │   └── build_routes.py          # Pre-compute station→hotspot road routes → data/enriched/routes.json
+│   ├── forecast/
+│   │   ├── build_h3_forecast.py     # LightGBM-Poisson next-day forecast (H3 res-9)
+│   │   ├── build_h3_forecast_v2.py  # (v2) + road-class + neighbour spatial-lag features + SHAP
+│   │   ├── feature_engineering.py   # Lag / rolling / day-of-week features
+│   │   ├── forecast_explain.py      # (v2) Per-zone SHAP top contributors → forecast_explanations.json
+│   │   └── train_model.py           # LightGBM + CatBoost ensemble training
+│   ├── game/
+│   │   ├── stackelberg.py           # Patrol probabilities (∝ score^1.5, normalized)
+│   │   ├── expected_utility.py      # Violator expected-utility / net-benefit model
+│   │   ├── spillover.py             # Waterbed spillover (KD-tree k=6, capped bump)
+│   │   ├── exploration.py           # (v2) ε=0.10 exploration mix — predictive-policing bias guard
+│   │   └── throughput_sim.py        # (v2) Before/after congestion index + modeled minutes saved
+│   ├── agent/
+│   │   └── validation_agent.py      # Self-validating agent (report-only when weights are calibrated)
+│   ├── llm/
+│   │   ├── gemini_client.py         # Gemini client (lazy import, optional)
+│   │   ├── generate_explanations.py # Pre-warm the explanation cache
+│   │   └── prompts.py               # Grounded prompt templates (no hallucinated fields)
+│   ├── risk_score.py                # Legacy per-zone/per-hour enforcement risk
+│   ├── hotspot_dbscan.py            # DBSCAN spatial clustering
+│   └── tests/                       # ~30 ML / property / e2e tests (pytest + hypothesis)
+├── models/                          # Trained forecast models (committed)
+│   ├── lightgbm_v1.pkl  lightgbm_v2.pkl  catboost_v1.cbm
+│   └── ensemble_config.json  feature_importance.txt  MODEL_CARD.md
+├── scripts/
+│   ├── seed_db.py                   # Synthetic SQLite seed (no raw CSV needed)
+│   └── verify_backend.py            # Endpoint smoke-test
 ├── data/
 │   ├── processed/
-│   │   ├── zone_congestion_impact.json   # Canonical CIS artifact (2,527 H3 zones, all time buckets)
-│   │   ├── forecasts.json                # H3-native LightGBM-Poisson next-day forecast
-│   │   ├── calibrated_scores.json        # Agent-calibrated scores per zone
-│   │   ├── agent_log.json                # Agent run summary + per-zone reasoning
-│   │   ├── explanations_cache.json       # Pre-generated Gemini zone explanations
-│   │   ├── zone_congestion_impact.json   # CIS artifact (main artifact)
-│   │   └── zone_impact_res*.json         # Multi-resolution CIS rollups (res5/7/8/9)
-│   ├── mock/
-│   │   ├── hotspots.json                 # Top 15 hotspot zones with enforcement score
-│   │   ├── risk_scores.json              # Legacy risk score file
-│   │   ├── heatmap.json                  # Legacy heatmap mock
-│   │   ├── forecast.json                 # Legacy forecast mock
-│   │   ├── game_summary.json             # Game theory summary mock
-│   │   ├── simulate.json                 # Simulation result mock
-│   │   ├── spillover.json                # Spillover zones mock
-│   │   ├── stackelberg_strategy.json     # Stackelberg strategy mock
-│   │   ├── violator_adaptation.json      # Violator adaptation mock
-│   │   ├── congestion_breakdown.json     # CIS breakdown mock
-│   │   ├── explain.json                  # Explanation mock
-│   │   └── traffic_context.json          # Traffic context mock
+│   │   ├── zone_congestion_impact_v2.json # ★ SERVED calibrated CIS (fitted weights + degradation)
+│   │   ├── zone_congestion_impact.json   # v1 fallback CIS (expert weights, 2,527 zones, all buckets)
+│   │   ├── cis_calibration.json          # (v2) old→new weights, train/test Spearman, method
+│   │   ├── cis_calibration_meta.json     # (v2) calibration SIDECAR (what /health reads — never embedded)
+│   │   ├── cis_validation_report.json    # (v2) /validation/proof: honest/count/full ρ + CIs + strength
+│   │   ├── cis_validation_report_baseline.json # (v2) v1 baseline (the "before" trust)
+│   │   ├── predicted_degradation.json    # (v2) per-zone degradation (measured | predicted) + LOZO
+│   │   ├── calibrated_scores.json        # Agent calibration output (report-only when v2 calibrated)
+│   │   ├── agent_log.json                # Agent summary + calibration_run block + per-zone reasoning
+│   │   ├── forecasts_v2.json             # (v2) forecast with road + spatial-lag features
+│   │   ├── forecasts.json                # v1 H3-native LightGBM-Poisson forecast
+│   │   ├── forecast_explanations.json    # (v2) per-zone SHAP top contributors
+│   │   ├── explanations_cache.json       # Pre-generated zone explanations (Gemini / grounded)
+│   │   └── zone_impact_res{5,7,8,9}.json # Multi-resolution CIS rollups
 │   ├── enriched/
-│   │   ├── traffic_context.json          # Real MapMyIndia travel-time + road + POIs (top 15 zones)
-│   │   └── traffic_context_h3.json       # H3-keyed traffic context
+│   │   ├── congestion_observations.json  # ★ (v2) frozen MapMyIndia local-segment snapshot (150 zones)
+│   │   ├── congestion_observations.json.meta.json  # freeze sidecar: frozen, content_sha256, measured_at
+│   │   ├── congestion_observations_midday.json     # named backup (midday window)
+│   │   ├── congestion_observations_peak.json       # named backup (evening-peak window)
+│   │   ├── routes.json                   # (route) cached station→hotspot road geometries (59 routes)
+│   │   ├── traffic_context_h3.json       # Real MapMyIndia travel-time + road + POIs (H3-keyed)
+│   │   └── traffic_context.json          # Legacy enrichment (top zones)
 │   ├── spillover_arrows.json             # Pre-computed displacement arrows
 │   ├── violator_utility.json             # Violator expected-utility pre-computation
 │   ├── whatif_coverage.json              # Coverage % across team counts (slider data)
@@ -358,13 +448,19 @@ Park-Vision-sathi/
 │   ├── test_congestion_breakdown_roundtrip.py     # CIS round-trip validation tests
 │   ├── test_datastore_layer_distinctness_properties.py  # Property: CIS ≠ density layer
 │   └── test_datastore_patrol_probability.py       # Property: patrol probs sum to 1.0
-├── requirements.txt              # Full Python deps (ML + API + tests)
-├── requirements-backend.txt      # Minimal deps for Render deploy (FastAPI only)
+├── run_pipeline.py               # Orchestrator: default = v1 build; `--v2` = full calibrated re-run
+├── run_pipeline.sh               # One-shot local setup: venv + deps + (optional) rebuild + serve
+├── requirements.txt              # Full Python deps (ML + API + tests: scipy, shap, lightgbm, h3…)
+├── requirements-backend.txt      # Minimal deps for serving/deploy (fastapi, uvicorn, pydantic)
 ├── Procfile                      # PaaS start command: uvicorn backend.app.main:app
-├── PARKVISION_SAATHI_MASTER_PLAN.md  # Full hackathon strategy document
+├── render.yaml                   # Render Blueprint (backend-only deploy)
+├── DEMO_SCRIPT.md                # Word-for-word demo script (strong / weak / aborted branches)
+├── JUDGE_QA.md                   # Pre-scripted answers to tough judge questions
+├── STATUS.md                     # Build status / data-boundary notes
+├── document_dataset.md           # Dataset profiling notes
 ├── API_DOCS.md                   # Complete API documentation with curl examples
-├── BACKEND_CHECKLIST.md          # Build checklist
-├── EXECUTION_PLANNER.md          # Detailed implementation planner
+├── PARKVISION_SAATHI_MASTER_PLAN.md  # Full hackathon strategy document
+├── Dataset/                      # Raw violations CSV (git-ignored; local only)
 └── .gitignore
 ```
 
@@ -626,7 +722,25 @@ Time bucket param: `all_day` (default) `night` `morning_peak` `midday` `afternoo
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/agent/validation-report` | Agent calibration summary + per-zone reasoning log |
+| `GET` | `/agent/validation-report` | Agent calibration summary + per-zone reasoning + `calibration_run` (old→new weights, ρ before/after) |
+
+### Calibration, Proof & Routing (v2 / recent)
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/risk/calibration` | Served calibration metadata — `calibrated`, `cis_version`, `calibrated_bucket`, the 5 fitted `weights`, `spearman_test`, `n_measured` |
+| `GET` | `/validation/proof` | density≠impact proof — scatter `points`, honest-CIS ρ + CI, raw-count ρ + CI, full-CIS ρ (flagged circular), `baseline_beaten`, `calibration_strength` (graceful `available:false` when no report) |
+| `GET` | `/forecast/explanations` | Per-zone SHAP top contributors for the v2 forecast (sidecar) |
+| `GET` | `/simulate/throughput` | Modeled congestion-index reduction + illustrative minutes saved across team counts (all constants documented) |
+| `GET` | `/game/patrol_allocation` | Patrol mass with ε=0.10 exploration toward under-observed zones (anti-feedback-loop) |
+| `GET` | `/heatmap/patrol_overlay` | Patrol-probability overlay for marker sizing |
+| `GET` | `/route?from_lat&from_lon&to_lat&to_lon` | Cache-first Mappls Directions geometry: `{geometry:[{lat,lon}…]\|null, source:"cache"\|"mappls"\|"none"}` — never 500; key stays server-side |
+
+> **Time buckets:** CIS-serving endpoints (`/heatmap`, `/risk/top_zones`, `/risk/{id}`,
+> `/stations/{name}/priority_areas`) accept `time_bucket` ∈ `all_day` (default) `night`
+> `morning_peak` `midday` `afternoon`. The frontend maps the hour slider → bucket
+> (`hourToBucket`), so the heatmap, markers, and priority strip all re-rank by hour;
+> hours 16–23 fall back to `all_day` (the "16:00 cliff"). Output genuinely differs per bucket.
 
 ### Example Calls
 
@@ -655,6 +769,15 @@ curl -s "http://localhost:8000/heatmap?type=risk&time_bucket=morning_peak"
 
 # Forecast accuracy
 curl -s http://localhost:8000/forecast/accuracy
+
+# v2 trust: the density≠impact proof (honest-CIS vs raw-count, with CIs)
+curl -s http://localhost:8000/validation/proof | python3 -m json.tool
+
+# Fitted CIS weights actually being served
+curl -s http://localhost:8000/risk/calibration | python3 -m json.tool
+
+# Cache-first road route (station → hotspot); key never reaches the browser
+curl -s "http://localhost:8000/route?from_lat=12.9774&from_lon=77.5709&to_lat=12.9698&to_lon=77.7500"
 ```
 
 ---
@@ -686,9 +809,23 @@ start to rebuilding every artifact and ML model from the raw dataset.
 
 | Tool | Version | Install |
 |---|---|---|
-| **Python** | 3.10+ | [python.org](https://python.org) |
+| **Python** | 3.11 (3.10+ works) | [python.org](https://python.org) |
 | **Node.js + npm** | 18+ | [nodejs.org](https://nodejs.org) |
 | **Git** | any | `brew install git` / apt / winget |
+| **cmake + libomp** | for LightGBM/h3 wheels (full deps only) | macOS: `brew install cmake libomp` · Linux: `apt install cmake` |
+
+### Environment variables (all optional — the demo runs fully offline without them)
+
+| Variable | Where | Used by | Effect if absent |
+|---|---|---|---|
+| `MAPPLS_STATIC_KEY` | root `.env` | live collectors (`congestion_collector`, `adjacency`, `build_routes`) and `/route` cache-miss | offline paths only; `/route` returns `{geometry: null}` → frontend straight-line fallback |
+| `MAPPLS_ROUTING_DISABLED` | root `.env` / shell | `/route` | set to `1` to force `/route` to never call the network (cache-only) |
+| `GEMINI_API_KEY` | root `.env` | `/explain` live tier, `generate_explanations.py --use-gemini` | serves cached + grounded-fallback explanations |
+| `CIS_ARTIFACT_PATH` | root `.env` / shell | `data_loader` | defaults to v2 if present, else v1 — set explicitly to force a specific artifact (the v1↔v2 flag) |
+| `VITE_MAPPLS_KEY` | `frontend/.env` | map tiles | MapLibre GL fallback loads automatically |
+| `VITE_API_BASE` | `frontend/.env` | API base URL | empty → same-origin / Vite dev proxy to `:8000` |
+
+> **Never commit or print these key values.** Only `MAPPLS_STATIC_KEY` / `GEMINI_API_KEY` cost money or quota; the demo never needs them because all artifacts are pre-computed and committed.
 
 ---
 
@@ -743,7 +880,7 @@ Verify it loaded correctly:
 curl -s http://localhost:8000/health | python3 -m json.tool
 ```
 
-Expected output:
+Expected output (v2 calibrated artifact served):
 ```json
 {
   "status": "ok",
@@ -751,22 +888,32 @@ Expected output:
   "zones_loaded": 60,
   "sources": {
     "congestion_artifact_zones": 2527,
+    "cis_artifact": "zone_congestion_impact_v2.json",
+    "cis_version": "v2",
     "hotspot_universe": 60,
     "traffic_context_enriched": 10,
     "calibrated_scores": 10,
     "explanations_cache": 60,
     "forecast_zones": 2527
   },
+  "calibration": { "cis_version": "v2", "calibrated": true, "calibrated_bucket": "all_day",
+                   "spearman_test": 0.3794, "n_measured": 150 },
+  "calibrated_bucket": "all_day",
+  "headline_bucket": "all_day",
   "agent": {
-    "total_zones": 2527,
-    "calibrated": 10,
-    "accurate": 6,
-    "adjusted_up": 3,
-    "adjusted_down": 1,
-    "mean_abs_adjustment_pct": 4.2
+    "total_zones": 2527, "calibrated": 10, "no_data": 2517,
+    "accurate": 6, "adjusted_up": 2, "adjusted_down": 2,
+    "mean_abs_adjustment_pct": 0.0,
+    "coherence_mode": "report_only",
+    "calibration_run": { "available": true, "spearman_old": 0.1097, "spearman_new": 0.3794,
+                         "n_zones_measured": 150 }
   }
 }
 ```
+
+> `mean_abs_adjustment_pct: 0.0` and `coherence_mode: report_only` are **correct** for v2: once
+> the weights are calibrated, the agent confirms rather than re-nudges. If you removed the v2
+> artifact, `/health` would fall back to `cis_version: v1` automatically.
 
 Interactive API docs: `http://localhost:8000/docs`
 
@@ -795,18 +942,16 @@ npm run dev   # starts at http://localhost:5173
 #### Step 6 — Run the test suite
 
 ```bash
-# From the project root with venv active:
-PYTHONPATH=. python -m pytest -q
+# From the project root with venv active (pytest discovers backend/tests + ml/tests):
+python -m pytest -q
 ```
 
-Expected: **126 tests pass.**
+Expected: **335 passed**.
 
 ```bash
-# Smoke-test every API endpoint:
-PYTHONPATH=. python scripts/verify_backend.py
+# Optional: smoke-test the live endpoints (backend must be running on :8000):
+python scripts/verify_backend.py
 ```
-
-Expected: **23/23 checks pass.**
 
 #### Step 7 — Demo verification checklist
 
@@ -815,11 +960,12 @@ Expected: **23/23 checks pass.**
 3. Click hotspot marker → popup shows both enforcement score and congestion impact
 4. Right panel → **Zone** tab → CIS component bars, lane-hours, MapMyIndia ratio
 5. Right panel → **Sim** tab → drag slider 3→5→10 teams, watch coverage % and spillover
-6. Right panel → **Forecast** tab → Precision@10 = 45%, predicted top zones by name
+6. Right panel → **Forecast** tab → Precision@10 = 45%, predicted top zones by name + SHAP reasons
 7. Right panel → **Game** tab → patrol probabilities and violator utility
-8. Right panel → **Agent** tab → per-zone calibration log (HAL Old Airport: 50→44)
+8. Right panel → **Agent** tab → calibrated weight table (intersection ~60%) + "report-only / validated" state + the density≠impact **ProofScatter** (CIS-honest vs raw-count, with ρ + CIs)
 9. Right panel → **Assist** tab → click a zone → Gemini / grounded explanation loads
-10. Kill Wi-Fi → reload → **everything still works** (fully offline-safe by design)
+10. Drag the hour across a bucket boundary (9→10) → heatmap + markers + priority strip all re-rank
+11. Kill Wi-Fi → reload → **everything still works** (fully offline-safe by design)
 
 ---
 
@@ -910,21 +1056,102 @@ Run the API:  uvicorn backend.app.main:app --reload --port 8000
 #### Pipeline flags
 
 ```bash
-# Standard rebuild (recommended):
+# Standard v1 rebuild (rekey enrichment → CIS artifact → agent → forecast):
 python run_pipeline.py
+
+# Calibrated v2 re-run (OFFLINE, consumes the frozen MapMyIndia snapshot — see below):
+python run_pipeline.py --v2
 
 # Also build multi-resolution artifacts (res 5, 7, 8, 9) for zoom-level heatmaps:
 python run_pipeline.py --multi-res
 
-# Skip agent calibration (faster, uses previous calibrated_scores.json):
+# Skip agent / forecast (faster; reuse previous outputs). Works with --v2 too:
 python run_pipeline.py --skip-agent
-
-# Skip forecast rebuild (uses previous forecasts.json):
 python run_pipeline.py --skip-forecast
-
-# All flags combined:
-python run_pipeline.py --multi-res --skip-agent --skip-forecast
+python run_pipeline.py --v2 --skip-forecast --skip-agent   # quickest calibration-only verdict
 ```
+
+> If `run_pipeline.py --v2` ever dies with a native crash/segfault on macOS, it's the known
+> OpenMP double-load issue — re-run with `KMP_DUPLICATE_LIB_OK=TRUE python run_pipeline.py --v2`.
+> Re-running is safe: every step is deterministic.
+
+---
+
+### Path C — Calibrate the CIS against live MapMyIndia (produce/refresh v2)
+
+> This is the **calibration loop** that turns the expert-weight v1 score into the validated v2
+> score. It has **two stages**: (1) a **live, budget-guarded** MapMyIndia collection (the only
+> step that spends money / touches the network), and (2) the **offline** `run_pipeline.py --v2`
+> re-run that consumes the frozen snapshot. The v2 artifacts are already committed — you only
+> need this to re-measure (e.g. collect during an evening peak window).
+
+#### Stage 1 — Collect local congestion (LIVE, ~₹45, budget-guarded)
+
+Requires `MAPPLS_STATIC_KEY` in the root `.env`. Best run during a Bengaluru congestion window
+(~08:00–11:00 or 18:00–20:00 IST) — the collector prints a PEAK/OFF-PEAK warning.
+
+```bash
+# 0) See the flags:
+python -m ml.enrichment.congestion_collector --help
+
+# 1) DRY RUN first — prints zone count, estimated calls and ₹ cost, and the IST window.
+#    Refuses to run if the estimate exceeds --budget. No API calls made.
+python -m ml.enrichment.congestion_collector \
+  --top-n 110 --explore-n 40 --budget 1700 \
+  --output data/enriched/congestion_observations.json --dry-run
+
+# 2) Real collection (150 zones: 110 top-volume + 40 seeded-random exploration).
+#    Per-zone errors are skipped (the run never aborts); the snapshot is FROZEN at the end
+#    (a .meta.json sidecar with a content sha256). Re-running is cached → 0 calls unless --refresh.
+python -m ml.enrichment.congestion_collector \
+  --top-n 110 --explore-n 40 --budget 1700 \
+  --output data/enriched/congestion_observations.json
+
+# Overwrite a frozen snapshot (e.g. re-collect at peak): add --refresh --force
+```
+
+> Tip: preserve named copies so a snapshot is never lost —
+> `cp data/enriched/congestion_observations.json data/enriched/congestion_observations_peak.json`.
+
+#### Stage 2 — Offline calibrated re-run (no network)
+
+```bash
+python run_pipeline.py --v2
+```
+
+This runs the documented 7-step sequence and writes the v2 artifacts:
+
+| # | Step | Module | Output |
+|---|---|---|---|
+| 1 | validate (v1 baseline) | `ml/congestion/validate_cis.py` | `cis_validation_report_baseline.json` |
+| 2 | calibrate weights | `ml/congestion/calibrate_weights.py` | `cis_calibration.json` |
+| 3 | predict degradation | `ml/congestion/predict_degradation.py` | `predicted_degradation.json` |
+| 4 | build calibrated CIS | `ml/congestion/build_calibrated_artifact.py` | `zone_congestion_impact_v2.json` + `cis_calibration_meta.json` |
+| 5 | validate (v2, served) | `ml/congestion/validate_cis.py` | `cis_validation_report.json` |
+| 6 | agent (report-only) | `ml/agent/validation_agent.py` | `calibrated_scores.json` + `agent_log.json` |
+| 7 | forecast v2 + SHAP | `ml/forecast/build_h3_forecast_v2.py` | `forecasts_v2.json` + `forecast_explanations.json` |
+
+#### Stage 3 — Restart the backend and read the verdict
+
+The backend loads artifacts **once at startup**, so restart it after a rebuild:
+
+```bash
+# stop any running instance, then:
+uvicorn backend.app.main:app --port 8000
+
+# verify (run one at a time):
+curl -s localhost:8000/health            # → cis_version: v2, calibrated: true
+curl -s localhost:8000/validation/proof  # → honest-CIS ρ + CI vs raw-count ρ + CI, baseline_beaten, calibration_strength
+curl -s localhost:8000/risk/calibration  # → the 5 fitted weights
+```
+
+> **(Optional) road features for the forecast** — also live + budget-guarded:
+> `python -m ml.enrichment.adjacency` (k-NN road adjacency) and
+> `python -m ml.enrichment.build_routes` (pre-compute `/route` geometries → `routes.json`).
+> Both consume `MAPPLS_STATIC_KEY` and cache their output; `run_pipeline.py --v2` consumes
+> whatever cached adjacency exists (neighbour-lag feature is 0 / honest no-change when absent).
+
+---
 
 #### What each pipeline step produces
 
@@ -951,7 +1178,7 @@ Output: `data/processed/explanations_cache.json` (60 entries).
 
 ---
 
-### Path C — Retrain ML models from scratch
+### Path D — Retrain the forecast + game-theory models from scratch
 
 > Follow this path to **retrain the LightGBM + CatBoost ensemble** that powers
 > the forecast and the game-theory models. The trained model artifacts are already
