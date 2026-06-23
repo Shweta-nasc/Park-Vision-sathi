@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAppState } from '@/state/AppState';
 import { useMapOverlay } from '@/state/MapOverlay';
 import { useHeatmap, useTopZones, useSpilloverArrows } from '@/hooks/queries';
+import { api } from '@/api/endpoints';
 import { HEAT_GRADIENTS, riskColor, bandColor } from '@/utils/risk';
 import { MapplsHeatLayer } from '@/utils/MapplsHeatLayer';
 import { getMapEngine } from '@/utils/loadMapplsSDK';
@@ -481,6 +482,10 @@ export function MapView() {
   }, [simResult, removeOverlay, mapReady]);
 
   // ── Route overlay ────────────────────────────────────────────────────
+  // Draws a road-following patrol route from the station to the chosen target.
+  // Cache-first + offline-safe: /route returns real Mappls geometry when a
+  // cached/live path exists; on null geometry (offline / no key / failure) we
+  // fall back to the original straight dashed line so nothing regresses.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !station) return;
@@ -491,26 +496,70 @@ export function MapView() {
 
     if (!routeTarget) return;
 
-    const line = E.addPolyline(map, [
-      { lat: station.lat, lng: station.lon },
-      { lat: routeTarget.lat, lng: routeTarget.lon },
-    ], { color: '#2A9D8F', weight: 3.5, opacity: 0.85, dash: [8, 6] });
+    const origin = { lat: station.lat, lon: station.lon };
+    const target = { lat: routeTarget.lat, lon: routeTarget.lon };
+    let cancelled = false;
 
+    // Destination marker is drawn immediately, independent of the routing result.
     const dest = E.addMarker(
       map,
-      { lat: routeTarget.lat, lng: routeTarget.lon },
+      { lat: target.lat, lng: target.lon },
       dotSvg(20, '#DC2626'),
       20,
     );
+    routeRef.current.push(dest);
 
-    routeRef.current.push(line, dest);
+    // Fallback: the original 2-point dashed straight line (crow-flies).
+    const drawStraight = () => {
+      const line = E.addPolyline(
+        map,
+        [
+          { lat: origin.lat, lng: origin.lon },
+          { lat: target.lat, lng: target.lon },
+        ],
+        { color: '#2A9D8F', weight: 3.5, opacity: 0.85, dash: [8, 6] },
+      );
+      routeRef.current.push(line);
+      E.fitBounds(
+        map,
+        { lat: Math.min(origin.lat, target.lat), lng: Math.min(origin.lon, target.lon) },
+        { lat: Math.max(origin.lat, target.lat), lng: Math.max(origin.lon, target.lon) },
+        60,
+      );
+    };
 
-    E.fitBounds(
-      map,
-      { lat: Math.min(station.lat, routeTarget.lat), lng: Math.min(station.lon, routeTarget.lon) },
-      { lat: Math.max(station.lat, routeTarget.lat), lng: Math.max(station.lon, routeTarget.lon) },
-      60,
-    );
+    api
+      .route(origin, target)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.geometry && res.geometry.length >= 2) {
+          // Road-following path: solid, slightly heavier line along the geometry.
+          const path = res.geometry.map((p) => ({ lat: p.lat, lng: p.lon }));
+          const line = E.addPolyline(map, path, {
+            color: '#2A9D8F',
+            weight: 4.5,
+            opacity: 0.9,
+          });
+          routeRef.current.push(line);
+          const lats = path.map((p) => p.lat);
+          const lngs = path.map((p) => p.lng);
+          E.fitBounds(
+            map,
+            { lat: Math.min(...lats), lng: Math.min(...lngs) },
+            { lat: Math.max(...lats), lng: Math.max(...lngs) },
+            60,
+          );
+        } else {
+          drawStraight();
+        }
+      })
+      .catch(() => {
+        if (!cancelled) drawStraight();
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [routeTarget, station, removeOverlay, mapReady]);
 
   const loading = heatmap.isFetching || topZones.isFetching;

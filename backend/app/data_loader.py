@@ -207,6 +207,13 @@ class DataStore:
         # exists (pending the live MapMyIndia collection).
         self.validation_report: dict = {}
         self.traffic_raw: dict = {}
+        # Pre-computed driving-route geometries (Route now feature), keyed by
+        # rounded "from_lat,from_lon->to_lat,to_lon" coords. Loaded once from
+        # data/enriched/routes.json so the demo's station→hotspot routes draw
+        # road-following paths fully offline. Empty when absent (the /route
+        # endpoint then degrades to a cache miss → null geometry). Cache misses
+        # served live are merged back in-memory + persisted by the /route router.
+        self.routes: dict = {}
         self.explanations: dict = {}
         self.calibrated: dict = {}
         self.agent_summary: dict = {}
@@ -295,6 +302,12 @@ class DataStore:
         self.calibrated = calibrated
         self.agent_summary = {k: v for k, v in agent_log.items() if k != "log"}
         self.explanations = explanations
+
+        # Pre-computed driving-route geometry cache (Route now). Read as JSON only
+        # (no network at load) so the demo can draw cached road routes fully
+        # offline; absent -> {} (cache miss path). Keyed by rounded coord pairs.
+        routes = _load(self.data_dir / "enriched" / "routes.json", {})
+        self.routes = routes if isinstance(routes, dict) else {}
 
         # Build the served hotspot / OPTIMIZE zone universe from the REAL CIS
         # artifact (top-N by violation volume) instead of the legacy mock
@@ -453,8 +466,46 @@ class DataStore:
             self.load()
         return self
 
-    def top_zones(self, n: int = 15) -> list[dict]:
-        return self.ensure().zones[:n]
+    def _rescore_for_bucket(self, z: dict, time_bucket: str) -> dict:
+        """Return a copy of zone ``z`` re-scored to ``time_bucket``'s CIS.
+
+        The served 60-zone universe is built from each zone's ``all_day`` rollup,
+        so its ``congestion_impact`` is the all_day value. This looks up the same
+        zone's per-bucket breakdown in the full CIS artifact and overwrites ONLY
+        the congestion fields (``congestion_impact`` + ``impact_band``) with the
+        bucket's values, leaving enforcement fields (``risk_score``,
+        ``patrol_probability``, …) as the time-stable all_day values (Decision 2 —
+        bucketing enforcement is a separate game-theory change, out of scope).
+
+        The zone SET is never changed (no zone appears/disappears): a missing
+        bucket falls back to that zone's ``all_day`` entry via ``_bucket_entry``,
+        so the value simply equals the all_day score. ``all_day`` (or empty)
+        returns the zone unchanged so existing callers are byte-for-byte stable.
+        """
+        if not time_bucket or time_bucket == "all_day":
+            return z
+        entry = self._bucket_entry(self.congestion.get(z["grid_cell_id"]), time_bucket)
+        if not isinstance(entry, dict):
+            return z
+        cis = entry.get("congestion_impact")
+        if cis is None:
+            return z
+        out = dict(z)
+        out["congestion_impact"] = float(cis)
+        out["impact_band"] = entry.get("impact_band") or _band(float(cis))
+        return out
+
+    def top_zones(self, n: int = 15, time_bucket: str = "all_day") -> list[dict]:
+        """Top N served zones. Default (``all_day``) is the legacy enforcement-ranked
+        slice (unchanged). For a specific bucket, every served zone is RE-SCORED to
+        that bucket's congestion_impact and the list is RE-RANKED by it — so the map
+        markers / priority strip become time-aware without changing the zone set."""
+        self.ensure()
+        if not time_bucket or time_bucket == "all_day":
+            return self.zones[:n]
+        rescored = [self._rescore_for_bucket(z, time_bucket) for z in self.zones]
+        rescored.sort(key=lambda z: z.get("congestion_impact") or 0.0, reverse=True)
+        return rescored[:n]
 
     def zone(self, zone_id: str) -> Optional[dict]:
         return self.ensure().zones_by_id.get(zone_id)
@@ -741,9 +792,17 @@ class DataStore:
         out.sort(key=lambda x: x["total_violations"], reverse=True)
         return out
 
-    def station_zones(self, station: str) -> list[dict]:
+    def station_zones(self, station: str, time_bucket: str = "all_day") -> list[dict]:
+        """Zones under a station. Default (``all_day``) is the legacy slice. For a
+        specific bucket, zones are re-scored to that bucket's congestion_impact and
+        re-ranked by it (enforcement fields stay all_day; the zone set is stable)."""
         self.ensure()
-        return [z for z in self.zones if (z["station"] or "").lower() == station.lower()]
+        zones = [z for z in self.zones if (z["station"] or "").lower() == station.lower()]
+        if not time_bucket or time_bucket == "all_day":
+            return zones
+        rescored = [self._rescore_for_bucket(z, time_bucket) for z in zones]
+        rescored.sort(key=lambda z: z.get("congestion_impact") or 0.0, reverse=True)
+        return rescored
 
     # ── game theory ─────────────────────────────────────────────────────
     def stackelberg(self, limit: int = 100) -> list[dict]:

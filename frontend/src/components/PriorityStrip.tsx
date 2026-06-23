@@ -1,10 +1,20 @@
 import { useState } from 'react';
 import { usePriorityAreas } from '@/hooks/queries';
+import { hourToBucket } from '@/api/endpoints';
 import { useAppState } from '@/state/AppState';
 import { useMapOverlay } from '@/state/MapOverlay';
 import { cleanJunction } from '@/utils/format';
 import { Skeleton } from './Skeleton';
 import type { PriorityArea } from '@/types/api';
+
+/** Human label for a CIS time bucket (matches backend TIME_BUCKET_BINS). */
+const BUCKET_LABEL: Record<string, string> = {
+  night: 'Night',
+  morning_peak: 'Morning Peak',
+  midday: 'Midday',
+  afternoon: 'Afternoon',
+  all_day: 'All-day',
+};
 
 /**
  * Collapsible bottom dock listing the station's priority areas (force units,
@@ -23,6 +33,7 @@ export function PriorityDock() {
   };
 
   const count = data?.length ?? 0;
+  const windowLabel = BUCKET_LABEL[hourToBucket(hour)] ?? 'All-day';
 
   return (
     <div className={`priority-dock ${open ? 'open' : 'collapsed'}`}>
@@ -33,6 +44,7 @@ export function PriorityDock() {
           </svg>
           Priority Areas
           {count > 0 && <span className="dock-count">{count}</span>}
+          <span className="dock-window" title="Congestion ranking window (follows the hour)">{windowLabel}</span>
         </span>
         <span className="dock-chevron" aria-hidden>{open ? '▾' : '▴'}</span>
       </button>
@@ -58,8 +70,12 @@ export function PriorityDock() {
                   <span className={`priority-badge ${cls}`}>{a.priority}</span>
                 </div>
                 <div className="card-scores">
-                  <span className="card-score-pill">CIS {a.congestion_impact.toFixed(0)}</span>
-                  <span className="card-score-pill alt">Risk {a.risk_score.toFixed(0)}</span>
+                  <span className="card-score-pill" title={`Congestion impact · ${windowLabel} window`}>
+                    CIS {a.congestion_impact.toFixed(0)}
+                  </span>
+                  <span className="card-score-pill alt" title="Enforcement priority · all-day">
+                    Risk {a.risk_score.toFixed(0)}
+                  </span>
                 </div>
                 <div className="card-meta">
                   <span className="card-meta-item">{a.force_needed} units</span>

@@ -43,6 +43,11 @@ export function TimeControls() {
         />
         <span className={`time-period ${isPeak(local) ? 'peak' : ''}`}>{timePeriod(local)}</span>
       </div>
+      {local >= 16 && (
+        <div className="time-cliff-note" role="note">
+          Evening — limited data, showing all-day
+        </div>
+      )}
     </div>
   );
 }

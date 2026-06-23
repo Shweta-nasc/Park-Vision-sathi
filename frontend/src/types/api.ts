@@ -327,6 +327,23 @@ export interface ValidationProof {
   points: ProofPoint[];
 }
 
+/** One vertex of a drivable route polyline (Route now feature). */
+export interface RoutePoint {
+  lat: number;
+  lon: number;
+}
+
+/**
+ * Drivable route geometry from /route (cache-first, offline-safe). `geometry` is
+ * a road-following polyline when a cached/live Mappls path exists, else null —
+ * in which case the map falls back to a straight dashed line. `source` reports
+ * where the geometry came from.
+ */
+export interface RouteResponse {
+  geometry: RoutePoint[] | null;
+  source: 'cache' | 'mappls' | 'none';
+}
+
 /**
  * Calibration coherence info (Task 12), from /risk/calibration (or /health).
  * Tells the UI which time bucket is the calibrated headline "measured window".

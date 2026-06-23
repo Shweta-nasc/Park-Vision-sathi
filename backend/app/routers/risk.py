@@ -97,8 +97,12 @@ def get_top_risk_zones(
     time_bucket: str = Query(default=None),
     n: int = Query(default=10, ge=1, le=50),
 ):
-    """Top N highest congestion-impact zones."""
-    return store.top_zones(n)
+    """Top N highest congestion-impact zones.
+
+    With a ``time_bucket`` the served zones are re-scored + re-ranked by that
+    bucket's congestion_impact (time-aware markers); without one the default
+    ``all_day`` slice is returned unchanged."""
+    return store.top_zones(n, time_bucket or "all_day")
 
 
 @router.get("/risk/overview")

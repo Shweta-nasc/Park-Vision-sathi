@@ -24,6 +24,7 @@ import type {
   MapLayer,
   PatrolAllocation,
   PriorityArea,
+  RouteResponse,
   SimulationRequest,
   SimulationResult,
   SpilloverArrow,
@@ -41,6 +42,22 @@ const LAYER_TO_BACKEND: Record<MapLayer, string> = {
   congestion_risk: 'risk',
   spillover: 'spillover',
 };
+
+/**
+ * Map an hour-of-day to the backend CIS time bucket. MUST match the backend bins
+ * (ml/congestion/build_artifact.py TIME_BUCKET_BINS) exactly so the heatmap shows
+ * the right per-bucket data:
+ *   night 00–05 · morning_peak 06–09 · midday 10–13 · afternoon 14–15.
+ * Hours 16–23 have effectively no data (the "16:00 cliff"), so they fall back to
+ * the all_day rollup rather than rendering a near-empty map.
+ */
+export function hourToBucket(h: number): string {
+  if (h < 6) return 'night';
+  if (h < 10) return 'morning_peak';
+  if (h < 14) return 'midday';
+  if (h < 16) return 'afternoon';
+  return 'all_day'; // 16–23: no data-rich bucket (temporal cliff)
+}
 
 export const api = {
   health: () => http.get<{ status: string; zones_loaded?: number }>('/health'),
@@ -67,11 +84,19 @@ export const api = {
 
   priorityAreas: (station: string, hour: number, limit = 12): Promise<PriorityArea[]> =>
     http
-      .get<any[]>(`/stations/${encodeURIComponent(station)}/priority_areas`, { hour, limit })
+      .get<any[]>(`/stations/${encodeURIComponent(station)}/priority_areas`, {
+        hour,
+        time_bucket: hourToBucket(hour),
+        limit,
+      })
       .then((rows) => rows.map((r) => adaptPriorityArea(r, hour))),
 
   heatmap: async (hour: number, layer: MapLayer): Promise<HeatmapResponse> => {
-    const raw = await http.get<any>('/heatmap', { hour, type: LAYER_TO_BACKEND[layer] });
+    const raw = await http.get<any>('/heatmap', {
+      hour,
+      type: LAYER_TO_BACKEND[layer],
+      time_bucket: hourToBucket(hour),
+    });
     const points: HeatmapPoint[] = (raw.points ?? []).map((p: any) => ({
       lat: p.lat,
       lon: p.lon,
@@ -87,7 +112,9 @@ export const api = {
   },
 
   topZones: (hour: number, n = 15): Promise<Zone[]> =>
-    http.get<any[]>('/risk/top_zones', { hour, n }).then((rows) => rows.map((r) => adaptZone(r, hour))),
+    http
+      .get<any[]>('/risk/top_zones', { hour, n, time_bucket: hourToBucket(hour) })
+      .then((rows) => rows.map((r) => adaptZone(r, hour))),
 
   /** Whole hotspot universe (zone objects carry station/junction) — used to
    *  resolve H3 ids to readable place names across panels. */
@@ -141,6 +168,27 @@ export const api = {
 
   traffic: (h3_id: string): Promise<TrafficContext> =>
     http.get<any>(`/traffic/${encodeURIComponent(h3_id)}`).then(adaptTraffic),
+
+  /** /route → drivable road geometry from origin→destination for "Route now".
+   *  Cache-first + offline-safe: returns geometry:null when no cached/live path
+   *  exists, and never throws (the map then falls back to a straight line). The
+   *  Mappls key stays server-side — it is never sent from or exposed to the browser. */
+  route: (
+    from: { lat: number; lon: number },
+    to: { lat: number; lon: number },
+  ): Promise<RouteResponse> =>
+    http
+      .get<any>('/route', {
+        from_lat: from.lat,
+        from_lon: from.lon,
+        to_lat: to.lat,
+        to_lon: to.lon,
+      })
+      .then((r) => ({
+        geometry: Array.isArray(r?.geometry) && r.geometry.length >= 2 ? r.geometry : null,
+        source: r?.source ?? 'none',
+      }))
+      .catch(() => ({ geometry: null, source: 'none' as const })),
 
   /** /agent/validation-report → { summary, zones[], calibration_run }. */
   agentReport: (): Promise<AgentReport> =>
