@@ -153,7 +153,7 @@ Toggle between **Violation Density** (where violations happen) and **Congestion 
 A 5-component deterministic score (0–100) per H3 res-9 zone, per time bucket. The 6th `severity` value is reported for transparency but excluded from the weighted sum. Validated against real MapMyIndia travel-time ratios.
 
 ### Self-Validating Agent 🤖
-After scoring zones, an agentic loop reads each zone's CIS, compares the implied slowdown against the **real MapMyIndia travel-time ratio**, and calibrates the score with a bounded trust-weighted update (α = 0.3). Every adjustment is logged in plain English. Fully offline and deterministic — no LLM, no quota.
+After scoring zones, an agentic loop reads each zone's CIS, compares the implied slowdown against the **real MapMyIndia travel-time ratio**, and reports the agreement. In **v2** (calibrated weights present) it runs **report-only** — it confirms the model and applies a 0% nudge, surfacing a before/after weight table and ρ_old → ρ_new. The bounded α = 0.3 trust-weighted update is the **legacy fallback** when no calibration exists. Fully offline and deterministic — no LLM, no quota.
 
 ### Interactive What-If Simulation
 Drag a team-count slider (1–20 teams). The Stackelberg model allocates teams to the highest-impact zones and shows: coverage %, uncovered high-risk zones, and **waterbed spillover** — which neighbour zones absorb the displaced violator pressure. This is the demo WOW moment.
@@ -170,8 +170,12 @@ Travel-time ratio, road name/type, and nearby POIs for every top zone — pre-co
 ### Station-Level Operational View
 Per-station priority zone ranking with force-needed estimate, ETA, and distance. Direct link to "Route now →" on the map.
 
-### Multi-Resolution Heatmap
-Zoom out → city-level 1 km blobs. Zoom in → street-level 100 m H3 cells. The backend data re-aggregates with zoom level.
+### Time-Aware Heatmap & Markers
+The hour control maps to a backend `time_bucket` (`hourToBucket`: morning_peak / midday /
+afternoon / night). The congestion heatmap, hotspot markers, and Priority Areas strip all
+**re-score and re-rank** by the selected bucket from the per-bucket CIS in the artifact. Hours
+16–23 fall back to `all_day` (the "16:00 cliff"). The zoom badge labels the zoom level only — the
+served grid is H3 res-9 (the badge does not change data granularity).
 
 ---
 
@@ -516,6 +520,40 @@ Example (real output):
 - City Market: ratio = **1.259×** → CIS = 49.5 (MODERATE)
 - Kamaraj Road: ratio = **1.70×** → CIS adjusted upward by agent
 
+### v2 — Calibrated weights + a non-circular trust metric
+
+The weights above are the v1 **expert prior**. In v2 we **fit** the four violation/road
+components to 150 real MapMyIndia congestion measurements (maximizing Spearman ρ vs the measured
+ratio on the train split via seeded Dirichlet search + Nelder-Mead), and keep `traffic_degradation`
+fixed at 0.25 (it *is* the measured signal — fitting it to itself would be circular). The served
+fitted weights:
+
+| component | v1 (expert) | v2 (fitted) |
+|---|---|---|
+| intersection_impact | 0.25 | **0.604** |
+| traffic_degradation | 0.25 | 0.25 (fixed) |
+| access_blockage | 0.10 | 0.131 |
+| lane_blockage | 0.30 | 0.015 |
+| vehicle_size | 0.10 | ~0.000 |
+
+→ junction-approach violations dominate measured congestion far more than raw lane counts.
+
+**The trust metric (`/validation/proof`, held-out test split, n=48):** we report three Spearman
+correlations vs the measured ratio — `raw_count` (the baseline to beat), `CIS_full` (flagged
+*circular*, since it contains the measured component), and **`CIS_honest`** (the four non-traffic
+components only — provably excludes `traffic_degradation`). Current served result:
+
+```
+honest-CIS ρ = 0.380 [0.131, 0.579]   vs   raw-count ρ = 0.412 [0.103, 0.658]
+baseline_beaten = false   ·   calibration_strength = weak
+```
+
+This is the **honest** answer to the theme: on a midday window the calibrated CIS tracks measured
+congestion about as well as raw volume (CIs overlap). The contribution is the *measure → calibrate
+→ validate* loop and the non-circular metric — not an inflated number. A peak-window collection is
+expected to sharpen it. The `traffic_degradation` for the ~2,377 unmeasured zones is **predicted**
+by a regularized Ridge model (leave-one-zone-out R² ≈ 0.29) instead of the old flat 0.5.
+
 ---
 
 ## 8. Game Theory Model
@@ -591,16 +629,34 @@ Capped to [0, 100]. No LLM, no network — deterministic and offline.
 
 This is the thesis made visible: **violation density ≠ congestion impact.** A zone with many violations on a wide arterial road flows better than expected. The agent catches this and calibrates down. A zone with fewer violations but a choked junction gets calibrated up. The AI corrects itself against reality.
 
-### Agent Output at `/health`
+### v2 coherence — calibrate exactly once (report-only)
+
+Once Task-3 weight calibration exists (`cis_calibration.json`), fitting the score a *second*
+time against the same MapMyIndia ratio would be double-calibration. So in v2 the agent runs
+**report-only**: it still computes the per-zone measured-vs-CIS comparison and emits the
+before/after trust story, but applies a **zero** score nudge (`coherence_mode: "report_only"`,
+mean abs adjustment **0.0%**). The bounded α = 0.3 nudge below survives only as the **legacy
+fallback** when no calibration is present. The agent's job in v2 is *reporting trust*, and it
+adds a top-level `calibration_run` block (old→new weights, ρ before→after, n measured).
+
+### Agent Output at `/health` (v2)
 
 ```json
 "agent": {
-  "total_zones": 2527,
-  "calibrated": 10,
-  "no_data": 2517,
-  "accurate": 6,
-  "adjusted_up": 3,
-  "adjusted_down": 1
+  "total_zones": 2527, "calibrated": 10, "no_data": 2517,
+  "accurate": 6, "adjusted_up": 2, "adjusted_down": 2,
+  "mean_abs_adjustment_pct": 0.0,
+  "coherence_mode": "report_only",
+  "calibration_run": {
+    "available": true,
+    "weights_old": { "lane_blockage": 0.30, "intersection_impact": 0.25, "traffic_degradation": 0.25,
+                     "access_blockage": 0.10, "vehicle_size": 0.10 },
+    "weights_new": { "lane_blockage": 0.015, "intersection_impact": 0.604, "traffic_degradation": 0.25,
+                     "access_blockage": 0.131, "vehicle_size": 0.0002 },
+    "spearman_old": 0.1097, "spearman_new": 0.3794,
+    "n_zones_measured": 150, "n_exploration": 40,
+    "lozo_metrics": { "model": "ridge", "lozo_r2": 0.2909, "lozo_spearman": 0.5978 }
+  }
 }
 ```
 
@@ -1077,7 +1133,7 @@ python run_pipeline.py --v2 --skip-forecast --skip-agent   # quickest calibratio
 
 ---
 
-### Path C — Calibrate the CIS against live MapMyIndia (produce/refresh v2)
+### Path C — Calibrate the CIS against live MapMyIndia (v2)
 
 > This is the **calibration loop** that turns the expert-weight v1 score into the validated v2
 > score. It has **two stages**: (1) a **live, budget-guarded** MapMyIndia collection (the only
@@ -1485,17 +1541,26 @@ web: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
 
 ### Committed Artifacts (required for deploy)
 
-These files must be committed — they are the entire data layer. All are produced
-by `run_pipeline.py` and are already committed in the repo:
+These files are the entire data layer — committed to the repo and loaded into memory at startup.
+The backend resolves `CIS_ARTIFACT_PATH` → **v2 if present, else v1** (automatic fallback):
 
 ```
-data/processed/zone_congestion_impact.json   # canonical CIS artifact (2,527 zones)
-data/processed/forecasts.json                # H3-native LightGBM-Poisson forecast
-data/processed/calibrated_scores.json        # agent-calibrated scores
-data/processed/agent_log.json                # agent run summary + per-zone reasoning
-data/processed/explanations_cache.json       # pre-generated Gemini zone explanations
-data/enriched/traffic_context_h3.json        # MapMyIndia enrichment (H3-keyed)
+data/processed/zone_congestion_impact_v2.json   # ★ served calibrated CIS (v2)
+data/processed/zone_congestion_impact.json       # v1 fallback (expert weights)
+data/processed/cis_calibration_meta.json          # calibration sidecar (what /health reads)
+data/processed/cis_validation_report.json          # /validation/proof (honest trust metric)
+data/processed/calibrated_scores.json · agent_log.json   # self-validating agent output
+data/processed/forecasts_v2.json · forecast_explanations.json   # forecast + SHAP
+data/processed/forecasts.json                      # v1 forecast fallback
+data/processed/explanations_cache.json             # pre-generated zone explanations
+data/enriched/traffic_context_h3.json              # MapMyIndia enrichment (H3-keyed)
+data/enriched/congestion_observations.json(+.meta) # frozen MapMyIndia snapshot (provenance)
+data/enriched/routes.json                          # cached station→hotspot road routes
 ```
+
+> To force v1 in production (e.g. to revert a calibration), set
+> `CIS_ARTIFACT_PATH=data/processed/zone_congestion_impact.json` in the dashboard, or remove the
+> v2 file — the loader falls back automatically and `/health` reports `cis_version: v1`.
 
 If any artifact is missing, the API **degrades gracefully** — empty lists, structured
 404s, `is_proxy: true` flags, fallback explanations. It never crashes on startup.
