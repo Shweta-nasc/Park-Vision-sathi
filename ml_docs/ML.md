@@ -1,4 +1,4 @@
-This is a read-and-analyze task — no code changes. I need to read every ML source file, the dataset schema, model artifacts, and evaluation outputs before writing a single word of documentation. I'll do the full read pass first.I've read every source file, model artifact, evaluation output, and planning document. Here is the complete technical audit.
+
 
 ---
 
