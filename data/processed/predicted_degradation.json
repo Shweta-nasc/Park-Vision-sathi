@@ -23,7 +23,7 @@
   ],
   "time_bucket": "all_day",
   "observations_sha256": "dab4158dfd2bf7f771722d79cd557b5107612466bae98766d4bb09d52dc82495",
-  "generated_at": "2026-06-23T07:39:23.172244+00:00",
+  "generated_at": "2026-06-23T15:15:44.807615+00:00",
   "zones": {
     "8960144a2cbffff": {
       "degradation": 0.069984,
