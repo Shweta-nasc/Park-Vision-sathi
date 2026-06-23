@@ -1,0 +1,8 @@
+{
+  "frozen": true,
+  "content_sha256": "647ec42d912e64e6ec237f374383a4bf3c71a172843b24d5ff4689a8cc022dc1",
+  "measured_at": "2026-06-23T19:19:09.374934+05:30",
+  "n_zones": 150,
+  "source": "mapmyindia",
+  "method": "local_segment_v2"
+}

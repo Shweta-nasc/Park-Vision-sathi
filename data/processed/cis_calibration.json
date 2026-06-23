@@ -53,5 +53,5 @@
   "n_samples": 20000,
   "method": "dirichlet_random_search+nelder_mead",
   "observations_sha256": "dab4158dfd2bf7f771722d79cd557b5107612466bae98766d4bb09d52dc82495",
-  "generated_at": "2026-06-23T07:39:21.779874+00:00"
+  "generated_at": "2026-06-23T15:15:43.341116+00:00"
 }
