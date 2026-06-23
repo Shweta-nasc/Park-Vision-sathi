@@ -40,6 +40,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -47,6 +48,33 @@ logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DATA = PROJECT_ROOT / "data"
+
+# ── Calibrated CIS artifact resolution (additive-shadow, Task 5) ─────────────
+# The backend serves the v2 (calibrated) artifact by default but FALLS BACK to v1
+# when v2 is absent, so the working demo never breaks and v1 stays one
+# rename/removal away. An explicit CIS_ARTIFACT_PATH env var overrides both.
+CIS_V1_FILENAME = "zone_congestion_impact.json"
+CIS_V2_FILENAME = "zone_congestion_impact_v2.json"
+# Calibration metadata sidecar (Option A): metadata is NEVER embedded in the
+# artifact, so no consumer can miscount a phantom metadata "zone".
+CIS_CALIBRATION_META_FILENAME = "cis_calibration_meta.json"
+# CIS validation report (Task 2/10): the density≠impact proof artifact — the
+# non-circular trust metric + per-zone scatter points served at /validation/proof.
+CIS_VALIDATION_REPORT_FILENAME = "cis_validation_report.json"
+# Defensive only: a key that could never be a real H3 id. The v2 artifact is pure
+# (metadata lives in the sidecar), so this filter is a no-op safety net.
+CALIBRATION_META_KEY = "_calibration"
+
+
+def _resolve_cis_artifact_path(data_dir: Path) -> Path:
+    """Return the CIS artifact path: env override, else v2, else v1 fallback."""
+    env = os.getenv("CIS_ARTIFACT_PATH")
+    if env:
+        return Path(env)
+    v2 = data_dir / "processed" / CIS_V2_FILENAME
+    if v2.exists():
+        return v2
+    return data_dir / "processed" / CIS_V1_FILENAME
 
 # Stackelberg emphasis exponent (docs/README: patrol_prob ∝ score^α, α=1.5).
 PATROL_ALPHA = 1.5
@@ -155,13 +183,37 @@ class DataStore:
         # absent (graceful empty zone universe — Requirement 14.3). The rich
         # serving accessors over this structure are added in task 6.2.
         self.congestion: dict[str, dict[str, dict]] = {}
+        # Calibration metadata (Task 5): the artifact's reserved `_calibration`
+        # block (cis_version, fitted weights, trust metric, …) when present, else a
+        # v1/uncalibrated marker. Surfaced at /health. Empty/marker is honest when
+        # no calibrated v2 artifact exists yet.
+        self.calibration_meta: dict = {}
+        self.cis_artifact_path: Optional[Path] = None
+        # Served headline time bucket (Task 12): the calibrated "peak window" when
+        # serving a calibrated v2 artifact, else "all_day".
+        self.headline_bucket: str = "all_day"
         # H3-native daily forecast (PREDICT pillar), keyed by the SAME h3_id as the
         # CIS map. `forecasts` = {h3_id: {predicted_count, predicted_band, ...}};
         # `forecast_meta` = model name + held-out metrics + target date. Empty when
         # the artifact is absent (graceful — endpoints fall back to a proxy).
         self.forecasts: dict[str, dict] = {}
         self.forecast_meta: dict = {}
+        # Per-zone SHAP explanations for the forecast (Task 9 sidecar). Empty when
+        # the sidecar is absent (pending the v2 forecast build).
+        self.forecast_explanations: dict = {}
+        self.forecast_explanations_meta: dict = {}
+        # CIS validation report (Task 2/10) — the density≠impact proof artifact,
+        # served at /validation/proof. Empty until the offline validate_cis run
+        # exists (pending the live MapMyIndia collection).
+        self.validation_report: dict = {}
         self.traffic_raw: dict = {}
+        # Pre-computed driving-route geometries (Route now feature), keyed by
+        # rounded "from_lat,from_lon->to_lat,to_lon" coords. Loaded once from
+        # data/enriched/routes.json so the demo's station→hotspot routes draw
+        # road-following paths fully offline. Empty when absent (the /route
+        # endpoint then degrades to a cache miss → null geometry). Cache misses
+        # served live are merged back in-memory + persisted by the /route router.
+        self.routes: dict = {}
         self.explanations: dict = {}
         self.calibrated: dict = {}
         self.agent_summary: dict = {}
@@ -181,11 +233,45 @@ class DataStore:
 
         # Canonical CIS artifact (the QUANTIFY pillar's single source of truth),
         # read as JSON only — no database, no network (Requirements 7.3, 7.4, 11.3).
-        # A missing file is non-fatal: `_load` logs a warning and returns {}, so the
-        # backend starts with an empty congestion universe rather than crashing
-        # (Requirement 14.3). The artifact is keyed {h3_id: {time_bucket: breakdown}}.
-        congestion = _load(self.data_dir / "processed" / "zone_congestion_impact.json", {})
-        self.congestion = congestion if isinstance(congestion, dict) else {}
+        # The path resolves to the calibrated v2 artifact when present, else the v1
+        # artifact (additive-shadow, Task 5). A missing file is non-fatal: `_load`
+        # logs a warning and returns {}, so the backend starts with an empty
+        # congestion universe rather than crashing (Requirement 14.3).
+        # The artifact is keyed {h3_id: {time_bucket: breakdown}} and is PURE —
+        # calibration metadata lives in a separate sidecar (Option A), so no
+        # consumer can miscount a phantom metadata "zone".
+        cis_path = _resolve_cis_artifact_path(self.data_dir)
+        self.cis_artifact_path = cis_path
+        serving_v2 = cis_path.name == CIS_V2_FILENAME
+        congestion = _load(cis_path, {})
+        congestion = congestion if isinstance(congestion, dict) else {}
+        # Defensive only (the artifact is pure): drop any "_"-prefixed key so a
+        # stray/legacy embedded block can never become a phantom zone.
+        self.congestion = {k: v for k, v in congestion.items() if not k.startswith("_")}
+
+        # Calibration metadata from the sidecar. It is trusted only when the v2
+        # artifact is actually being served; otherwise we surface an honest
+        # uncalibrated marker (never fabricated trust numbers).
+        meta_block = _load(self.data_dir / "processed" / CIS_CALIBRATION_META_FILENAME, {})
+        if serving_v2 and isinstance(meta_block, dict) and meta_block:
+            self.calibration_meta = dict(meta_block)
+        else:
+            self.calibration_meta = {
+                "cis_version": "v2" if serving_v2 else "v1",
+                "calibrated": False,
+            }
+
+        # Served headline time bucket (Task 12 coherence). When a calibrated v2
+        # artifact is being served, the headline "peak window" is the bucket whose
+        # MapMyIndia travel-time ratios were measured/fitted (``calibrated_bucket``);
+        # otherwise it is the ``all_day`` rollup. The frontend uses this to LABEL
+        # which view is the calibrated peak window vs the uncalibrated all_day view.
+        # Kept on a SEPARATE attribute (not inside ``calibration_meta``) so the
+        # sidecar's exact shape is preserved.
+        if self.calibration_meta.get("calibrated"):
+            self.headline_bucket = self.calibration_meta.get("calibrated_bucket") or "all_day"
+        else:
+            self.headline_bucket = "all_day"
 
         # H3-native forecast artifact (map-aligned). Split into the per-zone map
         # (`zones`) and the model metadata/metrics (everything else).
@@ -197,10 +283,31 @@ class DataStore:
         else:
             self.forecasts, self.forecast_meta = {}, {}
 
+        # Forecast SHAP explanations sidecar (Task 9). Absent -> empty (the panel
+        # shows the honest-limitations note without a SHAP breakdown).
+        fexpl = _load(self.data_dir / "processed" / "forecast_explanations.json", {})
+        if isinstance(fexpl, dict):
+            self.forecast_explanations = fexpl.get("zones", {}) if isinstance(fexpl.get("zones"), dict) else {}
+            self.forecast_explanations_meta = {k: v for k, v in fexpl.items() if k != "zones"}
+        else:
+            self.forecast_explanations, self.forecast_explanations_meta = {}, {}
+
+        # CIS validation report (Task 2/10): the density≠impact proof. Read as a
+        # plain dict; absent -> {} so /validation/proof reports available:False.
+        validation_report = _load(
+            self.data_dir / "processed" / CIS_VALIDATION_REPORT_FILENAME, {})
+        self.validation_report = validation_report if isinstance(validation_report, dict) else {}
+
         self.traffic_raw = traffic
         self.calibrated = calibrated
         self.agent_summary = {k: v for k, v in agent_log.items() if k != "log"}
         self.explanations = explanations
+
+        # Pre-computed driving-route geometry cache (Route now). Read as JSON only
+        # (no network at load) so the demo can draw cached road routes fully
+        # offline; absent -> {} (cache miss path). Keyed by rounded coord pairs.
+        routes = _load(self.data_dir / "enriched" / "routes.json", {})
+        self.routes = routes if isinstance(routes, dict) else {}
 
         # Build the served hotspot / OPTIMIZE zone universe from the REAL CIS
         # artifact (top-N by violation volume) instead of the legacy mock
@@ -212,6 +319,8 @@ class DataStore:
 
         self.sources = {
             "congestion_artifact_zones": len(self.congestion),
+            "cis_artifact": cis_path.name,
+            "cis_version": self.calibration_meta.get("cis_version", "v1"),
             "hotspot_universe": len(zones),
             "traffic_context_enriched": len(traffic),
             "calibrated_scores": len(calibrated),
@@ -357,8 +466,46 @@ class DataStore:
             self.load()
         return self
 
-    def top_zones(self, n: int = 15) -> list[dict]:
-        return self.ensure().zones[:n]
+    def _rescore_for_bucket(self, z: dict, time_bucket: str) -> dict:
+        """Return a copy of zone ``z`` re-scored to ``time_bucket``'s CIS.
+
+        The served 60-zone universe is built from each zone's ``all_day`` rollup,
+        so its ``congestion_impact`` is the all_day value. This looks up the same
+        zone's per-bucket breakdown in the full CIS artifact and overwrites ONLY
+        the congestion fields (``congestion_impact`` + ``impact_band``) with the
+        bucket's values, leaving enforcement fields (``risk_score``,
+        ``patrol_probability``, …) as the time-stable all_day values (Decision 2 —
+        bucketing enforcement is a separate game-theory change, out of scope).
+
+        The zone SET is never changed (no zone appears/disappears): a missing
+        bucket falls back to that zone's ``all_day`` entry via ``_bucket_entry``,
+        so the value simply equals the all_day score. ``all_day`` (or empty)
+        returns the zone unchanged so existing callers are byte-for-byte stable.
+        """
+        if not time_bucket or time_bucket == "all_day":
+            return z
+        entry = self._bucket_entry(self.congestion.get(z["grid_cell_id"]), time_bucket)
+        if not isinstance(entry, dict):
+            return z
+        cis = entry.get("congestion_impact")
+        if cis is None:
+            return z
+        out = dict(z)
+        out["congestion_impact"] = float(cis)
+        out["impact_band"] = entry.get("impact_band") or _band(float(cis))
+        return out
+
+    def top_zones(self, n: int = 15, time_bucket: str = "all_day") -> list[dict]:
+        """Top N served zones. Default (``all_day``) is the legacy enforcement-ranked
+        slice (unchanged). For a specific bucket, every served zone is RE-SCORED to
+        that bucket's congestion_impact and the list is RE-RANKED by it — so the map
+        markers / priority strip become time-aware without changing the zone set."""
+        self.ensure()
+        if not time_bucket or time_bucket == "all_day":
+            return self.zones[:n]
+        rescored = [self._rescore_for_bucket(z, time_bucket) for z in self.zones]
+        rescored.sort(key=lambda z: z.get("congestion_impact") or 0.0, reverse=True)
+        return rescored[:n]
 
     def zone(self, zone_id: str) -> Optional[dict]:
         return self.ensure().zones_by_id.get(zone_id)
@@ -469,11 +616,24 @@ class DataStore:
         entry = self._bucket_entry(self.congestion.get(zone_id), time_bucket)
         if entry is None:
             return None
-        calibrated_impact = self._calibrated_impact_for(zone_id)
-        if calibrated_impact is None:
-            return entry
+        # Shallow copy so the in-memory artifact entry is never mutated; we attach
+        # the agent's calibrated_impact (when present) and the Task 12 time_regime
+        # label below without touching the canonical artifact.
         merged = dict(entry)
-        merged["calibrated_impact"] = calibrated_impact
+        calibrated_impact = self._calibrated_impact_for(zone_id)
+        if calibrated_impact is not None:
+            merged["calibrated_impact"] = calibrated_impact
+        # Task 12 coherence: label the served breakdown's regime. It is
+        # "calibrated" ONLY when a calibrated v2 artifact is being served AND the
+        # requested bucket is the measured/fitted peak window (``calibrated_bucket``);
+        # every other bucket — notably the ``all_day`` rollup — is honestly
+        # "uncalibrated". Additive: the field is optional on the contract and was
+        # absent (None) before this task.
+        if (self.calibration_meta.get("calibrated")
+                and time_bucket == self.calibration_meta.get("calibrated_bucket")):
+            merged["time_regime"] = "calibrated"
+        else:
+            merged["time_regime"] = "uncalibrated"
         return merged
 
 
@@ -632,9 +792,17 @@ class DataStore:
         out.sort(key=lambda x: x["total_violations"], reverse=True)
         return out
 
-    def station_zones(self, station: str) -> list[dict]:
+    def station_zones(self, station: str, time_bucket: str = "all_day") -> list[dict]:
+        """Zones under a station. Default (``all_day``) is the legacy slice. For a
+        specific bucket, zones are re-scored to that bucket's congestion_impact and
+        re-ranked by it (enforcement fields stay all_day; the zone set is stable)."""
         self.ensure()
-        return [z for z in self.zones if (z["station"] or "").lower() == station.lower()]
+        zones = [z for z in self.zones if (z["station"] or "").lower() == station.lower()]
+        if not time_bucket or time_bucket == "all_day":
+            return zones
+        rescored = [self._rescore_for_bucket(z, time_bucket) for z in zones]
+        rescored.sort(key=lambda z: z.get("congestion_impact") or 0.0, reverse=True)
+        return rescored
 
     # ── game theory ─────────────────────────────────────────────────────
     def stackelberg(self, limit: int = 100) -> list[dict]:
@@ -731,11 +899,170 @@ class DataStore:
                            "uncovered_high_risk": len(sim["uncovered_high_risk"])}
         return out
 
-    def agent_report(self) -> dict:
-        """Self-validating agent: summary + per-zone calibration log."""
+    def patrol_allocation_with_exploration(self, epsilon: float = 0.10) -> dict:
+        """ε-greedy patrol allocation: 90% exploit (risk^1.5) + 10% explore (Task 9).
+
+        Bias mitigation for the predictive-policing feedback loop: ``epsilon`` of
+        the patrol mass is directed at under-observed (low violation-count) zones
+        so the system can discover violations the enforcement record misses. The
+        allocation sums to 1.0; the exploit-only ``patrol_probability`` field is
+        left unchanged for backward compatibility.
+        """
         self.ensure()
+        from ml.game.exploration import HONEST_LIMITATION, epsilon_greedy_allocation
+
+        zones = self.zones
+        if not zones:
+            return {"epsilon": epsilon, "exploration_pct": round(epsilon * 100, 1),
+                    "n_zones": 0, "zones": [], "honest_limitation": HONEST_LIMITATION}
+
+        risk = [z["risk_score"] for z in zones]
+        counts = [z["violation_count"] for z in zones]
+        alloc = epsilon_greedy_allocation(risk, counts, epsilon=epsilon)
+
+        rows = []
+        for z, p in zip(zones, alloc):
+            rows.append({
+                "grid_cell_id": z["grid_cell_id"],
+                "h3_id": z["h3_id"],
+                "lat": z["grid_lat"],
+                "lon": z["grid_lon"],
+                "risk_score": z["risk_score"],
+                "violation_count": z["violation_count"],
+                "patrol_probability": z["patrol_probability"],          # exploit-only (unchanged)
+                "patrol_probability_explore": float(p),                 # ε-greedy (unrounded: exact sum 1.0)
+            })
+        rows.sort(key=lambda r: (-r["patrol_probability_explore"], r["grid_cell_id"]))
+        return {
+            "epsilon": epsilon,
+            "exploration_pct": round(epsilon * 100, 1),
+            "n_zones": len(rows),
+            "zones": rows,
+            "honest_limitation": HONEST_LIMITATION,
+        }
+
+    def forecast_explanation_for(self, zone_id: str) -> Optional[dict]:
+        """Per-zone SHAP explanation for the forecast (Task 9), or ``None``."""
+        self.ensure()
+        rec = self.forecast_explanations.get(zone_id)
+        return {**rec, "zone_id": zone_id, "h3_id": zone_id} if isinstance(rec, dict) else None
+
+    def forecast_explanations_list(self, limit: int = 50) -> dict:
+        """Forecast SHAP explanations: metadata + the first ``limit`` zones."""
+        self.ensure()
+        zones = self.forecast_explanations
+        available = bool(zones)
+        items = [{**rec, "zone_id": z, "h3_id": z} for z, rec in list(zones.items())[:limit]]
+        return {
+            "available": available,
+            **self.forecast_explanations_meta,
+            "zones": items,
+        }
+
+    def validation_proof(self) -> dict:
+        """CIS density≠impact proof payload (Task 13), from the offline report.
+
+        Reads ONLY ``cis_validation_report.json`` (the Task 2/10 output). Returns a
+        stable, additive shape carrying the three held-out **test-split** Spearman
+        correlations vs the measured MapMyIndia ratio — the honest non-circular CIS
+        (the 4 violation/road components, NO traffic_degradation), the raw-violation
+        ``count`` baseline, and the full CIS upper bound (flagged circular) — each
+        with its bootstrap CI, plus ``baseline_beaten``, ``calibration_strength``
+        (populated by Task 15; ``None`` until then), and the per-zone scatter
+        points. Degrades to ``available: False`` with no points when the report is
+        absent (pending the live peak-time collection) so the panel renders a
+        graceful pending state rather than fabricated numbers. Reads only in-memory
+        state — no network, LLM, or database.
+        """
+        self.ensure()
+        r = self.validation_report if isinstance(self.validation_report, dict) else {}
+        point_keys = ("h3_id", "cis", "cis_honest", "count",
+                      "measured_ratio", "is_exploration", "split")
+        points = [
+            {k: p.get(k) for k in point_keys}
+            for p in (r.get("points") or [])
+            if isinstance(p, dict)
+        ]
+        available = bool(r) and (r.get("n_measured") is not None or bool(points))
+        return {
+            "available": bool(available),
+            "n_measured": r.get("n_measured"),
+            "n_proof": r.get("n_proof"),
+            "n_exploration": r.get("n_exploration"),
+            # Honest, non-circular CIS — the headline trust metric.
+            "spearman_cis_honest": r.get("spearman_cis_honest_test"),
+            "spearman_cis_honest_ci": r.get("spearman_cis_honest_test_ci"),
+            # Raw violation-count baseline (the "density" view to beat).
+            "spearman_count": r.get("spearman_count_test"),
+            "spearman_count_ci": r.get("spearman_count_test_ci"),
+            # Full CIS — circular upper bound (contains the measured ratio).
+            "spearman_cis_full": r.get("spearman_cis_full_test"),
+            "spearman_cis_full_ci": r.get("spearman_cis_full_test_ci"),
+            "cis_full_note": r.get("cis_full_note"),
+            "baseline_beaten": r.get("baseline_beaten"),
+            "calibration_strength": r.get("calibration_strength"),
+            "honest_weights": r.get("honest_weights"),
+            "honest_excludes": r.get("honest_excludes"),
+            "split_seed": r.get("split_seed"),
+            "time_bucket": r.get("time_bucket"),
+            "generated_at": r.get("generated_at"),
+            "points": points,
+        }
+
+    def throughput_simulation(self, max_teams: int = 20,
+                              top_n: Optional[int] = None,
+                              time_bucket: str = "all_day") -> dict:
+        """Before/after city congestion index across team counts (Task 7).
+
+        Grounded in the **calibrated** CIS served by this store: selects the
+        top-``top_n`` zones by congestion impact (defaults to the operational
+        ``HOTSPOT_UNIVERSE_SIZE``) and runs the transparent, documented throughput
+        model in ``ml.game.throughput_sim``. Offline and deterministic — every
+        constant is returned in the ``constants`` block and the minutes figure is
+        an explicitly illustrative modeled estimate.
+        """
+        self.ensure()
+        from ml.game.throughput_sim import (
+            compute_measured_minutes, select_top_cis, simulate_throughput,
+        )
+
+        if top_n is None:
+            top_n = HOTSPOT_UNIVERSE_SIZE
+        cis_values = select_top_cis(self.congestion, top_n=top_n, time_bucket=time_bucket)
+        result = simulate_throughput(cis_values, max_teams=max_teams)
+        result["cis_artifact"] = self.cis_artifact_path.name if self.cis_artifact_path else None
+        result["cis_version"] = self.calibration_meta.get("cis_version", "v1")
+        result["top_n"] = top_n
+        # Additive (never changes the %-reduction headline above): the real,
+        # MapMyIndia-grounded minutes-saved estimate on the MEASURED corridors.
+        # Reports a pending block until a live collection + Task 4 model exist.
+        obs_path = self.data_dir / "enriched" / "congestion_observations.json"
+        if obs_path.exists():
+            observations = _load(obs_path, {})
+            result["measured_minutes"] = compute_measured_minutes(
+                self.congestion, observations if isinstance(observations, dict) else {},
+                n_teams=max_teams, time_bucket=time_bucket,
+            )
+        else:
+            from ml.game.throughput_sim import _pending_measured_block
+            result["measured_minutes"] = _pending_measured_block(
+                "No measured corridors yet — pending a live MapMyIndia collector run."
+            )
+        return result
+
+    def agent_report(self) -> dict:
+        """Self-validating agent: summary + per-zone calibration log + calibration run.
+
+        ``calibration_run`` is the agent's offline before/after weight + trust block
+        (Task 6), baked into ``agent_log.json`` by the agent run and surfaced here
+        additively. When absent (no calibration run yet) it degrades to an honest
+        ``{"available": False}`` so the panel can render a "pending" state.
+        """
+        self.ensure()
+        calibration_run = self.agent_summary.get("calibration_run") or {"available": False}
         return {"summary": self.agent_summary,
-                "zones": list(self.calibrated.values())}
+                "zones": list(self.calibrated.values()),
+                "calibration_run": calibration_run}
 
 
 # Module-level singleton (loaded at app startup in main.py).

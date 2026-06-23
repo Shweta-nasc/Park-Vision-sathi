@@ -217,6 +217,10 @@ class CongestionBreakdown(BaseModel):
     is_traffic_degradation_defaulted: bool = False   # True when ratio missing -> 0.5
     # Self-validating agent output (optional; filled when a calibration exists).
     calibrated_impact: Optional[float] = Field(default=None, ge=0.0, le=100.0)
+    # Time-regime label (Task 12): "calibrated" when this bucket is the one whose
+    # ratios were measured/fitted (the served headline "peak window"), else
+    # "uncalibrated". Optional/additive — defaults to None for v1 breakdowns.
+    time_regime: Optional[str] = None
 
     @field_validator("weights")
     @classmethod

@@ -1,0 +1,57 @@
+{
+  "old_weights": {
+    "lane_blockage": 0.3,
+    "intersection_impact": 0.25,
+    "traffic_degradation": 0.25,
+    "access_blockage": 0.1,
+    "vehicle_size": 0.1
+  },
+  "new_weights": {
+    "lane_blockage": 0.014657917176716318,
+    "intersection_impact": 0.6041007318041812,
+    "traffic_degradation": 0.25,
+    "access_blockage": 0.1310497438962782,
+    "vehicle_size": 0.0001916071228242995
+  },
+  "w_td_fixed": 0.25,
+  "fitted_components": [
+    "lane_blockage",
+    "intersection_impact",
+    "access_blockage",
+    "vehicle_size"
+  ],
+  "fitted_a_new": {
+    "lane_blockage": 0.019544,
+    "intersection_impact": 0.805468,
+    "access_blockage": 0.174733,
+    "vehicle_size": 0.000255
+  },
+  "spearman_old_test": 0.1097,
+  "spearman_new_test": 0.3794,
+  "spearman_old_test_ci": {
+    "rho": 0.1097,
+    "lo": -0.1524,
+    "hi": 0.3598,
+    "p_approx": 0.447,
+    "n": 48,
+    "n_boot": 2000
+  },
+  "spearman_new_test_ci": {
+    "rho": 0.3794,
+    "lo": 0.1301,
+    "hi": 0.5785,
+    "p_approx": 0.002,
+    "n": 48,
+    "n_boot": 2000
+  },
+  "spearman_old_train": 0.0767,
+  "spearman_new_train": 0.2369,
+  "n_train": 102,
+  "n_test": 48,
+  "split_seed": 1337,
+  "seed": 20240315,
+  "n_samples": 20000,
+  "method": "dirichlet_random_search+nelder_mead",
+  "observations_sha256": "dab4158dfd2bf7f771722d79cd557b5107612466bae98766d4bb09d52dc82495",
+  "generated_at": "2026-06-23T07:39:21.779874+00:00"
+}

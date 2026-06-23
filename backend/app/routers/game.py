@@ -87,3 +87,16 @@ def get_spillover_arrows():
 def get_whatif_coverage():
     """Coverage % across team counts (drives the simulation slider's read-out)."""
     return store.whatif_coverage()
+
+
+@router.get("/game/patrol_allocation")
+def get_patrol_allocation(epsilon: float = Query(default=0.10, ge=0.0, le=1.0)):
+    """ε-greedy patrol allocation (bias mitigation): 90% exploit + 10% explore.
+
+    Sends ``epsilon`` of patrol effort to under-observed zones so the system can
+    discover violations the enforcement record misses. Returns per-zone
+    exploit-only ``patrol_probability`` alongside the bias-mitigated
+    ``patrol_probability_explore`` (which sums to 1.0), plus an honest-limitations
+    note.
+    """
+    return store.patrol_allocation_with_exploration(epsilon=epsilon)

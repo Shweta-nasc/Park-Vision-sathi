@@ -27,10 +27,16 @@ def _priority(score: float):
 def get_station_priority_areas(
     station: str = Path(description="Police station name"),
     hour: int = Query(default=9, ge=0, le=23),
+    time_bucket: str = Query(default=None),
     limit: int = Query(default=10, ge=1, le=50),
 ):
-    """Zones under a station, ranked by congestion impact, with force + ETA."""
-    zones = store.station_zones(station)
+    """Zones under a station, ranked by congestion impact, with force + ETA.
+
+    With a ``time_bucket`` the zones are re-scored + re-ranked by that bucket's
+    congestion_impact (time-aware priority strip); without one the ``all_day``
+    slice is returned. Enforcement fields (force_needed/priority from risk_score)
+    stay time-stable by design."""
+    zones = store.station_zones(station, time_bucket or "all_day")
     # Station centroid for distance/ETA estimate.
     if zones:
         base_lat = sum(z["grid_lat"] for z in zones) / len(zones)

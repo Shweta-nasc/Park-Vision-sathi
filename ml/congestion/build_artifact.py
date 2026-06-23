@@ -644,6 +644,8 @@ def build_congestion_artifact(
     *,
     resolution: int = H3_RESOLUTION,
     travel_time_ratios: Optional[Mapping[str, float]] = None,
+    weights: Optional[Mapping[str, float]] = None,
+    degradation_lookup: Optional[Mapping[str, float]] = None,
 ) -> dict:
     """Score every aggregated zone-bucket and write the canonical CIS artifact.
 
@@ -690,10 +692,16 @@ def build_congestion_artifact(
     artifact: dict[str, dict[str, dict]] = {}
     centroids: dict[str, tuple[float, float]] = {}
 
-    # Sorted iteration gives deterministic, byte-stable key ordering (h3_id then
-    # time_bucket) without relying on the upstream groupby insertion order.
+    # Sorted iteration gives a byte-stable artifact across runs on identical inputs
+    # (deterministic ordering by (h3_id, time_bucket)).
     for (h3_id, time_bucket), agg in sorted(aggregates.items()):
-        breakdown = score_zone(agg, maxima)
+        # Calibration seams (additive; both default to the v1 path):
+        #   * weights              — fitted weight vector (Task 3), else canonical.
+        #   * degradation_lookup   — per-zone measured/predicted traffic-degradation
+        #     (Task 4) replacing the flat 0.5; keyed by h3_id, applied to every
+        #     bucket of that zone.
+        override = degradation_lookup.get(h3_id) if degradation_lookup else None
+        breakdown = score_zone(agg, maxima, weights=weights, degradation_override=override)
 
         # H3-centroid lat/lon (the scorer leaves these None); compute once per zone.
         if h3_id not in centroids:

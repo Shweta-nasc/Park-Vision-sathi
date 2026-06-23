@@ -133,6 +133,7 @@ interface RawBreakdown {
   congestion_impact?: number;
   impact_band?: string;
   components?: CongestionComponents;
+  weights?: Record<string, number>;
   estimated_lane_hours_blocked?: number;
   total_records?: number;
   top_violations?: string[];
@@ -140,6 +141,7 @@ interface RawBreakdown {
   junction?: string | null;
   mappls_travel_time_ratio?: number | null;
   calibrated_impact?: number | null;
+  time_regime?: string | null;
 }
 
 export function adaptBreakdown(r: RawBreakdown): Partial<Zone> {
@@ -151,6 +153,7 @@ export function adaptBreakdown(r: RawBreakdown): Partial<Zone> {
     congestion_impact: cis,
     impact_band: (r.impact_band as ImpactBand) ?? impactBand(cis),
     components: r.components,
+    weights: r.weights ?? undefined,
     estimated_lane_hours_blocked: num(r.estimated_lane_hours_blocked),
     violation_count: num(r.total_records),
     top_violations: r.top_violations ?? [],
@@ -158,6 +161,7 @@ export function adaptBreakdown(r: RawBreakdown): Partial<Zone> {
     junction: r.junction ?? null,
     mappls_ratio: r.mappls_travel_time_ratio ?? null,
     calibrated_score: r.calibrated_impact ?? undefined,
+    time_regime: r.time_regime ?? null,
   };
 }
 

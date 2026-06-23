@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/endpoints';
+import { useCalibration } from '@/hooks/queries';
 import { useAppState } from '@/state/AppState';
 import { useMapOverlay } from '@/state/MapOverlay';
 import { RiskGauge } from '../RiskGauge';
@@ -15,7 +16,7 @@ function Bar({ label, pct, weight }: { label: string; pct: number; weight?: numb
     <div className="detail-bar-row">
       <span className="detail-bar-label">
         {label}
-        {weight != null && <span className="detail-bar-weight"> ·{Math.round(weight * 100)}%</span>}
+        {weight != null && <span className="detail-bar-weight"> ·{weightLabel(weight)}</span>}
       </span>
       <div className="detail-bar-track">
         <div className="detail-bar-fill" style={{ width: `${v}%`, background: c }} />
@@ -25,7 +26,19 @@ function Bar({ label, pct, weight }: { label: string; pct: number; weight?: numb
   );
 }
 
-/** Component weights (match backend CIS weights). */
+/** Honest weight label: a non-zero weight that rounds to 0% shows "<1%". */
+function weightLabel(weight: number): string {
+  const p = weight * 100;
+  const r = Math.round(p);
+  return r === 0 && p > 0 ? '<1%' : `${r}%`;
+}
+
+/**
+ * CIS components: key + label + last-resort fallback weight (the v1 prior). The
+ * weights ACTUALLY rendered are resolved at render time from the live calibrated
+ * model (see `liveWeights` below); these `weight` values are only used if neither
+ * the calibration endpoint nor the zone breakdown carries weights.
+ */
 const COMP_META: { key: keyof CongestionComponents; label: string; weight?: number }[] = [
   { key: 'lane_blockage', label: 'Lane blockage', weight: 0.3 },
   { key: 'intersection_impact', label: 'Intersection', weight: 0.25 },
@@ -38,9 +51,17 @@ export function ZoneDetail() {
   const { selectedZone, hour, setPanel } = useAppState();
   const { setRouteTarget } = useMapOverlay();
 
+  // When a calibrated v2 artifact is served, request the calibrated headline
+  // bucket (the "measured window") so the gauge shows that bucket's score and
+  // the served breakdown carries time_regime === "calibrated" (Task 12).
+  const calibration = useCalibration();
+  const headlineBucket = calibration.data?.calibrated
+    ? calibration.data.calibrated_bucket ?? calibration.data.headline_bucket ?? undefined
+    : undefined;
+
   const detail = useQuery({
-    queryKey: ['zoneDetail', selectedZone?.h3_id, hour],
-    queryFn: () => api.zoneDetail(selectedZone!.h3_id, hour),
+    queryKey: ['zoneDetail', selectedZone?.h3_id, hour, headlineBucket ?? 'all_day'],
+    queryFn: () => api.zoneDetail(selectedZone!.h3_id, hour, headlineBucket),
     enabled: !!selectedZone,
   });
   const traffic = useQuery({
@@ -58,8 +79,16 @@ export function ZoneDetail() {
   const laneHours = z.estimated_lane_hours_blocked ?? 0;
   const ratio = traffic.data?.travel_time_ratio ?? z.mappls_ratio ?? null;
   const components = z.components as CongestionComponents | undefined;
+  // Live CALIBRATED component weights (v2). Primary source is the calibration
+  // endpoint (the model-wide fitted weights), then the per-zone breakdown's
+  // weights, and only as a last resort the COMP_META v1 prior. This is what makes
+  // the bars reflect the learned model ("junctions dominate") instead of v1.
+  const liveWeights = calibration.data?.weights ?? z.weights ?? null;
   const calibrated = z.calibrated_score;
   const showCalib = calibrated != null && Math.abs(calibrated - z.congestion_impact) >= 0.5;
+  // Task 12: the served breakdown is the calibrated "measured window" when its
+  // time_regime is "calibrated" (only when a calibrated v2 artifact is served).
+  const calibratedWindow = z.time_regime === 'calibrated';
 
   return (
     <div className="details-content">
@@ -79,6 +108,14 @@ export function ZoneDetail() {
         <div className="detail-gauge-cell">
           <RiskGauge score={z.congestion_impact} />
           <div className="detail-gauge-cap">Congestion Impact</div>
+          {calibratedWindow && (
+            <div
+              title={`Score calibrated against live MapMyIndia travel time${headlineBucket ? ` (${headlineBucket} window)` : ''}`}
+              style={{ marginTop: 2, fontSize: 10, fontWeight: 700, color: '#10b981', letterSpacing: 0.2 }}
+            >
+              ● calibrated · measured window
+            </div>
+          )}
           <div className="detail-gauge-band" style={{ color: bandColor(z.impact_band) }}>{z.impact_band}</div>
         </div>
         <div className="detail-score-cell">
@@ -116,9 +153,11 @@ export function ZoneDetail() {
           {detail.isLoading && <span className="detail-loading-dot"> · loading…</span>}
         </div>
         {components ? (
-          COMP_META.map((c) => (
-            <Bar key={c.key} label={c.label} weight={c.weight} pct={(components[c.key] ?? 0) * 100} />
-          ))
+          COMP_META.map((c) => ({ ...c, w: liveWeights?.[c.key] ?? c.weight }))
+            .sort((a, b) => (b.w ?? 0) - (a.w ?? 0))
+            .map((c) => (
+              <Bar key={c.key} label={c.label} weight={c.w} pct={(components[c.key] ?? 0) * 100} />
+            ))
         ) : (
           <>
             <Bar label="Violation density" pct={z.density * 100} />

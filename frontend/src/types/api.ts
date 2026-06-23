@@ -39,6 +39,8 @@ export interface Zone {
   impact_band: ImpactBand;
   /** Agent-calibrated CIS (vs real travel time), when available. */
   calibrated_score?: number;
+  /** Served regime for this breakdown's bucket: 'calibrated' | 'uncalibrated' (Task 12). */
+  time_regime?: string | null;
   violation_count: number;
   // Component breakdown (real where the CIS artifact provides it)
   density: number;
@@ -50,6 +52,8 @@ export interface Zone {
   estimated_lane_hours_blocked: number;
   /** Real CIS component breakdown (only present after a /risk/{id} fetch). */
   components?: CongestionComponents;
+  /** Live CIS component weights (calibrated v2), present on /risk/{id} breakdowns. */
+  weights?: Record<string, number> | null;
   top_violations?: string[];
   mappls_ratio?: number | null;
   // Game-theory enrichment (present on /risk list, /game/* responses)
@@ -128,6 +132,28 @@ export interface ForecastAccuracy {
   summary?: string;
   spatial_unit?: string;
   target?: string;
+}
+
+export interface ForecastContributor {
+  feature: string;
+  value: number;
+  contribution: number;
+}
+
+export interface ForecastExplanationZone {
+  zone_id?: string;
+  h3_id?: string;
+  base_value: number;
+  predicted_count?: number | null;
+  top_contributors: ForecastContributor[];
+}
+
+export interface ForecastExplanations {
+  available: boolean;
+  feature_names?: string[];
+  top_k?: number;
+  note?: string;
+  zones: ForecastExplanationZone[];
 }
 
 export interface PatrolAllocation {
@@ -217,6 +243,22 @@ export interface AgentZone {
   reasoning: string;
 }
 
+export interface CalibrationRun {
+  available: boolean;
+  weights_old?: Record<string, number> | null;
+  weights_new?: Record<string, number> | null;
+  weights_method?: string | null;
+  spearman_old?: number | null;
+  spearman_new?: number | null;
+  n_zones_measured?: number | null;
+  n_exploration?: number | null;
+  lozo_metrics?: {
+    model?: string | null;
+    lozo_r2?: number | null;
+    lozo_spearman?: number | null;
+  } | null;
+}
+
 export interface AgentReport {
   available: boolean;
   summary: {
@@ -229,4 +271,91 @@ export interface AgentReport {
     mean_abs_adjustment_pct?: number;
   } | null;
   zones: AgentZone[];
+  /** Task 6: the agent's offline before/after weight + trust block. */
+  calibration_run?: CalibrationRun | null;
+}
+
+/** Bootstrap confidence interval for a Spearman ρ (Task 11). */
+export interface SpearmanCI {
+  rho?: number | null;
+  lo?: number | null;
+  hi?: number | null;
+  p_approx?: number | null;
+  n?: number | null;
+  n_boot?: number | null;
+}
+
+/** One zone in the density≠impact scatter (Task 13). */
+export interface ProofPoint {
+  h3_id: string;
+  /** Full CIS 0–100. */
+  cis: number;
+  /** Honest CIS predictor (4 non-traffic components, 0–1), null when components absent. */
+  cis_honest: number | null;
+  /** Raw violation count (the "density" view). */
+  count: number;
+  /** Measured MapMyIndia travel-time ratio (the ground truth y-axis). */
+  measured_ratio: number;
+  is_exploration: boolean;
+  split: string; // 'train' | 'test'
+}
+
+/**
+ * The CIS validation "density ≠ impact" proof (Task 13). Held-out test-split
+ * Spearman correlations of three predictors vs the measured congestion ratio:
+ * the honest non-circular CIS, the raw-count baseline, and the circular full-CIS
+ * upper bound — each with a bootstrap CI. `available` is false while the live
+ * MapMyIndia run is still pending (graceful empty state).
+ */
+export interface ValidationProof {
+  available: boolean;
+  n_measured?: number | null;
+  n_proof?: number | null;
+  n_exploration?: number | null;
+  spearman_cis_honest?: number | null;
+  spearman_cis_honest_ci?: SpearmanCI | null;
+  spearman_count?: number | null;
+  spearman_count_ci?: SpearmanCI | null;
+  spearman_cis_full?: number | null;
+  spearman_cis_full_ci?: SpearmanCI | null;
+  cis_full_note?: string | null;
+  baseline_beaten?: boolean | null;
+  calibration_strength?: 'strong' | 'weak' | 'aborted' | null;
+  honest_weights?: Record<string, number> | null;
+  honest_excludes?: string | null;
+  split_seed?: number | null;
+  time_bucket?: string | null;
+  generated_at?: string | null;
+  points: ProofPoint[];
+}
+
+/** One vertex of a drivable route polyline (Route now feature). */
+export interface RoutePoint {
+  lat: number;
+  lon: number;
+}
+
+/**
+ * Drivable route geometry from /route (cache-first, offline-safe). `geometry` is
+ * a road-following polyline when a cached/live Mappls path exists, else null —
+ * in which case the map falls back to a straight dashed line. `source` reports
+ * where the geometry came from.
+ */
+export interface RouteResponse {
+  geometry: RoutePoint[] | null;
+  source: 'cache' | 'mappls' | 'none';
+}
+
+/**
+ * Calibration coherence info (Task 12), from /risk/calibration (or /health).
+ * Tells the UI which time bucket is the calibrated headline "measured window".
+ */
+export interface CalibrationInfo {
+  calibrated: boolean;
+  cis_version?: string;
+  headline_bucket?: string;
+  calibrated_bucket?: string | null;
+  weights?: Record<string, number> | null;
+  spearman_test?: number | null;
+  n_measured?: number | null;
 }

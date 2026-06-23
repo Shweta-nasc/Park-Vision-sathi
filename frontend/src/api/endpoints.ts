@@ -16,18 +16,22 @@ import {
 import type {
   AgentReport,
   ForecastAccuracy,
+  ForecastExplanations,
   ForecastPoint,
+  CalibrationInfo,
   HeatmapPoint,
   HeatmapResponse,
   MapLayer,
   PatrolAllocation,
   PriorityArea,
+  RouteResponse,
   SimulationRequest,
   SimulationResult,
   SpilloverArrow,
   StationSummary,
   StationSummaryItem,
   TrafficContext,
+  ValidationProof,
   ViolatorRecord,
   Zone,
 } from '@/types/api';
@@ -39,8 +43,39 @@ const LAYER_TO_BACKEND: Record<MapLayer, string> = {
   spillover: 'spillover',
 };
 
+/**
+ * Map an hour-of-day to the backend CIS time bucket. MUST match the backend bins
+ * (ml/congestion/build_artifact.py TIME_BUCKET_BINS) exactly so the heatmap shows
+ * the right per-bucket data:
+ *   night 00–05 · morning_peak 06–09 · midday 10–13 · afternoon 14–15.
+ * Hours 16–23 have effectively no data (the "16:00 cliff"), so they fall back to
+ * the all_day rollup rather than rendering a near-empty map.
+ */
+export function hourToBucket(h: number): string {
+  if (h < 6) return 'night';
+  if (h < 10) return 'morning_peak';
+  if (h < 14) return 'midday';
+  if (h < 16) return 'afternoon';
+  return 'all_day'; // 16–23: no data-rich bucket (temporal cliff)
+}
+
 export const api = {
   health: () => http.get<{ status: string; zones_loaded?: number }>('/health'),
+
+  /** /risk/calibration → which bucket is the calibrated "measured window" (Task 12). */
+  calibration: (): Promise<CalibrationInfo> =>
+    http
+      .get<any>('/risk/calibration')
+      .then((r) => ({
+        calibrated: !!(r && r.calibrated),
+        cis_version: r?.cis_version,
+        headline_bucket: r?.headline_bucket,
+        calibrated_bucket: r?.calibrated_bucket ?? null,
+        weights: r?.weights ?? null,
+        spearman_test: r?.spearman_test ?? null,
+        n_measured: r?.n_measured ?? null,
+      }))
+      .catch(() => ({ calibrated: false })),
 
   stations: () => http.get<StationSummaryItem[]>('/stations'),
 
@@ -49,11 +84,19 @@ export const api = {
 
   priorityAreas: (station: string, hour: number, limit = 12): Promise<PriorityArea[]> =>
     http
-      .get<any[]>(`/stations/${encodeURIComponent(station)}/priority_areas`, { hour, limit })
+      .get<any[]>(`/stations/${encodeURIComponent(station)}/priority_areas`, {
+        hour,
+        time_bucket: hourToBucket(hour),
+        limit,
+      })
       .then((rows) => rows.map((r) => adaptPriorityArea(r, hour))),
 
   heatmap: async (hour: number, layer: MapLayer): Promise<HeatmapResponse> => {
-    const raw = await http.get<any>('/heatmap', { hour, type: LAYER_TO_BACKEND[layer] });
+    const raw = await http.get<any>('/heatmap', {
+      hour,
+      type: LAYER_TO_BACKEND[layer],
+      time_bucket: hourToBucket(hour),
+    });
     const points: HeatmapPoint[] = (raw.points ?? []).map((p: any) => ({
       lat: p.lat,
       lon: p.lon,
@@ -69,16 +112,19 @@ export const api = {
   },
 
   topZones: (hour: number, n = 15): Promise<Zone[]> =>
-    http.get<any[]>('/risk/top_zones', { hour, n }).then((rows) => rows.map((r) => adaptZone(r, hour))),
+    http
+      .get<any[]>('/risk/top_zones', { hour, n, time_bucket: hourToBucket(hour) })
+      .then((rows) => rows.map((r) => adaptZone(r, hour))),
 
   /** Whole hotspot universe (zone objects carry station/junction) — used to
    *  resolve H3 ids to readable place names across panels. */
   zoneIndex: (): Promise<Zone[]> =>
     http.get<any[]>('/risk', { limit: 200 }).then((rows) => rows.map((r) => adaptZone(r))),
 
-  /** /risk/{id} → CIS breakdown (partial Zone enrichment). */
-  zoneDetail: (h3_id: string, hour: number): Promise<Partial<Zone> | null> =>
-    http.get<any>(`/risk/${encodeURIComponent(h3_id)}`, { hour }).then((r) => {
+  /** /risk/{id} → CIS breakdown (partial Zone enrichment). Optional time_bucket
+   *  lets the caller request the calibrated headline window (Task 12). */
+  zoneDetail: (h3_id: string, hour: number, timeBucket?: string): Promise<Partial<Zone> | null> =>
+    http.get<any>(`/risk/${encodeURIComponent(h3_id)}`, { hour, time_bucket: timeBucket }).then((r) => {
       if (!r || r.error || r.detail) return null;
       return adaptBreakdown(r);
     }),
@@ -123,7 +169,28 @@ export const api = {
   traffic: (h3_id: string): Promise<TrafficContext> =>
     http.get<any>(`/traffic/${encodeURIComponent(h3_id)}`).then(adaptTraffic),
 
-  /** /agent/validation-report → { summary, zones[] }. */
+  /** /route → drivable road geometry from origin→destination for "Route now".
+   *  Cache-first + offline-safe: returns geometry:null when no cached/live path
+   *  exists, and never throws (the map then falls back to a straight line). The
+   *  Mappls key stays server-side — it is never sent from or exposed to the browser. */
+  route: (
+    from: { lat: number; lon: number },
+    to: { lat: number; lon: number },
+  ): Promise<RouteResponse> =>
+    http
+      .get<any>('/route', {
+        from_lat: from.lat,
+        from_lon: from.lon,
+        to_lat: to.lat,
+        to_lon: to.lon,
+      })
+      .then((r) => ({
+        geometry: Array.isArray(r?.geometry) && r.geometry.length >= 2 ? r.geometry : null,
+        source: r?.source ?? 'none',
+      }))
+      .catch(() => ({ geometry: null, source: 'none' as const })),
+
+  /** /agent/validation-report → { summary, zones[], calibration_run }. */
   agentReport: (): Promise<AgentReport> =>
     http
       .get<any>('/agent/validation-report')
@@ -131,6 +198,31 @@ export const api = {
         available: !!(r && r.summary),
         summary: r?.summary ?? null,
         zones: Array.isArray(r?.zones) ? r.zones : [],
+        calibration_run: r?.calibration_run ?? null,
       }))
-      .catch(() => ({ available: false, summary: null, zones: [] })),
+      .catch(() => ({ available: false, summary: null, zones: [], calibration_run: null })),
+
+  /** /forecast/explanations → per-zone SHAP top contributors (Task 9). */
+  forecastExplanations: (): Promise<ForecastExplanations> =>
+    http
+      .get<any>('/forecast/explanations')
+      .then((r) => ({
+        available: !!(r && r.available),
+        feature_names: Array.isArray(r?.feature_names) ? r.feature_names : undefined,
+        top_k: r?.top_k,
+        note: r?.note,
+        zones: Array.isArray(r?.zones) ? r.zones : [],
+      }))
+      .catch(() => ({ available: false, zones: [] })),
+
+  /** /validation/proof → density≠impact scatter + non-circular trust ρ (Task 13). */
+  validationProof: (): Promise<ValidationProof> =>
+    http
+      .get<any>('/validation/proof')
+      .then((r) => ({
+        ...(r ?? {}),
+        available: !!(r && r.available),
+        points: Array.isArray(r?.points) ? r.points : [],
+      }))
+      .catch(() => ({ available: false, points: [] })),
 };

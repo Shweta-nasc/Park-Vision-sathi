@@ -154,6 +154,7 @@ input, select { font: inherit; color: var(--ink); }
 .time-slider { width: 132px; accent-color: var(--accent); cursor: pointer; }
 .time-period { font-size: 11px; color: var(--muted); min-width: 84px; font-weight: 600; }
 .time-period.peak { color: var(--danger); }
+.time-cliff-note { font-size: 10px; color: var(--muted); font-weight: 600; font-style: italic; white-space: nowrap; }
 
 /* ── Left tool rail (floating) ─────────────────────────────────────────── */
 .tool-rail {
@@ -245,6 +246,7 @@ input, select { font: inherit; color: var(--ink); }
 .dock-handle:hover { background: var(--bg-hover); }
 .dock-handle-title { display: flex; align-items: center; gap: 8px; color: var(--accent-2); }
 .dock-count { background: var(--accent); color: #fff; font-size: 10px; font-weight: 800; padding: 1px 7px; border-radius: var(--radius-full); }
+.dock-window { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
 .dock-chevron { color: var(--muted); font-size: 11px; }
 .priority-cards { display: flex; gap: 10px; overflow-x: auto; padding: 4px 14px 16px; }
 .dock-empty { padding: 6px 4px 14px; color: var(--muted); font-size: 12px; }

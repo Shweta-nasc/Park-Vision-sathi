@@ -4,112 +4,140 @@
   "no_data": 2517,
   "validated": 10,
   "accurate": 6,
-  "adjusted_up": 3,
-  "adjusted_down": 1,
-  "mean_abs_adjustment_pct": 4.2,
-  "max_abs_adjustment_pct": 11.0,
+  "adjusted_up": 2,
+  "adjusted_down": 2,
+  "mean_abs_adjustment_pct": 0.0,
+  "max_abs_adjustment_pct": 0.0,
+  "coherence_mode": "report_only",
   "time_bucket": "all_day",
   "source": "data/processed/zone_congestion_impact.json",
   "log": [
     {
-      "zone_id": "89618920923ffff",
-      "h3_id": "89618920923ffff",
-      "station": "HAL Old Airport",
-      "raw_score": 49.5,
-      "calibrated_score": 44.1,
-      "mappls_ratio": 1.259,
-      "status": "adjusted_down",
-      "reasoning": "⬇️ Adjusted DOWN 50→44: Mappls shows only 1.26x travel time near HAL Old Airport vs the 1.99x our CIS implied. The corridor absorbs the parking load better than violations alone suggest."
-    },
-    {
       "zone_id": "8961892e9abffff",
       "h3_id": "8961892e9abffff",
       "station": "Shivajinagar",
-      "raw_score": 26.4,
-      "calibrated_score": 26.9,
+      "raw_score": 36.0,
+      "calibrated_score": 36.0,
       "mappls_ratio": 1.628,
       "status": "validated_accurate",
-      "reasoning": "✅ Validated: CIS 26/100 matches Mappls near Shivajinagar (1.63x travel time, within tolerance of the 1.53x implied). Model accurate — no change."
+      "reasoning": "📊 Reported (no nudge): Mappls 1.63x near Shivajinagar vs the 1.72x our CIS implied (validated_accurate). Weights already calibrated by fit — score left unchanged at 36/100."
     },
     {
       "zone_id": "8961892e917ffff",
       "h3_id": "8961892e917ffff",
       "station": "Shivajinagar",
-      "raw_score": 25.2,
-      "calibrated_score": 25.1,
+      "raw_score": 34.6,
+      "calibrated_score": 34.6,
       "mappls_ratio": 1.478,
       "status": "validated_accurate",
-      "reasoning": "✅ Validated: CIS 25/100 matches Mappls near Shivajinagar (1.48x travel time, within tolerance of the 1.50x implied). Model accurate — no change."
+      "reasoning": "📊 Reported (no nudge): Mappls 1.48x near Shivajinagar vs the 1.69x our CIS implied (validated_accurate). Weights already calibrated by fit — score left unchanged at 35/100."
     },
     {
-      "zone_id": "8961892e9bbffff",
-      "h3_id": "8961892e9bbffff",
-      "station": "Shivajinagar",
-      "raw_score": 22.6,
-      "calibrated_score": 23.8,
-      "mappls_ratio": 1.704,
-      "status": "adjusted_up",
-      "reasoning": "⬆️ Adjusted UP 23→24: Mappls shows 1.70x travel time near Shivajinagar, worse than the 1.45x our CIS implied. Parking impact was UNDERESTIMATED."
+      "zone_id": "89618920923ffff",
+      "h3_id": "89618920923ffff",
+      "station": "HAL Old Airport",
+      "raw_score": 24.1,
+      "calibrated_score": 24.1,
+      "mappls_ratio": 1.259,
+      "status": "validated_accurate",
+      "reasoning": "📊 Reported (no nudge): Mappls 1.26x near HAL Old Airport vs the 1.48x our CIS implied (validated_accurate). Weights already calibrated by fit — score left unchanged at 24/100."
     },
     {
       "zone_id": "8960145b59bffff",
       "h3_id": "8960145b59bffff",
       "station": "City Market",
-      "raw_score": 15.5,
-      "calibrated_score": 16.3,
+      "raw_score": 17.1,
+      "calibrated_score": 17.1,
       "mappls_ratio": 1.529,
-      "status": "adjusted_up",
-      "reasoning": "⬆️ Adjusted UP 15→16: Mappls shows 1.53x travel time near City Market, worse than the 1.31x our CIS implied. Parking impact was UNDERESTIMATED."
-    },
-    {
-      "zone_id": "8960145b553ffff",
-      "h3_id": "8960145b553ffff",
-      "station": "Upparpet",
-      "raw_score": 14.8,
-      "calibrated_score": 15.9,
-      "mappls_ratio": 1.594,
-      "status": "adjusted_up",
-      "reasoning": "⬆️ Adjusted UP 15→16: Mappls shows 1.59x travel time near Upparpet, worse than the 1.30x our CIS implied. Parking impact was UNDERESTIMATED."
-    },
-    {
-      "zone_id": "8960145b5cbffff",
-      "h3_id": "8960145b5cbffff",
-      "station": "Upparpet",
-      "raw_score": 8.6,
-      "calibrated_score": 8.2,
-      "mappls_ratio": 0.992,
       "status": "validated_accurate",
-      "reasoning": "✅ Validated: CIS 9/100 matches Mappls near Upparpet (0.99x travel time, within tolerance of the 1.17x implied). Model accurate — no change."
-    },
-    {
-      "zone_id": "8960145b16bffff",
-      "h3_id": "8960145b16bffff",
-      "station": "Vijayanagara",
-      "raw_score": 8.5,
-      "calibrated_score": 8.5,
-      "mappls_ratio": 1.176,
-      "status": "validated_accurate",
-      "reasoning": "✅ Validated: CIS 8/100 matches Mappls near Vijayanagara (1.18x travel time, within tolerance of the 1.17x implied). Model accurate — no change."
-    },
-    {
-      "zone_id": "8960145b427ffff",
-      "h3_id": "8960145b427ffff",
-      "station": "Upparpet",
-      "raw_score": 6.0,
-      "calibrated_score": 5.8,
-      "mappls_ratio": 0.995,
-      "status": "validated_accurate",
-      "reasoning": "✅ Validated: CIS 6/100 matches Mappls near Upparpet (0.99x travel time, within tolerance of the 1.12x implied). Model accurate — no change."
+      "reasoning": "📊 Reported (no nudge): Mappls 1.53x near City Market vs the 1.34x our CIS implied (validated_accurate). Weights already calibrated by fit — score left unchanged at 17/100."
     },
     {
       "zone_id": "8961892e9a3ffff",
       "h3_id": "8961892e9a3ffff",
       "station": "Shivajinagar",
-      "raw_score": 5.1,
-      "calibrated_score": 4.9,
+      "raw_score": 17.0,
+      "calibrated_score": 17.0,
       "mappls_ratio": 0.997,
+      "status": "adjusted_down",
+      "reasoning": "📊 Reported (no nudge): Mappls 1.00x near Shivajinagar vs the 1.34x our CIS implied (adjusted_down). Weights already calibrated by fit — score left unchanged at 17/100."
+    },
+    {
+      "zone_id": "8960145b5cbffff",
+      "h3_id": "8960145b5cbffff",
+      "station": "Upparpet",
+      "raw_score": 13.5,
+      "calibrated_score": 13.5,
+      "mappls_ratio": 0.992,
+      "status": "adjusted_down",
+      "reasoning": "📊 Reported (no nudge): Mappls 0.99x near Upparpet vs the 1.27x our CIS implied (adjusted_down). Weights already calibrated by fit — score left unchanged at 13/100."
+    },
+    {
+      "zone_id": "8961892e9bbffff",
+      "h3_id": "8961892e9bbffff",
+      "station": "Shivajinagar",
+      "raw_score": 12.8,
+      "calibrated_score": 12.8,
+      "mappls_ratio": 1.704,
+      "status": "adjusted_up",
+      "reasoning": "📊 Reported (no nudge): Mappls 1.70x near Shivajinagar vs the 1.26x our CIS implied (adjusted_up). Weights already calibrated by fit — score left unchanged at 13/100."
+    },
+    {
+      "zone_id": "8960145b553ffff",
+      "h3_id": "8960145b553ffff",
+      "station": "Upparpet",
+      "raw_score": 7.8,
+      "calibrated_score": 7.8,
+      "mappls_ratio": 1.594,
+      "status": "adjusted_up",
+      "reasoning": "📊 Reported (no nudge): Mappls 1.59x near Upparpet vs the 1.16x our CIS implied (adjusted_up). Weights already calibrated by fit — score left unchanged at 8/100."
+    },
+    {
+      "zone_id": "8960145b16bffff",
+      "h3_id": "8960145b16bffff",
+      "station": "Vijayanagara",
+      "raw_score": 5.5,
+      "calibrated_score": 5.5,
+      "mappls_ratio": 1.176,
       "status": "validated_accurate",
-      "reasoning": "✅ Validated: CIS 5/100 matches Mappls near Shivajinagar (1.00x travel time, within tolerance of the 1.10x implied). Model accurate — no change."
+      "reasoning": "📊 Reported (no nudge): Mappls 1.18x near Vijayanagara vs the 1.11x our CIS implied (validated_accurate). Weights already calibrated by fit — score left unchanged at 6/100."
+    },
+    {
+      "zone_id": "8960145b427ffff",
+      "h3_id": "8960145b427ffff",
+      "station": "Upparpet",
+      "raw_score": 2.6,
+      "calibrated_score": 2.6,
+      "mappls_ratio": 0.995,
+      "status": "validated_accurate",
+      "reasoning": "📊 Reported (no nudge): Mappls 0.99x near Upparpet vs the 1.05x our CIS implied (validated_accurate). Weights already calibrated by fit — score left unchanged at 3/100."
     }
-  ]
+  ],
+  "calibration_run": {
+    "available": true,
+    "weights_old": {
+      "lane_blockage": 0.3,
+      "intersection_impact": 0.25,
+      "traffic_degradation": 0.25,
+      "access_blockage": 0.1,
+      "vehicle_size": 0.1
+    },
+    "weights_new": {
+      "lane_blockage": 0.014657917176716318,
+      "intersection_impact": 0.6041007318041812,
+      "traffic_degradation": 0.25,
+      "access_blockage": 0.1310497438962782,
+      "vehicle_size": 0.0001916071228242995
+    },
+    "weights_method": "dirichlet_random_search+nelder_mead",
+    "spearman_old": 0.1097,
+    "spearman_new": 0.3794,
+    "n_zones_measured": 150,
+    "n_exploration": 40,
+    "lozo_metrics": {
+      "model": "ridge",
+      "lozo_r2": 0.2909,
+      "lozo_spearman": 0.5978
+    }
+  }
 }
