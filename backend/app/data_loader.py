@@ -58,6 +58,9 @@ CIS_V2_FILENAME = "zone_congestion_impact_v2.json"
 # Calibration metadata sidecar (Option A): metadata is NEVER embedded in the
 # artifact, so no consumer can miscount a phantom metadata "zone".
 CIS_CALIBRATION_META_FILENAME = "cis_calibration_meta.json"
+# CIS validation report (Task 2/10): the density≠impact proof artifact — the
+# non-circular trust metric + per-zone scatter points served at /validation/proof.
+CIS_VALIDATION_REPORT_FILENAME = "cis_validation_report.json"
 # Defensive only: a key that could never be a real H3 id. The v2 artifact is pure
 # (metadata lives in the sidecar), so this filter is a no-op safety net.
 CALIBRATION_META_KEY = "_calibration"
@@ -199,6 +202,10 @@ class DataStore:
         # the sidecar is absent (pending the v2 forecast build).
         self.forecast_explanations: dict = {}
         self.forecast_explanations_meta: dict = {}
+        # CIS validation report (Task 2/10) — the density≠impact proof artifact,
+        # served at /validation/proof. Empty until the offline validate_cis run
+        # exists (pending the live MapMyIndia collection).
+        self.validation_report: dict = {}
         self.traffic_raw: dict = {}
         self.explanations: dict = {}
         self.calibrated: dict = {}
@@ -277,6 +284,12 @@ class DataStore:
             self.forecast_explanations_meta = {k: v for k, v in fexpl.items() if k != "zones"}
         else:
             self.forecast_explanations, self.forecast_explanations_meta = {}, {}
+
+        # CIS validation report (Task 2/10): the density≠impact proof. Read as a
+        # plain dict; absent -> {} so /validation/proof reports available:False.
+        validation_report = _load(
+            self.data_dir / "processed" / CIS_VALIDATION_REPORT_FILENAME, {})
+        self.validation_report = validation_report if isinstance(validation_report, dict) else {}
 
         self.traffic_raw = traffic
         self.calibrated = calibrated
@@ -885,6 +898,56 @@ class DataStore:
             "available": available,
             **self.forecast_explanations_meta,
             "zones": items,
+        }
+
+    def validation_proof(self) -> dict:
+        """CIS density≠impact proof payload (Task 13), from the offline report.
+
+        Reads ONLY ``cis_validation_report.json`` (the Task 2/10 output). Returns a
+        stable, additive shape carrying the three held-out **test-split** Spearman
+        correlations vs the measured MapMyIndia ratio — the honest non-circular CIS
+        (the 4 violation/road components, NO traffic_degradation), the raw-violation
+        ``count`` baseline, and the full CIS upper bound (flagged circular) — each
+        with its bootstrap CI, plus ``baseline_beaten``, ``calibration_strength``
+        (populated by Task 15; ``None`` until then), and the per-zone scatter
+        points. Degrades to ``available: False`` with no points when the report is
+        absent (pending the live peak-time collection) so the panel renders a
+        graceful pending state rather than fabricated numbers. Reads only in-memory
+        state — no network, LLM, or database.
+        """
+        self.ensure()
+        r = self.validation_report if isinstance(self.validation_report, dict) else {}
+        point_keys = ("h3_id", "cis", "cis_honest", "count",
+                      "measured_ratio", "is_exploration", "split")
+        points = [
+            {k: p.get(k) for k in point_keys}
+            for p in (r.get("points") or [])
+            if isinstance(p, dict)
+        ]
+        available = bool(r) and (r.get("n_measured") is not None or bool(points))
+        return {
+            "available": bool(available),
+            "n_measured": r.get("n_measured"),
+            "n_proof": r.get("n_proof"),
+            "n_exploration": r.get("n_exploration"),
+            # Honest, non-circular CIS — the headline trust metric.
+            "spearman_cis_honest": r.get("spearman_cis_honest_test"),
+            "spearman_cis_honest_ci": r.get("spearman_cis_honest_test_ci"),
+            # Raw violation-count baseline (the "density" view to beat).
+            "spearman_count": r.get("spearman_count_test"),
+            "spearman_count_ci": r.get("spearman_count_test_ci"),
+            # Full CIS — circular upper bound (contains the measured ratio).
+            "spearman_cis_full": r.get("spearman_cis_full_test"),
+            "spearman_cis_full_ci": r.get("spearman_cis_full_test_ci"),
+            "cis_full_note": r.get("cis_full_note"),
+            "baseline_beaten": r.get("baseline_beaten"),
+            "calibration_strength": r.get("calibration_strength"),
+            "honest_weights": r.get("honest_weights"),
+            "honest_excludes": r.get("honest_excludes"),
+            "split_seed": r.get("split_seed"),
+            "time_bucket": r.get("time_bucket"),
+            "generated_at": r.get("generated_at"),
+            "points": points,
         }
 
     def throughput_simulation(self, max_teams: int = 20,

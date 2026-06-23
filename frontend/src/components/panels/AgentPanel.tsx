@@ -1,6 +1,7 @@
 import { useAgentReport } from '@/hooks/queries';
 import { useAppState } from '@/state/AppState';
 import { Skeleton } from '../Skeleton';
+import { ProofScatter } from './ProofScatter';
 import type { AgentZone } from '@/types/api';
 
 /**
@@ -42,6 +43,10 @@ export function AgentPanel() {
       {agent.data && !agent.data.available && (
         <p className="panel-sub">Calibration report not available.</p>
       )}
+
+      {/* Task 13: the density≠impact proof — the non-circular trust metric on
+          held-out zones, with a graceful pending state until the live run. */}
+      <ProofScatter enabled />
 
       {/* Task 6: the calibration loop — before/after fitted weights + agreement
           with reality. Renders a graceful "pending live run" state until a real

@@ -66,6 +66,11 @@ DEFAULT_TIME_BUCKET = "all_day"
 TRAIN_FRACTION_PCT = 70  # 70% train / 30% test
 MIN_POINTS_FOR_CORR = 5  # below this, correlations are reported as null
 
+# calibration_strength thresholds (Task 15). A "strong" honest signal must both
+# conclusively beat the raw-count baseline (its bootstrap CI lower bound exceeds
+# the count rho) AND be meaningfully positive (honest rho above this floor).
+STRONG_RHO_MIN = 0.3
+
 # The four violation/road-derived components — the ONLY inputs to the honest
 # (non-circular) CIS predictor. traffic_degradation is EXCLUDED because it is
 # derived from the measured ratio we validate against (using it would inflate the
@@ -156,6 +161,47 @@ def honest_weights(calibration_report: Optional[Mapping] = None) -> dict[str, fl
     assert tuple(w.keys()) == NON_TRAFFIC_COMPONENTS, "honest weights must be exactly the 4 non-traffic components"
     assert abs(sum(w.values()) - 1.0) < 1e-9
     return w
+
+
+# ─── Calibration strength (Task 15) ──────────────────────────────────────────
+
+def calibration_strength(
+    *,
+    n_proof: int,
+    honest_rho: Optional[float],
+    honest_ci: Optional[Mapping],
+    count_rho: Optional[float],
+    strong_rho_min: float = STRONG_RHO_MIN,
+) -> str:
+    """Classify the honest (non-circular) trust signal as ``strong``/``weak``/``aborted``.
+
+    This is the single, honest verdict the demo and the proof panel lead with —
+    it never promises a number, it reports which regime the *measured* result
+    fell into:
+
+    * ``aborted`` — there is no usable signal to judge: too few proof zones
+      (``n_proof < MIN_POINTS_FOR_CORR``) or the honest correlation / its
+      bootstrap CI is undefined (e.g. near-flat, off-peak ratios). Honest
+      non-result, not a failure to hide.
+    * ``strong``  — the honest CIS **conclusively** beats the raw-count baseline
+      AND is meaningfully positive: its bootstrap CI **lower bound** exceeds the
+      count ``rho`` **and** the honest ``rho`` exceeds ``strong_rho_min`` (0.3).
+    * ``weak``    — data is present but the result is **inconclusive**: a positive
+      signal whose CI overlaps the baseline, or a ``rho`` below the strong bar (or
+      no edge over count). Reported as-is rather than oversold.
+
+    Deterministic and side-effect free; the three labels are exhaustive given the
+    inputs (aborted when undefined, else strong xor weak).
+    """
+    if n_proof < MIN_POINTS_FOR_CORR or honest_rho is None:
+        return "aborted"
+    lo = honest_ci.get("lo") if isinstance(honest_ci, Mapping) else None
+    if lo is None:
+        return "aborted"
+    baseline = count_rho if isinstance(count_rho, (int, float)) else 0.0
+    if lo > baseline and honest_rho > strong_rho_min:
+        return "strong"
+    return "weak"
 
 
 # ─── Join CIS with measured congestion ───────────────────────────────────────
@@ -306,6 +352,19 @@ def build_report(
         and spearman_cis_honest_test > spearman_count_test
     )
 
+    # Bootstrap CIs (computed once, reused below + by the strength verdict).
+    count_ci = bootstrap_spearman_ci(proof_counts, proof_ys)
+    full_ci = bootstrap_spearman_ci(proof_full, proof_ys)
+    honest_ci = bootstrap_spearman_ci(proof_honest, proof_ys)
+
+    # The single honest verdict (Task 15): strong / weak / aborted.
+    strength = calibration_strength(
+        n_proof=len(proof),
+        honest_rho=spearman_cis_honest_test,
+        honest_ci=honest_ci,
+        count_rho=spearman_count_test,
+    )
+
     obs_sha = content_sha256(dict(observations)) if observations else None
 
     return {
@@ -321,15 +380,17 @@ def build_report(
         "spearman_exploration": _corr(explore_points, "cis", spearman),
         # ── density ≠ impact proof (Task 10) ──
         "spearman_count_test": spearman_count_test,
-        "spearman_count_test_ci": bootstrap_spearman_ci(proof_counts, proof_ys),
+        "spearman_count_test_ci": count_ci,
         "spearman_cis_full_test": spearman_cis_full_test,
-        "spearman_cis_full_test_ci": bootstrap_spearman_ci(proof_full, proof_ys),
+        "spearman_cis_full_test_ci": full_ci,
         "cis_full_note": "circular / upper bound — contains the measured ratio (traffic_degradation)",
         "spearman_cis_honest_test": spearman_cis_honest_test,
-        "spearman_cis_honest_test_ci": bootstrap_spearman_ci(proof_honest, proof_ys),
+        "spearman_cis_honest_test_ci": honest_ci,
         "honest_weights": hw,
         "honest_excludes": TRAFFIC_COMPONENT,
         "baseline_beaten": bool(baseline_beaten),
+        # ── single honest verdict (Task 15) ──
+        "calibration_strength": strength,
         "split_seed": seed,
         "time_bucket": time_bucket,
         "observations_sha256": obs_sha,
@@ -412,9 +473,11 @@ def _honest_trust_line(report: Mapping) -> str:
     honest = _fmt_rho_ci(report.get("spearman_cis_honest_test"), report.get("spearman_cis_honest_test_ci"))
     count = _fmt_rho_ci(report.get("spearman_count_test"), report.get("spearman_count_test_ci"))
     verdict = "PROVEN" if report.get("baseline_beaten") else "NOT"
+    strength = report.get("calibration_strength")
+    strength_tag = f"  [strength: {strength}]" if strength else ""
     return (
         f"Honest trust: CIS(non-traffic) {honest} vs raw-count {count} "
-        f"on {report.get('n_proof', 0)} zones — density!=impact: {verdict}"
+        f"on {report.get('n_proof', 0)} zones — density!=impact: {verdict}{strength_tag}"
     )
 
 

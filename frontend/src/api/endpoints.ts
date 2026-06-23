@@ -29,6 +29,7 @@ import type {
   StationSummary,
   StationSummaryItem,
   TrafficContext,
+  ValidationProof,
   ViolatorRecord,
   Zone,
 } from '@/types/api';
@@ -148,4 +149,15 @@ export const api = {
         zones: Array.isArray(r?.zones) ? r.zones : [],
       }))
       .catch(() => ({ available: false, zones: [] })),
+
+  /** /validation/proof → density≠impact scatter + non-circular trust ρ (Task 13). */
+  validationProof: (): Promise<ValidationProof> =>
+    http
+      .get<any>('/validation/proof')
+      .then((r) => ({
+        ...(r ?? {}),
+        available: !!(r && r.available),
+        points: Array.isArray(r?.points) ? r.points : [],
+      }))
+      .catch(() => ({ available: false, points: [] })),
 };

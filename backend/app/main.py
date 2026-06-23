@@ -26,7 +26,7 @@ except Exception:
 
 from backend.app.data_loader import store
 from backend.app.routers import (risk, forecast, game, simulate, heatmap,
-                                 stations, explain, traffic, agent)
+                                 stations, explain, traffic, agent, validation)
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
 
@@ -55,7 +55,7 @@ app.add_middleware(
 )
 
 # ── Routers: mount at bare paths AND under /api ──────────────────────────────
-ROUTERS = [risk, forecast, game, simulate, heatmap, stations, explain, traffic, agent]
+ROUTERS = [risk, forecast, game, simulate, heatmap, stations, explain, traffic, agent, validation]
 for r in ROUTERS:
     app.include_router(r.router)                 # frontend wire contract
     app.include_router(r.router, prefix="/api")  # planner contract
@@ -73,6 +73,7 @@ def root():
             "/game/stackelberg_strategy", "/game/violator_adaptation",
             "/game/spillover_arrows", "/simulate", "/explain",
             "/traffic/{zone_id}", "/agent/validation-report",
+            "/validation/proof",
         ],
     }
 

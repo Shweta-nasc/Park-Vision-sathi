@@ -287,3 +287,74 @@ def test_honest_trust_line_format():
     assert "vs raw-count ρ=" in line
     assert ("PROVEN" in line) or ("NOT" in line)
     assert "density!=impact" in line
+
+
+# ─── Task 15: calibration_strength {strong, weak, aborted} ───────────────────
+
+from ml.congestion.validate_cis import calibration_strength  # noqa: E402
+
+
+def _ci(lo, hi, rho=None):
+    return {"rho": rho, "lo": lo, "hi": hi, "p_approx": 0.05, "n": 10, "n_boot": 2000}
+
+
+def test_strength_aborted_on_insufficient_proof():
+    # n_proof below MIN_POINTS_FOR_CORR -> no usable signal.
+    assert calibration_strength(
+        n_proof=MIN_POINTS_FOR_CORR - 1, honest_rho=0.9,
+        honest_ci=_ci(0.8, 0.95), count_rho=0.1,
+    ) == "aborted"
+
+
+def test_strength_aborted_when_honest_rho_or_ci_undefined():
+    assert calibration_strength(
+        n_proof=20, honest_rho=None, honest_ci=None, count_rho=0.1,
+    ) == "aborted"
+    # rho present but CI lower bound undefined (e.g. near-constant) -> aborted.
+    assert calibration_strength(
+        n_proof=20, honest_rho=0.5, honest_ci=_ci(None, None), count_rho=0.1,
+    ) == "aborted"
+
+
+def test_strength_strong_when_ci_lower_beats_count_and_rho_above_floor():
+    # CI lower bound (0.45) > count rho (0.20) AND honest rho (0.62) > 0.3.
+    assert calibration_strength(
+        n_proof=30, honest_rho=0.62, honest_ci=_ci(0.45, 0.78), count_rho=0.20,
+    ) == "strong"
+
+
+def test_strength_weak_when_cis_overlap_baseline():
+    # Honest rho positive but its CI lower bound (0.05) does NOT clear count (0.30).
+    assert calibration_strength(
+        n_proof=30, honest_rho=0.40, honest_ci=_ci(0.05, 0.70), count_rho=0.30,
+    ) == "weak"
+
+
+def test_strength_weak_when_rho_below_strong_floor():
+    # Beats the baseline on CI but rho (0.22) is below the 0.3 strong floor.
+    assert calibration_strength(
+        n_proof=30, honest_rho=0.22, honest_ci=_ci(0.12, 0.33), count_rho=0.05,
+    ) == "weak"
+
+
+def test_strength_strong_when_count_rho_none_uses_zero_baseline():
+    # No count baseline -> compared against 0.0; CI lower (0.4) > 0 and rho > 0.3.
+    assert calibration_strength(
+        n_proof=30, honest_rho=0.55, honest_ci=_ci(0.40, 0.72), count_rho=None,
+    ) == "strong"
+
+
+def test_build_report_includes_calibration_strength():
+    # The component-driven proof fixture yields a usable, positive honest signal.
+    artifact, obs = _proof_fixture(n=60, seed=0)
+    report = build_report(artifact, obs)
+    assert report["calibration_strength"] in {"strong", "weak", "aborted"}
+    # With a clean component->ratio signal on 60 zones it is not aborted.
+    assert report["calibration_strength"] in {"strong", "weak"}
+
+
+def test_build_report_strength_aborted_when_too_few_zones():
+    scores = {"a": 10.0, "b": 20.0, "c": 30.0}
+    ratios = {"a": 1.1, "b": 1.2, "c": 1.3}
+    report = build_report(_cis_artifact(scores), _observations(ratios))
+    assert report["calibration_strength"] == "aborted"

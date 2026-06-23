@@ -270,3 +270,57 @@ export interface AgentReport {
   /** Task 6: the agent's offline before/after weight + trust block. */
   calibration_run?: CalibrationRun | null;
 }
+
+/** Bootstrap confidence interval for a Spearman ρ (Task 11). */
+export interface SpearmanCI {
+  rho?: number | null;
+  lo?: number | null;
+  hi?: number | null;
+  p_approx?: number | null;
+  n?: number | null;
+  n_boot?: number | null;
+}
+
+/** One zone in the density≠impact scatter (Task 13). */
+export interface ProofPoint {
+  h3_id: string;
+  /** Full CIS 0–100. */
+  cis: number;
+  /** Honest CIS predictor (4 non-traffic components, 0–1), null when components absent. */
+  cis_honest: number | null;
+  /** Raw violation count (the "density" view). */
+  count: number;
+  /** Measured MapMyIndia travel-time ratio (the ground truth y-axis). */
+  measured_ratio: number;
+  is_exploration: boolean;
+  split: string; // 'train' | 'test'
+}
+
+/**
+ * The CIS validation "density ≠ impact" proof (Task 13). Held-out test-split
+ * Spearman correlations of three predictors vs the measured congestion ratio:
+ * the honest non-circular CIS, the raw-count baseline, and the circular full-CIS
+ * upper bound — each with a bootstrap CI. `available` is false while the live
+ * MapMyIndia run is still pending (graceful empty state).
+ */
+export interface ValidationProof {
+  available: boolean;
+  n_measured?: number | null;
+  n_proof?: number | null;
+  n_exploration?: number | null;
+  spearman_cis_honest?: number | null;
+  spearman_cis_honest_ci?: SpearmanCI | null;
+  spearman_count?: number | null;
+  spearman_count_ci?: SpearmanCI | null;
+  spearman_cis_full?: number | null;
+  spearman_cis_full_ci?: SpearmanCI | null;
+  cis_full_note?: string | null;
+  baseline_beaten?: boolean | null;
+  calibration_strength?: 'strong' | 'weak' | 'aborted' | null;
+  honest_weights?: Record<string, number> | null;
+  honest_excludes?: string | null;
+  split_seed?: number | null;
+  time_bucket?: string | null;
+  generated_at?: string | null;
+  points: ProofPoint[];
+}

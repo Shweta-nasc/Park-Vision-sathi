@@ -111,6 +111,16 @@ export function useAgentReport(enabled: boolean) {
   });
 }
 
+/** The density≠impact proof (Task 13): scatter points + non-circular trust ρ. */
+export function useValidationProof(enabled: boolean) {
+  return useQuery({
+    queryKey: ['validationProof'],
+    queryFn: () => api.validationProof(),
+    enabled,
+    staleTime: Infinity,
+  });
+}
+
 export function useSimulation() {
   return useMutation({ mutationFn: (req: SimulationRequest) => api.simulate(req) });
 }
