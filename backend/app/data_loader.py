@@ -186,6 +186,9 @@ class DataStore:
         # no calibrated v2 artifact exists yet.
         self.calibration_meta: dict = {}
         self.cis_artifact_path: Optional[Path] = None
+        # Served headline time bucket (Task 12): the calibrated "peak window" when
+        # serving a calibrated v2 artifact, else "all_day".
+        self.headline_bucket: str = "all_day"
         # H3-native daily forecast (PREDICT pillar), keyed by the SAME h3_id as the
         # CIS map. `forecasts` = {h3_id: {predicted_count, predicted_band, ...}};
         # `forecast_meta` = model name + held-out metrics + target date. Empty when
@@ -243,6 +246,18 @@ class DataStore:
                 "cis_version": "v2" if serving_v2 else "v1",
                 "calibrated": False,
             }
+
+        # Served headline time bucket (Task 12 coherence). When a calibrated v2
+        # artifact is being served, the headline "peak window" is the bucket whose
+        # MapMyIndia travel-time ratios were measured/fitted (``calibrated_bucket``);
+        # otherwise it is the ``all_day`` rollup. The frontend uses this to LABEL
+        # which view is the calibrated peak window vs the uncalibrated all_day view.
+        # Kept on a SEPARATE attribute (not inside ``calibration_meta``) so the
+        # sidecar's exact shape is preserved.
+        if self.calibration_meta.get("calibrated"):
+            self.headline_bucket = self.calibration_meta.get("calibrated_bucket") or "all_day"
+        else:
+            self.headline_bucket = "all_day"
 
         # H3-native forecast artifact (map-aligned). Split into the per-zone map
         # (`zones`) and the model metadata/metrics (everything else).
@@ -537,11 +552,24 @@ class DataStore:
         entry = self._bucket_entry(self.congestion.get(zone_id), time_bucket)
         if entry is None:
             return None
-        calibrated_impact = self._calibrated_impact_for(zone_id)
-        if calibrated_impact is None:
-            return entry
+        # Shallow copy so the in-memory artifact entry is never mutated; we attach
+        # the agent's calibrated_impact (when present) and the Task 12 time_regime
+        # label below without touching the canonical artifact.
         merged = dict(entry)
-        merged["calibrated_impact"] = calibrated_impact
+        calibrated_impact = self._calibrated_impact_for(zone_id)
+        if calibrated_impact is not None:
+            merged["calibrated_impact"] = calibrated_impact
+        # Task 12 coherence: label the served breakdown's regime. It is
+        # "calibrated" ONLY when a calibrated v2 artifact is being served AND the
+        # requested bucket is the measured/fitted peak window (``calibrated_bucket``);
+        # every other bucket — notably the ``all_day`` rollup — is honestly
+        # "uncalibrated". Additive: the field is optional on the contract and was
+        # absent (None) before this task.
+        if (self.calibration_meta.get("calibrated")
+                and time_bucket == self.calibration_meta.get("calibrated_bucket")):
+            merged["time_regime"] = "calibrated"
+        else:
+            merged["time_regime"] = "uncalibrated"
         return merged
 
 

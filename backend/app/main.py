@@ -86,6 +86,8 @@ def health():
         "zones_loaded": len(store.zones),
         "sources": store.sources,
         "calibration": store.calibration_meta,
+        "headline_bucket": store.headline_bucket,
+        "calibrated_bucket": store.calibration_meta.get("calibrated_bucket"),
         "agent": store.agent_summary,
     }
 

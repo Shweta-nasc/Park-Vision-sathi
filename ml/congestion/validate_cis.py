@@ -353,10 +353,11 @@ def run(
     *,
     seed: int = DEFAULT_SPLIT_SEED,
     time_bucket: str = DEFAULT_TIME_BUCKET,
+    calibration_path: Optional[Path] = DEFAULT_CALIBRATION_PATH,
     generated_at: Optional[str] = None,
     verbose: bool = True,
 ) -> dict:
-    """Read inputs, build the report, write it, and print the summary line."""
+    """Read inputs, build the report, write it, and print the summary lines."""
     cis_artifact = _load_json(Path(cis_artifact_path))
     observations = (
         _load_json(Path(observations_path)) if Path(observations_path).exists() else {}
@@ -367,10 +368,15 @@ def run(
             "Report will have n_measured=0.",
             observations_path,
         )
+    calibration_report = (
+        _load_json(Path(calibration_path))
+        if calibration_path and Path(calibration_path).exists()
+        else None
+    )
 
     report = build_report(
         cis_artifact, observations, seed=seed, time_bucket=time_bucket,
-        generated_at=generated_at,
+        calibration_report=calibration_report, generated_at=generated_at,
     )
 
     report_path = Path(report_path)
@@ -387,7 +393,29 @@ def run(
             f"Current CIS vs measured congestion: Spearman ρ={rho_str} "
             f"on {report['n_measured']} zones (test ρ={test_str})"
         )
+        print(_honest_trust_line(report))
     return report
+
+
+def _fmt_rho_ci(rho: Optional[float], ci: Optional[Mapping]) -> str:
+    """Format ``ρ=X [lo, hi]`` (CI omitted when unavailable)."""
+    if rho is None:
+        return "ρ=n/a"
+    s = f"ρ={rho:.3f}"
+    if isinstance(ci, Mapping) and ci.get("lo") is not None and ci.get("hi") is not None:
+        s += f" [{ci['lo']:.3f}, {ci['hi']:.3f}]"
+    return s
+
+
+def _honest_trust_line(report: Mapping) -> str:
+    """The density≠impact acceptance line."""
+    honest = _fmt_rho_ci(report.get("spearman_cis_honest_test"), report.get("spearman_cis_honest_test_ci"))
+    count = _fmt_rho_ci(report.get("spearman_count_test"), report.get("spearman_count_test_ci"))
+    verdict = "PROVEN" if report.get("baseline_beaten") else "NOT"
+    return (
+        f"Honest trust: CIS(non-traffic) {honest} vs raw-count {count} "
+        f"on {report.get('n_proof', 0)} zones — density!=impact: {verdict}"
+    )
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -395,6 +423,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--cis", default=str(DEFAULT_CIS_ARTIFACT_PATH))
     parser.add_argument("--observations", default=str(DEFAULT_OBSERVATIONS_PATH))
     parser.add_argument("--out", default=str(DEFAULT_REPORT_PATH))
+    parser.add_argument("--calibration", default=str(DEFAULT_CALIBRATION_PATH))
     parser.add_argument("--seed", type=int, default=DEFAULT_SPLIT_SEED)
     parser.add_argument("--time-bucket", default=DEFAULT_TIME_BUCKET)
     args = parser.parse_args(argv)
@@ -403,6 +432,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         cis_artifact_path=Path(args.cis),
         observations_path=Path(args.observations),
         report_path=Path(args.out),
+        calibration_path=Path(args.calibration),
         seed=args.seed,
         time_bucket=args.time_bucket,
     )

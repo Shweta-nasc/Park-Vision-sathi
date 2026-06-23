@@ -20,8 +20,11 @@ import pytest
 from ml.congestion import validate_cis as vc
 from ml.congestion.validate_cis import (
     MIN_POINTS_FOR_CORR,
+    NON_TRAFFIC_COMPONENTS,
+    TRAFFIC_COMPONENT,
     build_report,
     deterministic_split,
+    honest_weights,
     join_points,
     pearson,
     run,
@@ -166,3 +169,121 @@ def test_run_with_missing_observations_yields_zero(tmp_path, caplog):
     assert report["n_measured"] == 0
     assert report["spearman_all"] is None
     assert out.exists()
+
+
+# ─── Task 10: density≠impact proof + non-circular honest trust ───────────────
+
+import numpy as np  # noqa: E402  (test-local import for the proof fixtures)
+
+
+def test_honest_weights_exclude_traffic_degradation():
+    hw = honest_weights()  # expert weights, no calibration
+    assert tuple(hw.keys()) == NON_TRAFFIC_COMPONENTS
+    assert TRAFFIC_COMPONENT not in hw
+    assert abs(sum(hw.values()) - 1.0) < 1e-9
+
+
+def test_honest_weights_from_calibration_renormalized_and_drops_td():
+    calib = {"new_weights": {
+        "lane_blockage": 0.45, "intersection_impact": 0.10,
+        "access_blockage": 0.15, "vehicle_size": 0.05,
+        "traffic_degradation": 0.25,  # MUST be dropped
+    }}
+    hw = honest_weights(calib)
+    assert TRAFFIC_COMPONENT not in hw
+    assert abs(sum(hw.values()) - 1.0) < 1e-9
+    # The 4 non-td weights (0.45/0.10/0.15/0.05, sum 0.75) renormalize to /0.75.
+    assert hw["lane_blockage"] == pytest.approx(0.45 / 0.75)
+    assert hw["vehicle_size"] == pytest.approx(0.05 / 0.75)
+
+
+def _proof_fixture(n=60, seed=0):
+    """Artifact+obs where the measured ratio depends ONLY on a component
+    (lane_blockage), NOT on raw count. count is an independent permutation, so
+    the honest CIS should beat the count baseline. cis_full embeds the ratio."""
+    rng = np.random.default_rng(seed)
+    counts = rng.permutation(np.arange(10, 10 + n))  # independent of lane
+    artifact, obs = {}, {}
+    for i in range(n):
+        h3 = f"89proof{i:04d}f"
+        lane = i / (n - 1)                      # the driver, spans [0,1]
+        c1, c2, c3 = (rng.random(3) * 0.05).tolist()  # tiny noise on others
+        ratio = round(1.0 + 1.5 * lane, 4)      # depends ONLY on lane (not count)
+        td = max(0.0, min(1.0, (ratio - 1.0) / 2.0))
+        cis_full = round(100.0 * (0.75 * lane + 0.25 * td), 4)  # embeds the ratio
+        artifact[h3] = {"all_day": {
+            "congestion_impact": cis_full,
+            "total_records": int(counts[i]),
+            "components": {
+                "lane_blockage": lane, "intersection_impact": c1,
+                "access_blockage": c2, "vehicle_size": c3,
+                "traffic_degradation": td, "severity": 0.4,
+            },
+            "lat": 12.97, "lon": 77.59,
+        }}
+        obs[h3] = {"zone_id": h3, "congestion_ratio": ratio,
+                   "is_exploration": False, "source": "synthetic_test"}
+    return artifact, obs
+
+
+def test_density_neq_impact_honest_beats_count():
+    artifact, obs = _proof_fixture(n=60, seed=0)
+    report = build_report(artifact, obs)
+    assert report["n_proof"] >= MIN_POINTS_FOR_CORR
+    assert report["spearman_cis_honest_test"] is not None
+    assert report["spearman_count_test"] is not None
+    # Honest (component-driven) CIS beats raw count when the truth is components.
+    assert report["spearman_cis_honest_test"] > report["spearman_count_test"]
+    assert report["baseline_beaten"] is True
+
+
+def test_circular_full_cis_geq_honest_sanity():
+    artifact, obs = _proof_fixture(n=60, seed=0)
+    report = build_report(artifact, obs)
+    # The circular full CIS (which contains the measured ratio) is an upper bound.
+    assert report["spearman_cis_full_test"] >= report["spearman_cis_honest_test"] - 1e-9
+    assert "circular" in report["cis_full_note"].lower()
+
+
+def test_honest_metric_excludes_traffic_degradation_airtight():
+    """Changing ONLY traffic_degradation (and cis_full) must not move the honest
+    metric — proving it uses exactly the four non-traffic components."""
+    artifact, obs = _proof_fixture(n=60, seed=0)
+    # Build a perturbed artifact where td and congestion_impact are altered but the
+    # four non-traffic components are byte-identical.
+    perturbed = json.loads(json.dumps(artifact))
+    for h3, buckets in perturbed.items():
+        bd = buckets["all_day"]
+        bd["components"]["traffic_degradation"] = 0.123456  # arbitrary, different
+        bd["congestion_impact"] = 1.0                        # wreck the full CIS
+
+    base = build_report(artifact, obs)
+    pert = build_report(perturbed, obs)
+    # honest metric and per-zone cis_honest are identical; full CIS changes.
+    assert base["spearman_cis_honest_test"] == pert["spearman_cis_honest_test"]
+    assert base["honest_weights"] == pert["honest_weights"]
+    honest_base = {p["h3_id"]: p["cis_honest"] for p in base["points"]}
+    honest_pert = {p["h3_id"]: p["cis_honest"] for p in pert["points"]}
+    assert honest_base == honest_pert
+    # The full (circular) metric DID move (sanity that we actually perturbed it).
+    assert base["spearman_cis_full_test"] != pert["spearman_cis_full_test"]
+
+
+def test_proof_metrics_carry_bootstrap_cis_and_are_deterministic():
+    artifact, obs = _proof_fixture(n=60, seed=0)
+    r1 = build_report(artifact, obs, generated_at="x")
+    r2 = build_report(artifact, obs, generated_at="x")
+    assert r1 == r2  # deterministic (fixed bootstrap seed, no live clock)
+    for key in ("spearman_count_test_ci", "spearman_cis_honest_test_ci", "spearman_cis_full_test_ci"):
+        ci = r1[key]
+        assert isinstance(ci, dict) and "lo" in ci and "hi" in ci
+
+
+def test_honest_trust_line_format():
+    artifact, obs = _proof_fixture(n=60, seed=0)
+    report = build_report(artifact, obs)
+    line = vc._honest_trust_line(report)
+    assert "Honest trust: CIS(non-traffic) ρ=" in line
+    assert "vs raw-count ρ=" in line
+    assert ("PROVEN" in line) or ("NOT" in line)
+    assert "density!=impact" in line

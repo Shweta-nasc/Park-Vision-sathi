@@ -495,6 +495,26 @@ def load_calibration_run(
     )
 
 
+def _calibration_applied(calibration_report: dict) -> bool:
+    """True when a REAL weight calibration has been applied (Task 12 coherence).
+
+    A real fit means the report exists, is not a flat-variance abort, and its
+    ``new_weights`` actually differ from ``old_weights``. In that case the scores
+    are already calibrated once (by the weights), so the agent must run
+    report-only and NOT nudge them a second time against the same ratio.
+    """
+    if not isinstance(calibration_report, dict) or not calibration_report:
+        return False
+    if calibration_report.get("method") == "aborted_flat_variance":
+        return False
+    old = calibration_report.get("old_weights")
+    new = calibration_report.get("new_weights")
+    if not isinstance(old, dict) or not isinstance(new, dict):
+        return False
+    keys = set(old) | set(new)
+    return any(abs(float(old.get(k, 0.0)) - float(new.get(k, 0.0))) > 1e-9 for k in keys)
+
+
 # ─── Runner ──────────────────────────────────────────────────────────────────
 
 def run(
@@ -627,7 +647,7 @@ def load_congestion_artifact(path: Path = ARTIFACT_PATH) -> dict:
 
 
 def calibrate_artifact_zones(
-    artifact: dict, time_bucket: str = "all_day"
+    artifact: dict, time_bucket: str = "all_day", *, apply_nudge: bool = True
 ) -> tuple[dict, dict]:
     """Calibrate REAL CIS zones against MapMyIndia travel-time, with the GUARD.
 
@@ -642,6 +662,15 @@ def calibrate_artifact_zones(
     flag is ``False`` **and** its ratio is a valid, strictly-positive number.
     Every other zone is classified ``no_data`` and is **omitted entirely** from
     the returned ``calibrated`` mapping — no entry is written for it.
+
+    Coherence mode (Task 12): ``apply_nudge`` controls whether the α=0.3 per-zone
+    nudge is *applied* to the score. When ``True`` (the legacy default, used when
+    no weight calibration exists) the score is nudged toward the measured ratio.
+    When ``False`` (report-only — used once Task 3 has already calibrated the
+    weights against the same ratio) the score is **left unchanged**
+    (``calibrated_score == raw_score``, ``adjustment == 0``) and the agent only
+    *reports* how the CIS compares to reality — so the score is never calibrated
+    twice against one signal.
 
     The calibration maths is the canonical formula (identical to
     :func:`validate_and_calibrate`)::
@@ -698,12 +727,25 @@ def calibrate_artifact_zones(
         calc = _calibrate_one(raw_score, actual_ratio)
         expected_ratio = calc["expected_ratio"]
         discrepancy = calc["discrepancy"]
-        adjustment = calc["adjustment"]
-        calibrated_score = calc["calibrated_score"]
         status = calc["status"]
+        if apply_nudge:
+            adjustment = calc["adjustment"]
+            calibrated_score = calc["calibrated_score"]
+        else:
+            # Report-only: weights already calibrated once (Task 3); do NOT nudge
+            # the score a second time against the same ratio. Keep the comparison
+            # status for the trust report, but leave the score unchanged.
+            adjustment = 0.0
+            calibrated_score = raw_score
 
         # ── Reasoning text (location-centric) for the categorisation above ──
-        if status == "adjusted_up":
+        if not apply_nudge:
+            reasoning = (
+                f"📊 Reported (no nudge): Mappls {actual_ratio:.2f}x near {where} vs the "
+                f"{expected_ratio:.2f}x our CIS implied ({status}). Weights already "
+                f"calibrated by fit — score left unchanged at {raw_score:.0f}/100."
+            )
+        elif status == "adjusted_up":
             reasoning = (
                 f"⬆️ Adjusted UP {raw_score:.0f}→{calibrated_score:.0f}: Mappls "
                 f"shows {actual_ratio:.2f}x travel time near {where}, worse than the "
@@ -761,6 +803,7 @@ def calibrate_artifact_zones(
         "adjusted_down": sum(1 for v in calibrated.values() if v["status"] == "adjusted_down"),
         "mean_abs_adjustment_pct": round(100 * (sum(adjustments) / len(adjustments)), 1) if adjustments else 0.0,
         "max_abs_adjustment_pct": round(100 * max(adjustments), 1) if adjustments else 0.0,
+        "coherence_mode": "report_only" if not apply_nudge else "legacy_nudge",
         "time_bucket": time_bucket,
         "source": "data/processed/zone_congestion_impact.json",
         "log": agent_log,
@@ -788,7 +831,14 @@ def run_from_artifact(
     weights and its agreement-with-reality metrics. No network is involved.
     """
     artifact = load_congestion_artifact(artifact_path)
-    calibrated, summary = calibrate_artifact_zones(artifact, time_bucket=time_bucket)
+    calib_report = _read_json_safe(calibration_path)
+    # Coherence (Task 12): if a REAL weight calibration exists (weights actually
+    # changed), the scores are already calibrated once — the agent runs
+    # report-only (zero nudge). Otherwise it falls back to the legacy α=0.3 nudge.
+    report_only = _calibration_applied(calib_report)
+    calibrated, summary = calibrate_artifact_zones(
+        artifact, time_bucket=time_bucket, apply_nudge=not report_only
+    )
     summary["calibration_run"] = load_calibration_run(
         validation_path, calibration_path, degradation_path
     )

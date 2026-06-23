@@ -127,6 +127,33 @@ def get_overview(
     }
 
 
+@router.get("/risk/calibration")
+def get_calibration_info():
+    """Calibration coherence info (Task 12) — additive, read-only.
+
+    Surfaces WHICH time bucket is the calibrated headline "peak window"
+    (``calibrated_bucket`` / ``headline_bucket``) and whether a calibrated v2
+    artifact is being served, so the frontend can LABEL the peak window without
+    re-deriving it. This does NOT change the ``all_day`` default of ``/hotspots``
+    or ``/risk/{zone_id}`` — those keep serving ``all_day`` unless a bucket is
+    explicitly requested; this endpoint only exposes the bucket/regime metadata.
+
+    Declared before ``/risk/{zone_id}`` so the literal ``/risk/calibration`` path
+    is matched here rather than captured by the catch-all zone route.
+    """
+    store.ensure()
+    meta = store.calibration_meta
+    return {
+        "calibrated": bool(meta.get("calibrated")),
+        "cis_version": meta.get("cis_version", "v1"),
+        "headline_bucket": store.headline_bucket,
+        "calibrated_bucket": meta.get("calibrated_bucket"),
+        "weights": meta.get("weights"),
+        "spearman_test": meta.get("spearman_test"),
+        "n_measured": meta.get("n_measured"),
+    }
+
+
 @router.get("/risk/{zone_id}", response_model=None)
 def get_zone_risk_detail(
     zone_id: str,

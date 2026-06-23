@@ -103,6 +103,7 @@ def build_calibration_metadata(
     validation_report: Mapping,
     collection_date: Optional[str],
     generated_at: str,
+    calibrated_bucket: str = "morning_peak",
 ) -> dict:
     """Assemble the self-describing calibration metadata block (sidecar contents)."""
     n_measured = (
@@ -113,6 +114,8 @@ def build_calibration_metadata(
     )
     return {
         "cis_version": CIS_VERSION,
+        "calibrated": True,
+        "calibrated_bucket": calibrated_bucket,
         "weights": dict(weights),
         "weights_method": calibration_report.get("method"),
         "spearman_test": calibration_report.get("spearman_new_test"),
@@ -143,6 +146,7 @@ def build_calibrated_artifact(
     travel_time_ratios: Optional[Mapping[str, float]] = None,
     collection_date: Optional[str] = None,
     generated_at: Optional[str] = None,
+    calibrated_bucket: str = "morning_peak",
 ) -> dict:
     """Build the v2 artifact (fitted weights + predicted degradation).
 
@@ -197,6 +201,7 @@ def build_calibrated_artifact(
         validation_report=validation_report,
         collection_date=collection_date,
         generated_at=gen,
+        calibrated_bucket=calibrated_bucket,
     )
 
     # Write the metadata to a SEPARATE sidecar (never embedded in the artifact).
