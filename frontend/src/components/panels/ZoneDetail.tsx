@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/endpoints';
+import { useCalibration } from '@/hooks/queries';
 import { useAppState } from '@/state/AppState';
 import { useMapOverlay } from '@/state/MapOverlay';
 import { RiskGauge } from '../RiskGauge';
@@ -38,9 +39,17 @@ export function ZoneDetail() {
   const { selectedZone, hour, setPanel } = useAppState();
   const { setRouteTarget } = useMapOverlay();
 
+  // When a calibrated v2 artifact is served, request the calibrated headline
+  // bucket (the "measured window") so the gauge shows that bucket's score and
+  // the served breakdown carries time_regime === "calibrated" (Task 12).
+  const calibration = useCalibration();
+  const headlineBucket = calibration.data?.calibrated
+    ? calibration.data.calibrated_bucket ?? calibration.data.headline_bucket ?? undefined
+    : undefined;
+
   const detail = useQuery({
-    queryKey: ['zoneDetail', selectedZone?.h3_id, hour],
-    queryFn: () => api.zoneDetail(selectedZone!.h3_id, hour),
+    queryKey: ['zoneDetail', selectedZone?.h3_id, hour, headlineBucket ?? 'all_day'],
+    queryFn: () => api.zoneDetail(selectedZone!.h3_id, hour, headlineBucket),
     enabled: !!selectedZone,
   });
   const traffic = useQuery({
@@ -60,6 +69,9 @@ export function ZoneDetail() {
   const components = z.components as CongestionComponents | undefined;
   const calibrated = z.calibrated_score;
   const showCalib = calibrated != null && Math.abs(calibrated - z.congestion_impact) >= 0.5;
+  // Task 12: the served breakdown is the calibrated "measured window" when its
+  // time_regime is "calibrated" (only when a calibrated v2 artifact is served).
+  const calibratedWindow = z.time_regime === 'calibrated';
 
   return (
     <div className="details-content">
@@ -79,6 +91,14 @@ export function ZoneDetail() {
         <div className="detail-gauge-cell">
           <RiskGauge score={z.congestion_impact} />
           <div className="detail-gauge-cap">Congestion Impact</div>
+          {calibratedWindow && (
+            <div
+              title={`Score calibrated against live MapMyIndia travel time${headlineBucket ? ` (${headlineBucket} window)` : ''}`}
+              style={{ marginTop: 2, fontSize: 10, fontWeight: 700, color: '#10b981', letterSpacing: 0.2 }}
+            >
+              ● calibrated · measured window
+            </div>
+          )}
           <div className="detail-gauge-band" style={{ color: bandColor(z.impact_band) }}>{z.impact_band}</div>
         </div>
         <div className="detail-score-cell">

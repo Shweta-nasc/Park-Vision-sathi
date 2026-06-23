@@ -1,0 +1,22 @@
+{
+  "cis_version": "v2",
+  "calibrated": true,
+  "calibrated_bucket": "all_day",
+  "weights": {
+    "lane_blockage": 0.014657917176716318,
+    "intersection_impact": 0.6041007318041812,
+    "traffic_degradation": 0.25,
+    "access_blockage": 0.1310497438962782,
+    "vehicle_size": 0.0001916071228242995
+  },
+  "weights_method": "dirichlet_random_search+nelder_mead",
+  "spearman_test": 0.3794,
+  "spearman_old_test": 0.1097,
+  "n_measured": 150,
+  "n_exploration": 40,
+  "degradation_model": "ridge",
+  "degradation_lozo_r2": 0.2909,
+  "degradation_lozo_spearman": 0.5978,
+  "collection_date": "2026-06-23T12:46:46.124466+05:30",
+  "generated_at": "2026-06-23T07:39:27.868969+00:00"
+}

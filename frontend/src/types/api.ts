@@ -39,6 +39,8 @@ export interface Zone {
   impact_band: ImpactBand;
   /** Agent-calibrated CIS (vs real travel time), when available. */
   calibrated_score?: number;
+  /** Served regime for this breakdown's bucket: 'calibrated' | 'uncalibrated' (Task 12). */
+  time_regime?: string | null;
   violation_count: number;
   // Component breakdown (real where the CIS artifact provides it)
   density: number;
@@ -323,4 +325,18 @@ export interface ValidationProof {
   time_bucket?: string | null;
   generated_at?: string | null;
   points: ProofPoint[];
+}
+
+/**
+ * Calibration coherence info (Task 12), from /risk/calibration (or /health).
+ * Tells the UI which time bucket is the calibrated headline "measured window".
+ */
+export interface CalibrationInfo {
+  calibrated: boolean;
+  cis_version?: string;
+  headline_bucket?: string;
+  calibrated_bucket?: string | null;
+  weights?: Record<string, number> | null;
+  spearman_test?: number | null;
+  n_measured?: number | null;
 }

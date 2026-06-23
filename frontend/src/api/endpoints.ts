@@ -18,6 +18,7 @@ import type {
   ForecastAccuracy,
   ForecastExplanations,
   ForecastPoint,
+  CalibrationInfo,
   HeatmapPoint,
   HeatmapResponse,
   MapLayer,
@@ -43,6 +44,21 @@ const LAYER_TO_BACKEND: Record<MapLayer, string> = {
 
 export const api = {
   health: () => http.get<{ status: string; zones_loaded?: number }>('/health'),
+
+  /** /risk/calibration → which bucket is the calibrated "measured window" (Task 12). */
+  calibration: (): Promise<CalibrationInfo> =>
+    http
+      .get<any>('/risk/calibration')
+      .then((r) => ({
+        calibrated: !!(r && r.calibrated),
+        cis_version: r?.cis_version,
+        headline_bucket: r?.headline_bucket,
+        calibrated_bucket: r?.calibrated_bucket ?? null,
+        weights: r?.weights ?? null,
+        spearman_test: r?.spearman_test ?? null,
+        n_measured: r?.n_measured ?? null,
+      }))
+      .catch(() => ({ calibrated: false })),
 
   stations: () => http.get<StationSummaryItem[]>('/stations'),
 
@@ -78,9 +94,10 @@ export const api = {
   zoneIndex: (): Promise<Zone[]> =>
     http.get<any[]>('/risk', { limit: 200 }).then((rows) => rows.map((r) => adaptZone(r))),
 
-  /** /risk/{id} → CIS breakdown (partial Zone enrichment). */
-  zoneDetail: (h3_id: string, hour: number): Promise<Partial<Zone> | null> =>
-    http.get<any>(`/risk/${encodeURIComponent(h3_id)}`, { hour }).then((r) => {
+  /** /risk/{id} → CIS breakdown (partial Zone enrichment). Optional time_bucket
+   *  lets the caller request the calibrated headline window (Task 12). */
+  zoneDetail: (h3_id: string, hour: number, timeBucket?: string): Promise<Partial<Zone> | null> =>
+    http.get<any>(`/risk/${encodeURIComponent(h3_id)}`, { hour, time_bucket: timeBucket }).then((r) => {
       if (!r || r.error || r.detail) return null;
       return adaptBreakdown(r);
     }),

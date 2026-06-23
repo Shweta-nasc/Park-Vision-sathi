@@ -299,3 +299,65 @@ def test_incremental_save_after_each_zone(tmp_path):
     assert len(on_disk) == 2
     for obs in on_disk.values():
         assert obs["method"] == "local_segment_v2"
+
+
+def test_one_zone_error_is_skipped_others_collected_and_snapshot_frozen(tmp_path):
+    """A per-zone error must not abort the run: the failing zone is skipped, the
+    others are still collected, and the snapshot is still frozen at the end.
+
+    This reproduces (and confirms the fix for) the pilot's early non-zero exit
+    after 5/7 zones — one zone raising should never take down the whole run.
+    """
+    art_path = _write_artifact(tmp_path, n=3)
+    out_path = tmp_path / "obs.json"
+
+    # The 2nd-highest-volume zone is the one whose API will raise. Derive its
+    # source-coordinate substring from the SAME float values the collector uses,
+    # so the match is exact regardless of float repr.
+    zones = select_zones(_artifact(3), top_n=3, explore_n=0)
+    failing = zones[1]
+    fail_src = f"{failing.lon},{failing.lat}"
+
+    base = FakeApi()
+
+    def flaky(url, params, label):
+        if fail_src in url:  # every leg of the failing zone carries its src coord
+            raise RuntimeError("simulated upstream failure")
+        return base(url, params, label)
+
+    result = collect(
+        artifact_path=art_path, output_path=out_path,
+        top_n=3, explore_n=0, get_json=flaky, now_ist=PEAK_NOW,
+        token="SECRET", sleep_between_apis=0.0, sleep_between_zones=0.0, verbose=False,
+    )
+
+    # The failing zone is omitted; the other two are collected.
+    assert failing.zone_id not in result
+    assert len(result) == 2
+    assert {z.zone_id for z in zones if z.zone_id != failing.zone_id} == set(result)
+
+    # The written file matches the in-memory results and the snapshot is frozen.
+    on_disk = json.loads(out_path.read_text(encoding="utf-8"))
+    assert set(on_disk) == set(result)
+    assert cc.is_frozen(out_path) is True
+    meta = cc.read_snapshot_meta(out_path)
+    assert meta["frozen"] is True and meta["n_zones"] == 2
+
+
+def test_all_zones_error_still_freezes_empty_snapshot(tmp_path):
+    """Even if every zone fails, the run completes and freezes (an honest, empty
+    snapshot) rather than crashing."""
+    art_path = _write_artifact(tmp_path, n=2)
+    out_path = tmp_path / "obs.json"
+
+    def always_raises(url, params, label):
+        raise RuntimeError("upstream down")
+
+    result = collect(
+        artifact_path=art_path, output_path=out_path,
+        top_n=2, explore_n=0, get_json=always_raises, now_ist=PEAK_NOW,
+        token="SECRET", sleep_between_apis=0.0, sleep_between_zones=0.0, verbose=False,
+    )
+    assert result == {}
+    assert json.loads(out_path.read_text(encoding="utf-8")) == {}
+    assert cc.is_frozen(out_path) is True

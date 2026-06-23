@@ -12,6 +12,11 @@ export function useHealth() {
   return useQuery({ queryKey: ['health'], queryFn: api.health, staleTime: 30_000, retry: 1 });
 }
 
+/** Calibration coherence info (Task 12): which bucket is the calibrated window. */
+export function useCalibration() {
+  return useQuery({ queryKey: ['calibration'], queryFn: api.calibration, staleTime: Infinity, retry: 1 });
+}
+
 export function useStations() {
   return useQuery({ queryKey: ['stations'], queryFn: api.stations, staleTime: Infinity });
 }

@@ -140,6 +140,7 @@ interface RawBreakdown {
   junction?: string | null;
   mappls_travel_time_ratio?: number | null;
   calibrated_impact?: number | null;
+  time_regime?: string | null;
 }
 
 export function adaptBreakdown(r: RawBreakdown): Partial<Zone> {
@@ -158,6 +159,7 @@ export function adaptBreakdown(r: RawBreakdown): Partial<Zone> {
     junction: r.junction ?? null,
     mappls_ratio: r.mappls_travel_time_ratio ?? null,
     calibrated_score: r.calibrated_impact ?? undefined,
+    time_regime: r.time_regime ?? null,
   };
 }
 

@@ -1,0 +1,1419 @@
+{
+  "n_measured": 150,
+  "n_test": 48,
+  "n_exploration": 40,
+  "n_proof": 48,
+  "spearman_all": 0.8437,
+  "spearman_all_ci": {
+    "rho": 0.8437,
+    "lo": 0.7473,
+    "hi": 0.9161,
+    "p_approx": 0.0,
+    "n": 150,
+    "n_boot": 2000
+  },
+  "pearson_all": 0.6181,
+  "spearman_test": 0.8462,
+  "spearman_test_ci": {
+    "rho": 0.8462,
+    "lo": 0.6907,
+    "hi": 0.9438,
+    "p_approx": 0.0,
+    "n": 48,
+    "n_boot": 2000
+  },
+  "spearman_exploration": 0.9717,
+  "spearman_count_test": 0.4119,
+  "spearman_count_test_ci": {
+    "rho": 0.4119,
+    "lo": 0.1025,
+    "hi": 0.6576,
+    "p_approx": 0.012,
+    "n": 48,
+    "n_boot": 2000
+  },
+  "spearman_cis_full_test": 0.8462,
+  "spearman_cis_full_test_ci": {
+    "rho": 0.8462,
+    "lo": 0.6907,
+    "hi": 0.9438,
+    "p_approx": 0.0,
+    "n": 48,
+    "n_boot": 2000
+  },
+  "cis_full_note": "circular / upper bound — contains the measured ratio (traffic_degradation)",
+  "spearman_cis_honest_test": 0.3802,
+  "spearman_cis_honest_test_ci": {
+    "rho": 0.3802,
+    "lo": 0.1307,
+    "hi": 0.579,
+    "p_approx": 0.002,
+    "n": 48,
+    "n_boot": 2000
+  },
+  "honest_weights": {
+    "lane_blockage": 0.01954388956895509,
+    "intersection_impact": 0.805467642405575,
+    "access_blockage": 0.17473299186170424,
+    "vehicle_size": 0.00025547616376573267
+  },
+  "honest_excludes": "traffic_degradation",
+  "baseline_beaten": false,
+  "calibration_strength": "weak",
+  "split_seed": 1337,
+  "time_bucket": "all_day",
+  "observations_sha256": "dab4158dfd2bf7f771722d79cd557b5107612466bae98766d4bb09d52dc82495",
+  "generated_at": "2026-06-23T07:39:29.003307+00:00",
+  "points": [
+    {
+      "h3_id": "896014582dbffff",
+      "cis": 0.2387,
+      "count": 447,
+      "measured_ratio": 0.977,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 0.003183
+    },
+    {
+      "h3_id": "89601458477ffff",
+      "cis": 1.1548,
+      "count": 2,
+      "measured_ratio": 1.092,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 6.4e-05
+    },
+    {
+      "h3_id": "89601458493ffff",
+      "cis": 1.8388,
+      "count": 734,
+      "measured_ratio": 1.0383,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.018134
+    },
+    {
+      "h3_id": "8960145849bffff",
+      "cis": 0.7333,
+      "count": 679,
+      "measured_ratio": 0.9693,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.009778
+    },
+    {
+      "h3_id": "8960145866bffff",
+      "cis": 0.0105,
+      "count": 1,
+      "measured_ratio": 0.9008,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 0.000141
+    },
+    {
+      "h3_id": "89601459253ffff",
+      "cis": 1.1089,
+      "count": 3,
+      "measured_ratio": 1.0882,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 8.5e-05
+    },
+    {
+      "h3_id": "896014593b3ffff",
+      "cis": 0.041,
+      "count": 249,
+      "measured_ratio": 1.0029,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 6.4e-05
+    },
+    {
+      "h3_id": "8960145a06bffff",
+      "cis": 17.4528,
+      "count": 589,
+      "measured_ratio": 2.0785,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.052955
+    },
+    {
+      "h3_id": "8960145a1b7ffff",
+      "cis": 0.3951,
+      "count": 3,
+      "measured_ratio": 1.0311,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 8.5e-05
+    },
+    {
+      "h3_id": "8960145a223ffff",
+      "cis": 0.0242,
+      "count": 1587,
+      "measured_ratio": 0.8793,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.000323
+    },
+    {
+      "h3_id": "8960145a22fffff",
+      "cis": 2.7365,
+      "count": 710,
+      "measured_ratio": 1.2171,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.000303
+    },
+    {
+      "h3_id": "8960145a24fffff",
+      "cis": 3.9942,
+      "count": 2513,
+      "measured_ratio": 1.2853,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.005706
+    },
+    {
+      "h3_id": "8960145a26bffff",
+      "cis": 8.6173,
+      "count": 3650,
+      "measured_ratio": 1.6472,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.007031
+    },
+    {
+      "h3_id": "8960145a28bffff",
+      "cis": 0.1314,
+      "count": 20,
+      "measured_ratio": 0.9255,
+      "is_exploration": true,
+      "split": "test",
+      "cis_honest": 0.001752
+    },
+    {
+      "h3_id": "8960145a2b7ffff",
+      "cis": 15.4208,
+      "count": 1049,
+      "measured_ratio": 1.5744,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.109877
+    },
+    {
+      "h3_id": "8960145a30bffff",
+      "cis": 3.2628,
+      "count": 680,
+      "measured_ratio": 1.2561,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.00082
+    },
+    {
+      "h3_id": "8960145a39bffff",
+      "cis": 3.3845,
+      "count": 3,
+      "measured_ratio": 1.2694,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 0.000227
+    },
+    {
+      "h3_id": "8960145a3abffff",
+      "cis": 0.022,
+      "count": 25,
+      "measured_ratio": 0.9059,
+      "is_exploration": true,
+      "split": "test",
+      "cis_honest": 0.000294
+    },
+    {
+      "h3_id": "8960145a69bffff",
+      "cis": 4.0628,
+      "count": 1025,
+      "measured_ratio": 1.3223,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.000455
+    },
+    {
+      "h3_id": "8960145a6d7ffff",
+      "cis": 2.0361,
+      "count": 925,
+      "measured_ratio": 1.1595,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.000565
+    },
+    {
+      "h3_id": "8960145b00fffff",
+      "cis": 3.1968,
+      "count": 958,
+      "measured_ratio": 1.2521,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.000607
+    },
+    {
+      "h3_id": "8960145b017ffff",
+      "cis": 1.7745,
+      "count": 656,
+      "measured_ratio": 1.0961,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.007643
+    },
+    {
+      "h3_id": "8960145b063ffff",
+      "cis": 6.7683,
+      "count": 737,
+      "measured_ratio": 1.5402,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.000211
+    },
+    {
+      "h3_id": "8960145b06bffff",
+      "cis": 2.2973,
+      "count": 676,
+      "measured_ratio": 1.1816,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.000364
+    },
+    {
+      "h3_id": "8960145b073ffff",
+      "cis": 2.4371,
+      "count": 1410,
+      "measured_ratio": 1.1934,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.000261
+    },
+    {
+      "h3_id": "8960145b077ffff",
+      "cis": 0.6379,
+      "count": 815,
+      "measured_ratio": 1.0294,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.003605
+    },
+    {
+      "h3_id": "8960145b103ffff",
+      "cis": 0.9935,
+      "count": 658,
+      "measured_ratio": 1.0789,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 9.7e-05
+    },
+    {
+      "h3_id": "8960145b147ffff",
+      "cis": 0.4082,
+      "count": 1053,
+      "measured_ratio": 1.031,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.000276
+    },
+    {
+      "h3_id": "8960145b16bffff",
+      "cis": 5.5388,
+      "count": 1884,
+      "measured_ratio": 1.23,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.035517
+    },
+    {
+      "h3_id": "8960145b17bffff",
+      "cis": 0.5765,
+      "count": 283,
+      "measured_ratio": 1.0454,
+      "is_exploration": true,
+      "split": "test",
+      "cis_honest": 0.000121
+    },
+    {
+      "h3_id": "8960145b183ffff",
+      "cis": 0.203,
+      "count": 12,
+      "measured_ratio": 1.012,
+      "is_exploration": true,
+      "split": "test",
+      "cis_honest": 0.000706
+    },
+    {
+      "h3_id": "8960145b193ffff",
+      "cis": 1.9823,
+      "count": 1097,
+      "measured_ratio": 1.0803,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.013047
+    },
+    {
+      "h3_id": "8960145b1b7ffff",
+      "cis": 7.5155,
+      "count": 1128,
+      "measured_ratio": 1.2814,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.053307
+    },
+    {
+      "h3_id": "8960145b2a7ffff",
+      "cis": 10.1198,
+      "count": 2486,
+      "measured_ratio": 1.8074,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.000363
+    },
+    {
+      "h3_id": "8960145b307ffff",
+      "cis": 4.8164,
+      "count": 2490,
+      "measured_ratio": 1.3845,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.000135
+    },
+    {
+      "h3_id": "8960145b30fffff",
+      "cis": 1.4326,
+      "count": 2592,
+      "measured_ratio": 1.11,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.000768
+    },
+    {
+      "h3_id": "8960145b323ffff",
+      "cis": 17.1587,
+      "count": 964,
+      "measured_ratio": 1.2874,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.180882
+    },
+    {
+      "h3_id": "8960145b32bffff",
+      "cis": 0.0136,
+      "count": 609,
+      "measured_ratio": 0.9173,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.000181
+    },
+    {
+      "h3_id": "8960145b373ffff",
+      "cis": 3.5569,
+      "count": 876,
+      "measured_ratio": 1.2031,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.013576
+    },
+    {
+      "h3_id": "8960145b377ffff",
+      "cis": 4.5826,
+      "count": 2148,
+      "measured_ratio": 1.1029,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.043951
+    },
+    {
+      "h3_id": "8960145b3a7ffff",
+      "cis": 8.4646,
+      "count": 4293,
+      "measured_ratio": 1.4688,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.034729
+    },
+    {
+      "h3_id": "8960145b3afffff",
+      "cis": 3.6972,
+      "count": 756,
+      "measured_ratio": 1.2951,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.000113
+    },
+    {
+      "h3_id": "8960145b3b7ffff",
+      "cis": 16.2063,
+      "count": 1429,
+      "measured_ratio": 1.9837,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.052134
+    },
+    {
+      "h3_id": "8960145b3d3ffff",
+      "cis": 1.3109,
+      "count": 753,
+      "measured_ratio": 1.1043,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 9.5e-05
+    },
+    {
+      "h3_id": "8960145b423ffff",
+      "cis": 3.8492,
+      "count": 889,
+      "measured_ratio": 1.3057,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.000373
+    },
+    {
+      "h3_id": "8960145b427ffff",
+      "cis": 2.5554,
+      "count": 7368,
+      "measured_ratio": 1.1345,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.011655
+    },
+    {
+      "h3_id": "8960145b437ffff",
+      "cis": 4.0191,
+      "count": 740,
+      "measured_ratio": 1.3111,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.001738
+    },
+    {
+      "h3_id": "8960145b49bffff",
+      "cis": 5.0179,
+      "count": 876,
+      "measured_ratio": 1.3978,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.000605
+    },
+    {
+      "h3_id": "8960145b4cbffff",
+      "cis": 8.647,
+      "count": 2008,
+      "measured_ratio": 1.6073,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.014077
+    },
+    {
+      "h3_id": "8960145b52bffff",
+      "cis": 5.9541,
+      "count": 588,
+      "measured_ratio": 1.3368,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.023254
+    },
+    {
+      "h3_id": "8960145b543ffff",
+      "cis": 9.0218,
+      "count": 2895,
+      "measured_ratio": 1.6242,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.016257
+    },
+    {
+      "h3_id": "8960145b547ffff",
+      "cis": 11.007,
+      "count": 1339,
+      "measured_ratio": 1.7462,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.022393
+    },
+    {
+      "h3_id": "8960145b54bffff",
+      "cis": 4.8833,
+      "count": 910,
+      "measured_ratio": 1.3861,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.000761
+    },
+    {
+      "h3_id": "8960145b553ffff",
+      "cis": 7.8265,
+      "count": 12109,
+      "measured_ratio": 1.3668,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.043221
+    },
+    {
+      "h3_id": "8960145b55bffff",
+      "cis": 2.5437,
+      "count": 2212,
+      "measured_ratio": 1.0206,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.030482
+    },
+    {
+      "h3_id": "8960145b58bffff",
+      "cis": 3.5487,
+      "count": 1410,
+      "measured_ratio": 1.1595,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.020733
+    },
+    {
+      "h3_id": "8960145b597ffff",
+      "cis": 2.5623,
+      "count": 63,
+      "measured_ratio": 1.204,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 0.000164
+    },
+    {
+      "h3_id": "8960145b59bffff",
+      "cis": 17.0935,
+      "count": 7472,
+      "measured_ratio": 1.8388,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.088113
+    },
+    {
+      "h3_id": "8960145b5c7ffff",
+      "cis": 1.6693,
+      "count": 2391,
+      "measured_ratio": 1.1287,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.000807
+    },
+    {
+      "h3_id": "8960145b5cbffff",
+      "cis": 13.4973,
+      "count": 5992,
+      "measured_ratio": 1.8659,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.035647
+    },
+    {
+      "h3_id": "8960145b5d7ffff",
+      "cis": 4.0574,
+      "count": 692,
+      "measured_ratio": 1.3207,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.000648
+    },
+    {
+      "h3_id": "8960145b5dbffff",
+      "cis": 3.1664,
+      "count": 1090,
+      "measured_ratio": 1.134,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.019886
+    },
+    {
+      "h3_id": "8960145b697ffff",
+      "cis": 9.145,
+      "count": 619,
+      "measured_ratio": 1.6948,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.006133
+    },
+    {
+      "h3_id": "8960145b69bffff",
+      "cis": 3.2546,
+      "count": 21,
+      "measured_ratio": 1.258,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 0.000395
+    },
+    {
+      "h3_id": "8960145b6a3ffff",
+      "cis": 5.4647,
+      "count": 969,
+      "measured_ratio": 1.4306,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.001096
+    },
+    {
+      "h3_id": "8960145b6a7ffff",
+      "cis": 4.3688,
+      "count": 1637,
+      "measured_ratio": 1.3483,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.0002
+    },
+    {
+      "h3_id": "89601690193ffff",
+      "cis": 4.06,
+      "count": 2527,
+      "measured_ratio": 0.9768,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.054134
+    },
+    {
+      "h3_id": "8960169019bffff",
+      "cis": 0.021,
+      "count": 607,
+      "measured_ratio": 0.9528,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.00028
+    },
+    {
+      "h3_id": "8960169052fffff",
+      "cis": 15.4906,
+      "count": 1259,
+      "measured_ratio": 0.969,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.206542
+    },
+    {
+      "h3_id": "89601690c2bffff",
+      "cis": 7.3784,
+      "count": 825,
+      "measured_ratio": 1.3499,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.040061
+    },
+    {
+      "h3_id": "896016964b7ffff",
+      "cis": 0.6321,
+      "count": 2801,
+      "measured_ratio": 0.9375,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.008427
+    },
+    {
+      "h3_id": "89618920923ffff",
+      "cis": 24.097,
+      "count": 6747,
+      "measured_ratio": 1.0933,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.305744
+    },
+    {
+      "h3_id": "89618920927ffff",
+      "cis": 6.0683,
+      "count": 880,
+      "measured_ratio": 1.2486,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.039477
+    },
+    {
+      "h3_id": "8961892092bffff",
+      "cis": 5.1807,
+      "count": 1162,
+      "measured_ratio": 1.1494,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.044177
+    },
+    {
+      "h3_id": "89618920963ffff",
+      "cis": 3.6903,
+      "count": 1509,
+      "measured_ratio": 1.1014,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.032304
+    },
+    {
+      "h3_id": "89618920973ffff",
+      "cis": 2.1556,
+      "count": 611,
+      "measured_ratio": 1.0694,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.017174
+    },
+    {
+      "h3_id": "89618920a23ffff",
+      "cis": 2.2132,
+      "count": 568,
+      "measured_ratio": 1.1763,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.000126
+    },
+    {
+      "h3_id": "89618920a2bffff",
+      "cis": 1.7974,
+      "count": 876,
+      "measured_ratio": 1.1409,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.000482
+    },
+    {
+      "h3_id": "89618920b0fffff",
+      "cis": 6.8057,
+      "count": 1306,
+      "measured_ratio": 1.3352,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.034877
+    },
+    {
+      "h3_id": "89618920babffff",
+      "cis": 4.6814,
+      "count": 974,
+      "measured_ratio": 1.1636,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.035152
+    },
+    {
+      "h3_id": "89618921817ffff",
+      "cis": 0.0144,
+      "count": 7,
+      "measured_ratio": 0.9441,
+      "is_exploration": true,
+      "split": "test",
+      "cis_honest": 0.000192
+    },
+    {
+      "h3_id": "89618921a83ffff",
+      "cis": 0.854,
+      "count": 39,
+      "measured_ratio": 1.0679,
+      "is_exploration": true,
+      "split": "test",
+      "cis_honest": 7e-05
+    },
+    {
+      "h3_id": "89618921c47ffff",
+      "cis": 2.6589,
+      "count": 17,
+      "measured_ratio": 1.2121,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 0.000101
+    },
+    {
+      "h3_id": "89618924203ffff",
+      "cis": 0.0065,
+      "count": 580,
+      "measured_ratio": 0.9503,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 8.7e-05
+    },
+    {
+      "h3_id": "8961892421bffff",
+      "cis": 3.2222,
+      "count": 784,
+      "measured_ratio": 1.2529,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.000813
+    },
+    {
+      "h3_id": "8961892426fffff",
+      "cis": 0.2521,
+      "count": 1,
+      "measured_ratio": 1.0194,
+      "is_exploration": true,
+      "split": "test",
+      "cis_honest": 0.000128
+    },
+    {
+      "h3_id": "89618924293ffff",
+      "cis": 0.0356,
+      "count": 1,
+      "measured_ratio": 0.8019,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 0.000475
+    },
+    {
+      "h3_id": "896189242afffff",
+      "cis": 0.6371,
+      "count": 722,
+      "measured_ratio": 1.0136,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.006228
+    },
+    {
+      "h3_id": "8961892482bffff",
+      "cis": 3.6028,
+      "count": 12,
+      "measured_ratio": 1.2878,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 7e-05
+    },
+    {
+      "h3_id": "89618924833ffff",
+      "cis": 6.6296,
+      "count": 12,
+      "measured_ratio": 1.5297,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 0.000112
+    },
+    {
+      "h3_id": "896189248cbffff",
+      "cis": 12.1203,
+      "count": 19,
+      "measured_ratio": 1.969,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 0.000104
+    },
+    {
+      "h3_id": "89618925123ffff",
+      "cis": 0.3891,
+      "count": 575,
+      "measured_ratio": 1.0283,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.000471
+    },
+    {
+      "h3_id": "89618925137ffff",
+      "cis": 2.7794,
+      "count": 21,
+      "measured_ratio": 1.2216,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 0.000125
+    },
+    {
+      "h3_id": "8961892530bffff",
+      "cis": 2.4057,
+      "count": 630,
+      "measured_ratio": 1.1759,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.00276
+    },
+    {
+      "h3_id": "89618925403ffff",
+      "cis": 0.8617,
+      "count": 794,
+      "measured_ratio": 1.065,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.000656
+    },
+    {
+      "h3_id": "8961892541bffff",
+      "cis": 0.0961,
+      "count": 781,
+      "measured_ratio": 1.0066,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.000181
+    },
+    {
+      "h3_id": "89618925453ffff",
+      "cis": 36.0344,
+      "count": 1137,
+      "measured_ratio": 1.4262,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.409425
+    },
+    {
+      "h3_id": "896189254cbffff",
+      "cis": 2.2696,
+      "count": 14,
+      "measured_ratio": 1.1635,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 0.003012
+    },
+    {
+      "h3_id": "89618925877ffff",
+      "cis": 0.0858,
+      "count": 91,
+      "measured_ratio": 1.0061,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 0.000128
+    },
+    {
+      "h3_id": "896189258c3ffff",
+      "cis": 0.0096,
+      "count": 5,
+      "measured_ratio": 0.9838,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 0.000128
+    },
+    {
+      "h3_id": "89618925a23ffff",
+      "cis": 1.4413,
+      "count": 633,
+      "measured_ratio": 1.1149,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 6.7e-05
+    },
+    {
+      "h3_id": "89618925a7bffff",
+      "cis": 8.3689,
+      "count": 270,
+      "measured_ratio": 1.6618,
+      "is_exploration": true,
+      "split": "test",
+      "cis_honest": 0.001285
+    },
+    {
+      "h3_id": "89618925b2bffff",
+      "cis": 11.9466,
+      "count": 1424,
+      "measured_ratio": 1.9471,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.001438
+    },
+    {
+      "h3_id": "89618925b2fffff",
+      "cis": 6.3811,
+      "count": 628,
+      "measured_ratio": 1.5047,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.000964
+    },
+    {
+      "h3_id": "89618925b63ffff",
+      "cis": 25.0671,
+      "count": 1329,
+      "measured_ratio": 3.0236,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.000895
+    },
+    {
+      "h3_id": "89618925b67ffff",
+      "cis": 0.7146,
+      "count": 988,
+      "measured_ratio": 1.0456,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.001928
+    },
+    {
+      "h3_id": "89618925b6fffff",
+      "cis": 0.3672,
+      "count": 1396,
+      "measured_ratio": 1.0274,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.00033
+    },
+    {
+      "h3_id": "89618925b7bffff",
+      "cis": 12.3332,
+      "count": 2650,
+      "measured_ratio": 1.9248,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.010309
+    },
+    {
+      "h3_id": "89618925c0bffff",
+      "cis": 0.8179,
+      "count": 6,
+      "measured_ratio": 1.0647,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 0.000121
+    },
+    {
+      "h3_id": "89618925c6bffff",
+      "cis": 3.4208,
+      "count": 762,
+      "measured_ratio": 1.0634,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.035044
+    },
+    {
+      "h3_id": "89618925d13ffff",
+      "cis": 3.5733,
+      "count": 7,
+      "measured_ratio": 1.2852,
+      "is_exploration": true,
+      "split": "test",
+      "cis_honest": 0.000111
+    },
+    {
+      "h3_id": "89618925d97ffff",
+      "cis": 3.3465,
+      "count": 601,
+      "measured_ratio": 1.2148,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.008821
+    },
+    {
+      "h3_id": "89618926053ffff",
+      "cis": 4.453,
+      "count": 1,
+      "measured_ratio": 1.3554,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 0.000141
+    },
+    {
+      "h3_id": "89618926387ffff",
+      "cis": 4.1272,
+      "count": 814,
+      "measured_ratio": 1.2866,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.007262
+    },
+    {
+      "h3_id": "89618926397ffff",
+      "cis": 0.1558,
+      "count": 1122,
+      "measured_ratio": 1.0103,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.000361
+    },
+    {
+      "h3_id": "8961892718fffff",
+      "cis": 2.2022,
+      "count": 70,
+      "measured_ratio": 1.1031,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 0.012179
+    },
+    {
+      "h3_id": "8961892abbbffff",
+      "cis": 3.2577,
+      "count": 84,
+      "measured_ratio": 1.126,
+      "is_exploration": true,
+      "split": "test",
+      "cis_honest": 0.022436
+    },
+    {
+      "h3_id": "8961892c3c7ffff",
+      "cis": 1.2447,
+      "count": 70,
+      "measured_ratio": 1.0989,
+      "is_exploration": true,
+      "split": "test",
+      "cis_honest": 0.000113
+    },
+    {
+      "h3_id": "8961892c96fffff",
+      "cis": 0.009,
+      "count": 909,
+      "measured_ratio": 0.8771,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.00012
+    },
+    {
+      "h3_id": "8961892c98bffff",
+      "cis": 9.5111,
+      "count": 1124,
+      "measured_ratio": 1.7454,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.002582
+    },
+    {
+      "h3_id": "8961892c9d7ffff",
+      "cis": 3.8896,
+      "count": 1752,
+      "measured_ratio": 1.3074,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.000628
+    },
+    {
+      "h3_id": "8961892cb4fffff",
+      "cis": 1.7001,
+      "count": 1243,
+      "measured_ratio": 0.9877,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.022668
+    },
+    {
+      "h3_id": "8961892cb7bffff",
+      "cis": 1.9265,
+      "count": 1400,
+      "measured_ratio": 0.9723,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.025687
+    },
+    {
+      "h3_id": "8961892cd2fffff",
+      "cis": 1.6611,
+      "count": 38,
+      "measured_ratio": 1.1324,
+      "is_exploration": true,
+      "split": "test",
+      "cis_honest": 8.1e-05
+    },
+    {
+      "h3_id": "8961892ce87ffff",
+      "cis": 2.4563,
+      "count": 83,
+      "measured_ratio": 1.1961,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 6.8e-05
+    },
+    {
+      "h3_id": "8961892e0cfffff",
+      "cis": 15.1514,
+      "count": 621,
+      "measured_ratio": 1.0008,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.201886
+    },
+    {
+      "h3_id": "8961892e16bffff",
+      "cis": 16.9893,
+      "count": 1304,
+      "measured_ratio": 1.7416,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.102924
+    },
+    {
+      "h3_id": "8961892e2bbffff",
+      "cis": 2.8995,
+      "count": 2874,
+      "measured_ratio": 1.1444,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.014593
+    },
+    {
+      "h3_id": "8961892e383ffff",
+      "cis": 11.4056,
+      "count": 232,
+      "measured_ratio": 1.8325,
+      "is_exploration": true,
+      "split": "test",
+      "cis_honest": 0.013325
+    },
+    {
+      "h3_id": "8961892e387ffff",
+      "cis": 24.2682,
+      "count": 1837,
+      "measured_ratio": 1.3005,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.273492
+    },
+    {
+      "h3_id": "8961892e3b7ffff",
+      "cis": 14.4248,
+      "count": 694,
+      "measured_ratio": 1.5867,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.094547
+    },
+    {
+      "h3_id": "8961892e3d3ffff",
+      "cis": 0.9177,
+      "count": 1187,
+      "measured_ratio": 0.949,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.012236
+    },
+    {
+      "h3_id": "8961892e683ffff",
+      "cis": 2.5446,
+      "count": 77,
+      "measured_ratio": 1.2019,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 0.000277
+    },
+    {
+      "h3_id": "8961892e877ffff",
+      "cis": 0.0048,
+      "count": 7,
+      "measured_ratio": 0.9875,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 6.4e-05
+    },
+    {
+      "h3_id": "8961892e917ffff",
+      "cis": 34.6013,
+      "count": 4867,
+      "measured_ratio": 1.0827,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.447568
+    },
+    {
+      "h3_id": "8961892e923ffff",
+      "cis": 0.7697,
+      "count": 657,
+      "measured_ratio": 0.9803,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.010262
+    },
+    {
+      "h3_id": "8961892e933ffff",
+      "cis": 17.6467,
+      "count": 1086,
+      "measured_ratio": 1.4249,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.164472
+    },
+    {
+      "h3_id": "8961892e937ffff",
+      "cis": 10.7733,
+      "count": 2934,
+      "measured_ratio": 1.5273,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.055761
+    },
+    {
+      "h3_id": "8961892e94fffff",
+      "cis": 3.2812,
+      "count": 867,
+      "measured_ratio": 1.2605,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.000332
+    },
+    {
+      "h3_id": "8961892e967ffff",
+      "cis": 4.3305,
+      "count": 47,
+      "measured_ratio": 1.3284,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 0.003007
+    },
+    {
+      "h3_id": "8961892e98fffff",
+      "cis": 2.0082,
+      "count": 1068,
+      "measured_ratio": 1.1582,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.000409
+    },
+    {
+      "h3_id": "8961892e9a3ffff",
+      "cis": 17.0028,
+      "count": 1577,
+      "measured_ratio": 2.1021,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.043021
+    },
+    {
+      "h3_id": "8961892e9abffff",
+      "cis": 36.0487,
+      "count": 6667,
+      "measured_ratio": 1.5656,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.386383
+    },
+    {
+      "h3_id": "8961892e9afffff",
+      "cis": 9.7784,
+      "count": 646,
+      "measured_ratio": 1.3518,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.071746
+    },
+    {
+      "h3_id": "8961892e9bbffff",
+      "cis": 12.7752,
+      "count": 4253,
+      "measured_ratio": 1.6908,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.055203
+    },
+    {
+      "h3_id": "8961892ea37ffff",
+      "cis": 0.0081,
+      "count": 22,
+      "measured_ratio": 0.9367,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 0.000108
+    },
+    {
+      "h3_id": "8961892eba3ffff",
+      "cis": 7.3465,
+      "count": 675,
+      "measured_ratio": 1.4339,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.025636
+    },
+    {
+      "h3_id": "8961892ec9bffff",
+      "cis": 2.0044,
+      "count": 1119,
+      "measured_ratio": 0.9767,
+      "is_exploration": false,
+      "split": "test",
+      "cis_honest": 0.026725
+    },
+    {
+      "h3_id": "8961892eca7ffff",
+      "cis": 11.0734,
+      "count": 611,
+      "measured_ratio": 1.8014,
+      "is_exploration": false,
+      "split": "train",
+      "cis_honest": 0.014079
+    },
+    {
+      "h3_id": "8961892f66fffff",
+      "cis": 0.3298,
+      "count": 1,
+      "measured_ratio": 1.0064,
+      "is_exploration": true,
+      "split": "train",
+      "cis_honest": 0.003331
+    }
+  ]
+}

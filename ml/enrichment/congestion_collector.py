@@ -708,31 +708,50 @@ def collect(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    skipped: list[tuple[str, str]] = []
     for i, zone in enumerate(todo, 1):
         if verbose:
             tag = "explore" if zone.is_exploration else "core"
             print(f"[{i:3d}/{len(todo)}] {zone.zone_id} ({tag}) vol={zone.total_records}")
-        obs = measure_zone(
-            zone,
-            active_get_json,
-            auth,
-            measured_at=measured_at,
-            poi_keywords=poi_keywords,
-            poi_radius=poi_radius,
-            sleep_between_apis=sleep_between_apis,
-        )
-        results[zone.zone_id] = obs
-        # Save incrementally so a crash never loses (or re-bills) collected zones.
-        with output_path.open("w", encoding="utf-8") as handle:
-            json.dump(results, handle, indent=2, ensure_ascii=False)
+        # Per-zone isolation: one bad zone (network blip, malformed response,
+        # unexpected error) must NEVER abort the whole run. Log it, mark it
+        # skipped, and continue — the snapshot still freezes with whatever was
+        # collected. Already-collected zones stay cached (never re-billed).
+        try:
+            obs = measure_zone(
+                zone,
+                active_get_json,
+                auth,
+                measured_at=measured_at,
+                poi_keywords=poi_keywords,
+                poi_radius=poi_radius,
+                sleep_between_apis=sleep_between_apis,
+            )
+            results[zone.zone_id] = obs
+            # Save incrementally so a crash never loses (or re-bills) collected zones.
+            with output_path.open("w", encoding="utf-8") as handle:
+                json.dump(results, handle, indent=2, ensure_ascii=False)
+        except Exception as exc:  # noqa: BLE001 — one bad zone must not abort the run
+            reason = f"{type(exc).__name__}: {exc}"
+            skipped.append((zone.zone_id, reason))
+            if verbose:
+                print(f"      ⚠️  SKIPPED {zone.zone_id}: {reason}")
         if i < len(todo) and sleep_between_zones:
             time.sleep(sleep_between_zones)
+
+    # Final consistent write so the file always reflects `results`, even if the
+    # last zone was skipped or every zone failed (covers the empty-todo case too).
+    with output_path.open("w", encoding="utf-8") as handle:
+        json.dump(results, handle, indent=2, ensure_ascii=False)
 
     if verbose:
         measured = [r for r in results.values() if r.get("congestion_ratio") is not None]
         ratios = sorted(r["congestion_ratio"] for r in measured)
         print(f"\n{'='*64}")
         print(f"✅ Collected {len(results)} zones -> {output_path}")
+        if skipped:
+            print(f"   ⚠️  {len(skipped)} zone(s) skipped after errors: "
+                  + ", ".join(zid for zid, _ in skipped))
         if ratios:
             print(f"   congestion_ratio  min={ratios[0]:.2f}  median={median(ratios):.2f}  max={ratios[-1]:.2f}")
         print(f"{'='*64}\n")
