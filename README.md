@@ -47,7 +47,7 @@ Illegal parking doesn't just annoy — it chokes traffic. ParkVision-Saathi **qu
 12. [Complete Implementation Guide](#12-complete-implementation-guide)
     - [Path A — Quick start (committed artifacts, no raw data needed)](#path-a--quick-start-committed-artifacts-no-raw-data-needed)
     - [Path B — Rebuild the v1 artifacts from raw data](#path-b--run-the-full-ml-pipeline-from-raw-data)
-    - [Path C — Calibrate the CIS against live MapMyIndia (v2)](#path-c--calibrate-the-cis-against-live-mapmyindia-produce-refresh-v2)
+    - [Path C — Calibrate the CIS against live MapMyIndia (v2)](#path-c--calibrate-the-cis-against-live-mapmyindia-v2)
     - [Path D — Retrain the forecast + game-theory models](#path-d--retrain-the-forecast--game-theory-models-from-scratch)
 13. [Frontend — UI Walkthrough](#13-frontend--ui-walkthrough)
 14. [Dataset Overview](#14-dataset-overview)
