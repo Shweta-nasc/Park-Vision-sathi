@@ -1,4 +1,5 @@
 # ParkVision-Saathi 🚦
+🌐 **Live Demo:** https://park-vision-sathi1.vercel.app/
 
 > **Quantify. Predict. Optimize.** — AI-powered parking-enforcement intelligence for Bengaluru Traffic Police.
 
@@ -1582,10 +1583,10 @@ The backend also serves the vanilla dashboard at `/dashboard/` via FastAPI's `St
 
 | Person | Role | Deliverables |
 |---|---|---|
-| **Person 1** | Backend | FastAPI app, in-memory DataStore, all 9 routers, Pydantic models |
-| **Person 2** | ML | Congestion Impact Score, LightGBM forecast, game-theory model |
-| **Person 3** | Frontend | React + TypeScript, MapMyIndia SDK integration, all UI panels |
-| **Person 4** | Integration | MapMyIndia enrichment, self-validating agent, Gemini LLM, docs, presentation |
+| **Abhijeet Kushwaha** | Backend | FastAPI app, in-memory DataStore, all 9 routers, Pydantic models |
+| **Shweta Singh** | ML | Congestion Impact Score, LightGBM forecast, game-theory model |
+| **Vagisha Yadav** | Frontend | React + TypeScript, MapMyIndia SDK integration, all UI panels |
+| **Nitish Biwas** | Integration | MapMyIndia enrichment, self-validating agent, Gemini LLM, docs, presentation |
 
 ---
 
